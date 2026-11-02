@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Room of Errors 병실</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: full-bleed 3D ward room; clinical instrument chrome floats over it (top bar, right drawer, subtitle strip). */
+:root{
+  --ground:#e9eeec;        /* page ground behind overlays */
+  --surface:#fbfcfb;       /* panels */
+  --surface-2:#f0f4f2;
+  --ink:#16201f;           /* primary text */
+  --ink-2:#4b5a58;         /* secondary text */
+  --line:#cfd8d5;
+  --accent:#0e6f6a;        /* surgical teal */
+  --accent-ink:#ffffff;
+  --accent-soft:#d9ecea;
+  --warn:#b45309;
+  --warn-soft:#fbecd9;
+  --crit:#b42318;
+  --crit-soft:#fbe1de;
+  --ok:#1f7a3d;
+  --ok-soft:#dcf0e2;
+  --scrim:rgba(14,22,21,.55);
+  --glass:rgba(251,252,251,.92);
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0f1514;--surface:#18201f;--surface-2:#202a29;--ink:#e6eeec;--ink-2:#9fb0ad;--line:#2f3c3a;
+    --accent:#3fb3aa;--accent-ink:#071413;--accent-soft:#163734;--warn:#f0a35a;--warn-soft:#3a2a17;
+    --crit:#ff7b6e;--crit-soft:#3d1b18;--ok:#5fcf86;--ok-soft:#173523;--scrim:rgba(0,0,0,.6);--glass:rgba(24,32,31,.93);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0f1514;--surface:#18201f;--surface-2:#202a29;--ink:#e6eeec;--ink-2:#9fb0ad;--line:#2f3c3a;
+  --accent:#3fb3aa;--accent-ink:#071413;--accent-soft:#163734;--warn:#f0a35a;--warn-soft:#3a2a17;
+  --crit:#ff7b6e;--crit-soft:#3d1b18;--ok:#5fcf86;--ok-soft:#173523;--scrim:rgba(0,0,0,.6);--glass:rgba(24,32,31,.93);
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--ground);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55;overflow:hidden}
+#app{position:fixed;inset:0}
+#stage{position:absolute;inset:0;touch-action:none}
+#stage canvas{display:block;width:100%;height:100%;outline:none}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* top bar */
+#bar{position:absolute;top:0;left:0;right:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;
+  padding-block:calc(8px + env(safe-area-inset-top,0px)) 8px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:var(--glass);border-bottom:1px solid var(--line);backdrop-filter:blur(8px);z-index:5}
+#who{display:flex;flex-direction:column;min-width:0;flex:1 1 220px}
+#who b{font-size:15px;font-weight:700;letter-spacing:-.01em}
+#who span{color:var(--ink-2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#clock{display:flex;align-items:baseline;gap:8px;padding:4px 12px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line)}
+#clock .lbl{font-size:11px;color:var(--ink-2);letter-spacing:.06em}
+#clock .t{font-family:var(--f-mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+#clock.late{background:var(--crit-soft);border-color:var(--crit)}
+#clock.late .t{color:var(--crit)}
+#tools{display:flex;flex-wrap:wrap;gap:6px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:6px 11px;border-radius:8px;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.stop{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,var(--line))}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.on{background:var(--accent-soft);border-color:var(--accent)}
+
+/* viewpoints */
+#views{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:6px;max-width:min(560px,60vw);z-index:4}
+#views .lbl{width:100%;font-size:11px;letter-spacing:.06em;color:var(--ink-2);background:var(--glass);padding:2px 8px;border-radius:6px;width:auto}
+#views .btn{background:var(--glass)}
+
+/* subtitle */
+#sub{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));max-width:min(720px,calc(100vw - 32px));
+  background:rgba(12,18,17,.82);color:#f3f7f6;padding:10px 16px;border-radius:10px;font-size:15px;z-index:4;text-wrap:pretty}
+#sub .who{display:block;font-size:11px;letter-spacing:.08em;color:#9fd8d2;margin-bottom:2px}
+#sub.doctor .who{color:#ffd28a}#sub.guardian .who{color:#f5b7c6}#sub.system .who{color:#ffb3a8}
+#tip{position:absolute;pointer-events:none;background:rgba(12,18,17,.85);color:#fff;font-size:12px;padding:3px 8px;border-radius:6px;z-index:6;transform:translate(12px,12px);white-space:nowrap}
+#banner{position:absolute;top:calc(74px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:6;background:var(--crit);color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+#toast{position:absolute;top:calc(74px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));z-index:7;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);padding:8px 12px;border-radius:8px;max-width:340px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+#toast.neutral{border-left-color:var(--warn)}
+
+/* panel drawer */
+#panel{position:absolute;top:calc(70px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));max-height:calc(100% - 84px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));width:min(400px,calc(100vw - 24px));
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:auto;z-index:5;box-shadow:0 10px 30px rgba(0,0,0,.16)}
+#panel header{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:1}
+#panel header div{flex:1;min-width:0}
+#pEyebrow{font-size:11px;letter-spacing:.08em;color:var(--accent);font-weight:600;text-transform:uppercase}
+#pTitle{margin:2px 0 0;font-size:18px;line-height:1.3;text-wrap:balance}
+#pBody{padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+#pBody p{margin:0}
+#pBody .kv{display:grid;grid-template-columns:110px 1fr;gap:2px 10px;font-size:13px}
+#pBody .kv dt{color:var(--ink-2)}#pBody .kv dd{margin:0}
+#pBody .note{font-size:12.5px;color:var(--ink-2);background:var(--surface-2);padding:8px 10px;border-radius:8px}
+#pBody .say{border-left:3px solid var(--accent);padding:4px 10px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+#pBody .say.doctor{border-left-color:var(--warn);background:var(--warn-soft)}
+#pBody .say small{display:block;font-size:11px;color:var(--ink-2)}
+#pBody .flag{font-size:12.5px;padding:6px 10px;border-radius:8px;background:var(--warn-soft);color:var(--ink)}
+#pBody h4{margin:6px 0 0;font-size:12px;letter-spacing:.06em;color:var(--ink-2)}
+#pBody table{border-collapse:collapse;font-size:12.5px;width:100%}
+#pBody td,#pBody th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+#pActions{padding:10px 16px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.act{text-align:left;border:1px solid var(--line);background:var(--surface-2);padding:9px 12px;border-radius:8px;font-size:13.5px;line-height:1.4}
+.act:hover{border-color:var(--accent)}
+.act small{display:block;color:var(--ink-2);font-size:11.5px}
+.act.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.act.primary small{color:inherit;opacity:.8}
+.act.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+.act.check{background:var(--surface)}
+.act.check.sel{background:var(--accent-soft);border-color:var(--accent)}
+.act[disabled]{opacity:.5;cursor:not-allowed}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tabs .act{padding:6px 10px;font-size:12.5px}
+
+/* overlays */
+.screen{position:absolute;inset:0;z-index:10;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;overflow:auto;
+  padding-block:calc(24px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet{background:var(--surface);color:var(--ink);border-radius:14px;max-width:920px;width:100%;padding:28px clamp(18px,4vw,36px);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.sheet h1{font-size:clamp(22px,3.2vw,30px);line-height:1.2;margin:4px 0 6px;letter-spacing:-.02em;text-wrap:balance}
+.sheet h2{font-size:15px;margin:0 0 8px;letter-spacing:-.005em}
+.eyebrow{font-size:11.5px;letter-spacing:.1em;color:var(--accent);font-weight:600}
+.lede{color:var(--ink-2);max-width:68ch;margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:20px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--surface-2);min-width:0}
+.card p,.card ul{margin:0;font-size:13.5px}
+.card ul{padding-left:18px}
+.card li{margin:2px 0}
+.chart-strip{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:14px;padding:12px 14px;border-radius:10px;border:1px dashed var(--line);font-size:13px}
+.chart-strip b{font-weight:600}
+.vs{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;font-size:13px}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.big{padding:11px 18px;font-size:15px;border-radius:10px}
+.muted{color:var(--ink-2);font-size:12.5px}
+
+/* result */
+.scorebar{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface-2)}
+.tile .k{font-size:11.5px;color:var(--ink-2);letter-spacing:.04em}
+.tile .v{font-family:var(--f-mono);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}
+.tile .s{font-size:12px;color:var(--ink-2)}
+.pill{display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.no{background:var(--crit-soft);color:var(--crit)}.pill.half{background:var(--warn-soft);color:var(--warn)}
+.tablewrap{overflow-x:auto;margin-top:8px;border:1px solid var(--line);border-radius:10px}
+.tablewrap table{border-collapse:collapse;width:100%;font-size:13px;min-width:620px}
+.tablewrap th{background:var(--surface-2);text-align:left;font-weight:600;font-size:12px;color:var(--ink-2);letter-spacing:.02em}
+.tablewrap td,.tablewrap th{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.tablewrap tr:last-child td{border-bottom:0}
+section.block{margin-top:24px}
+textarea#logOut{width:100%;min-height:120px;font-family:var(--f-mono);font-size:11.5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink);padding:8px;box-sizing:border-box}
+
+@media (max-width:640px){
+  #panel{top:auto;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));width:auto;max-height:58%;bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  #views{max-width:calc(100vw - 32px)}
+  #sub{bottom:calc(110px + env(safe-area-inset-bottom,0px));font-size:14px}
+  #clock .t{font-size:18px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div id="app">
+  <div id="stage" aria-label="가상 병실 3D 화면"></div>
+
+  <div id="bar">
+    <div id="who"><b>나예민 · 60/F · POD 0</b><span>Lap. cholecystectomy · 병동 도착 1시간 · Lt. arm save</span></div>
+    <div id="clock" aria-live="polite"><span class="lbl" id="clockLbl">대기</span><span class="t" id="clockT">10:00</span></div>
+    <div id="tools">
+      <button class="btn" id="bVoice" aria-pressed="false">음성 꺼짐</button>
+      <button class="btn" id="bSound" aria-pressed="false">효과음 꺼짐</button>
+      <button class="btn" id="bVR" disabled title="WebXR 지원 확인 중">VR 시작</button>
+      <button class="btn" id="bEnd" disabled>수행 종료</button>
+      <button class="btn stop" id="bStop" disabled>중단하겠습니다</button>
+    </div>
+  </div>
+
+  <div id="views" aria-label="시점 이동">
+    <span class="lbl">시점</span>
+    <button class="btn" data-view="door">입구·차트</button>
+    <button class="btn" data-view="right">환자 우측(Rt)</button>
+    <button class="btn" data-view="left">환자 좌측(Lt)</button>
+    <button class="btn" data-view="foot">발치</button>
+  </div>
+
+  <div id="sub" hidden><span class="who" id="subWho"></span><span id="subText"></span></div>
+  <div id="tip" hidden></div>
+  <div id="banner" hidden></div>
+  <div id="toast" hidden></div>
+
+  <aside id="panel" hidden aria-live="polite">
+    <header><div><div id="pEyebrow"></div><h2 id="pTitle"></h2></div><button class="btn" id="pClose">닫기</button></header>
+    <div id="pBody"></div>
+    <div id="pActions"></div>
+  </aside>
+
+  <!-- PREBRIEFING -->
+  <div class="screen" id="intro">
+    <div class="sheet">
+      <div class="eyebrow">시뮬레이션테크놀로지Ⅱ · 2조 · WebXR 프로토타입</div>
+      <h1>복강경 담낭절제술 후 환자의 안전위험 및 이상징후 인지</h1>
+      <p class="lede">Room of Errors. 병동 도착 1시간 뒤의 병실에 들어가 처방·인계와 실제 병실을 대조하고, 발견한 위험을 교정한 뒤 담당의에게 SBAR로 보고합니다. 제한시간은 병실 진입부터 SBAR 보고까지 10분 00초입니다.</p>
+
+      <div class="chart-strip">
+        <span><b>나예민</b> 여 / 60세</span>
+        <span>Acute cholecystitis · s/p Lap. cholecystectomy (POD 0)</span>
+        <span>과거력 Lt. MRM with ALND (5년 전) → <b>Lt. arm save</b></span>
+        <span class="vs">BP 140/80 · PR 88 · RR 18 · BT 36.8℃ · SpO₂ 96% · NRS 6</span>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h2>기본 규칙과 심리적 안전</h2>
+          <p>형성평가이며 수행 내용은 비밀이 보장됩니다. 병실 곳곳에 의도적인 오류가 배치되어 있습니다. 모두 찾지 못해도 실패가 아니라 탐색하고 판단하는 학습 과정입니다. 오류의 종류와 위치는 미리 알려주지 않습니다.</p></div>
+        <div class="card"><h2>역할</h2>
+          <p>수술 후 병동으로 복귀한 환자를 담당하는 간호사입니다. 인계를 듣고 차트(EMR 카트)를 확인한 뒤 환자 상태와 병실 세팅을 비교해 사정·중재하세요. 이상을 발견하면 <b>근거</b>를 함께 선택해야 탐지로 인정됩니다.</p></div>
+        <div class="card"><h2>조작 방법</h2>
+          <ul>
+            <li>PC: 드래그로 시점 회전, W·A·S·D로 이동, 바닥 클릭으로 이동</li>
+            <li>물체를 클릭하면 관찰 정보와 수행할 수 있는 행동이 열립니다</li>
+            <li>VR: 트리거로 선택·바닥 순간이동, 스틱 좌우로 회전, 그립 버튼으로 메뉴</li>
+          </ul></div>
+        <div class="card"><h2>중단 절차</h2>
+          <p>어지러움·불편감·시스템 오류가 있으면 언제든 상단의 <b>중단하겠습니다</b>를 누르세요. 즉시 종료됩니다. 수행 전 오류가 없는 연습 병실에서 조작을 먼저 익힐 수 있습니다.</p></div>
+      </div>
+
+      <div class="row">
+        <span class="muted">시연 배속</span>
+        <div class="seg" id="speedSeg" role="group" aria-label="시연 배속">
+          <button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button>
+        </div>
+        <span class="muted">실제 평가는 1×로 진행합니다. 2×·4×는 시간 앵커(3·5·8분) 시연용입니다.</span>
+      </div>
+      <div class="row">
+        <button class="btn big" id="goPractice">연습 병실 둘러보기 (오류 없음)</button>
+        <button class="btn primary big" id="goRun">시나리오 시작 · 10:00</button>
+      </div>
+      <p class="muted" id="xrNote" style="margin-top:12px"></p>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="screen" id="result" hidden><div class="sheet" id="resultSheet"></div></div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* =========================================================
+   1. 시나리오 데이터 (중간보고서 1~6장)
+   ========================================================= */
+const PT = { name:'나예민', reg:'10248417', band:{name:'나예은', reg:'10248471'} };
+const ERR = {
+  E1:{name:'환자 식별 — 손목밴드 정보 불일치', pts:5, risk:'중', C:['C1']},
+  E2:{name:'출혈 이상징후 — JP 선홍색 배액 증가·RUQ oozing', pts:10, risk:'상', C:['C3','C10']},
+  E3:{name:'JP drain 음압 소실·고정 불량', pts:10, risk:'상', C:['C4']},
+  E4:{name:'수액 주입속도 20 vs 80 mL/hr', pts:10, risk:'상', C:['C6']},
+  E5:{name:'IV PCA clamp 잠김', pts:10, risk:'상', C:['C8']},
+  E6:{name:'Lt. arm save 위반 — Lt. arm BP cuff', pts:5, risk:'중', C:['C2','C7']},
+  E7:{name:'침상머리 0°(flat)', pts:5, risk:'중', C:['C5']},
+  E8:{name:'낙상 환경 — side rail 하강·call bell 바닥', pts:10, risk:'상', C:['C9']},
+};
+const CHECK = {
+  C1:'손 위생 후 개방형 질문과 2가지 식별정보로 환자 확인',
+  C2:'Lt. arm save 확인 후 적절한 상지에서 V/S·SpO₂ 측정, NRS 사정',
+  C3:'수술부위 dressing과 JP drain 배액량·색·양상 사정',
+  C4:'JP drain 음압(bulb 압축)·고정 교정',
+  C5:'침상머리 semi-Fowler’s(30~45°) 조절',
+  C6:'수액 주입속도 처방(80 mL/hr)대로 교정',
+  C7:'Lt. arm BP cuff 제거 후 Rt. arm에서 측정',
+  C8:'PCA clamp 개방 확인 및 사용법 설명',
+  C9:'side rail 상승·call bell 손 닿는 위치',
+  C10:'재사정 결과와 중재를 SBAR로 1분 이내 보고',
+};
+const ROLE = {
+  patient:{who:'환자 · 나예민', pitch:1.15, rate:.92},
+  guardian:{who:'보호자 · 남편', pitch:.7, rate:1.05},
+  doctor:{who:'담당의 · 전화', pitch:.85, rate:1.02},
+  handoff:{who:'인계 간호사', pitch:1.25, rate:1.08},
+  system:{who:'시스템', pitch:1, rate:1.1},
+};
+const HANDOFF = '수술 후 병동으로 올라온 환자입니다. 1시간 전 병동 도착 시 JP drain은 혈성 20 mL였고, IV PCA 적용 중이며, Lt. arm save 처방 있습니다. 수술 후 처방과 환자 상태 확인 부탁드립니다.';
+
+/* 판단(근거) 선택지 — q:'full' 정확한 근거, 'weak' 근거 부정확(50%), fp: 위양성 */
+const JUDGE = {
+  wristband:[
+    {t:'성명·등록번호가 환자 응답·차트 정보와 다르다 (2가지 식별정보 불일치)', e:'E1', q:'full'},
+    {t:'성별·나이 표기가 차트와 다르다', fp:'E1', say:['patient','아까 말씀드렸는데요…']},
+    {t:'수술 후 손목밴드를 새로 교체하지 않았다', e:'E1', q:'weak'}],
+  bpcuff:[
+    {t:'Lt. MRM with ALND 과거력·Lt. arm save 처방(BP·IV·채혈 금지) 위반', e:'E6', q:'full'},
+    {t:'cuff 크기가 팔 둘레에 비해 작다', e:'E6', q:'weak'}],
+  rtiv:[
+    {t:'삽입부위 정맥염 징후 → IV 제거·재삽입이 필요하다', fp:'E6', say:['patient','오른팔은 괜찮은데요.']},
+    {t:'Rt. arm도 혈압 측정·정맥주입 금지 상지이다', fp:'E6', say:['patient','오른팔은 괜찮은데요.']}],
+  remote:[
+    {t:'처방 semi-Fowler’s(30~45°)와 다른 0°(flat) — 복부근육 이완·횡격막 호흡 방해', e:'E7', q:'full'},
+    {t:'침상 높이가 너무 높다', e:'E7', q:'weak'}],
+  remoteFixed:[
+    {t:'현재 각도도 처방과 맞지 않으므로 다시 조절해야 한다', fp:'E7', say:['patient','지금이 편한데요…']}],
+  pcaClamp:[
+    {t:'clamp 잠김 → 기저 유량과 bolus가 주입되지 않는다', e:'E5', q:'full'},
+    {t:'bolus 버튼 고장 → PCA 기기 교체를 요청한다', e:'E5', q:'weak'}],
+  pcaBall:[
+    {t:'약물 잔량·연결부 이상 → PCA를 분리·교체한다', fp:'E5', say:['patient','주사 들어가고 있던 거 아니에요?']}],
+  pump:[
+    {t:'주입속도 20 mL/hr가 처방 80 mL/hr와 다르다 (5 Rights)', e:'E4', q:'full'},
+    {t:'수액 종류(Plasma 1 L)가 처방과 다르다', fp:'E4'},
+    {t:'점적통 수위가 낮다', e:'E4', q:'weak'}],
+  ruq:[
+    {t:'도착 시 clean이던 우상복부 dressing에 bloody oozing — 출혈 이상징후', e:'E2', q:'full'},
+    {t:'dressing 교체 주기가 지났다', e:'E2', q:'weak'}],
+  lowDress:[
+    {t:'하복부 dressing에 삼출이 있어 교체가 필요하다', fp:'E2', say:['patient','왜 자꾸 만지세요?']}],
+  jp:[
+    {t:'1시간 사이 20 mL → 100 mL 이상으로 증가한 선홍색 배액 — 출혈 이상징후', e:'E2', q:'full'},
+    {t:'bulb 팽창(음압 소실)·line 늘어짐(고정 불량) — 배액이 실제 출혈량을 과소반영', e:'E3', q:'full'},
+    {t:'JP drain–bulb 연결부 이탈·폐색', fp:'E3', say:['patient','뭘 하시는 거예요?']},
+    {t:'도착 시 혈성 배액 20 mL부터 비정상이었다', fp:'E2b'}],
+  railL:[
+    {t:'Lt. side rail 하강·call bell 손 닿지 않음 — 수술 후 낙상 위험', e:'E8', q:'full'},
+    {t:'침대 바퀴 잠금이 풀려 있다', e:'E8', q:'weak'}],
+  railR:[
+    {t:'Rt. side rail 위치 이상 → 억제대 적용이 필요하다', fp:'E8', say:['patient','왜 묶으세요?']}],
+};
+JUDGE.bell = JUDGE.railL;
+const FP_NAME = {E1:'손목밴드 성별·나이', E2:'하복부 좌·우 dressing', E2b:'도착 시 혈성 배액 20 mL', E3:'JP drain–bulb 연결부', E4:'수액 종류(Plasma 1 L)', E5:'PCA 잔량·연결부', E6:'Rt. arm 말초정맥관', E7:'교정 후 semi-Fowler’s 각도', E8:'Rt. side rail'};
+const STEP = {chart:1, wristband:2, bpcuff:3, monitor:3, remote:4, pcaClamp:5, ruq:6, jp:7, pump:8, railL:9, bell:9};
+const LABEL = {sanitizer:'손소독제', chart:'의무기록 태블릿 (EMR 카트)', phone:'전화기', patient:'환자', wristband:'환자 손목밴드', bpcuff:'Lt. arm BP cuff', rtiv:'Rt. arm 말초정맥관', monitor:'환자 감시 모니터', remote:'침상 각도조절 리모컨', pcaBall:'탄력식 IV PCA 용기', pcaClamp:'PCA line · clamp', pump:'IV pole · 수액조절기', ruq:'우상복부 dressing', lowDress:'하복부 좌·우 dressing', jp:'JP drain · bulb', railL:'Lt. side rail', railR:'Rt. side rail', bell:'call bell', guardian:'보호자 (남편)'};
+
+/* =========================================================
+   2. 상태
+   ========================================================= */
+let S;
+function fresh(mode){
+  const practice = mode==='practice';
+  return {
+    mode, practice, t:0, speed:S?.speed||1, ver:0,
+    handHygieneAt:null, openQAt:null, regAskAt:null, nrsAt:null, lastNRS:null,
+    vs:null, vsHist:[], ltViolation:false,
+    det:{}, fp:{}, fix:{},
+    bedAngle: practice?30:0, bedAngleShown: practice?30:0, cuffArm: practice?'R':'L', rate: practice?80:20, clampOpen:practice,
+    railLUp:practice, bellReach:practice, bandFixed:practice, bulbCompressed:practice, linePinned:practice,
+    pcaTraced:false, pcaBolusTried:false, pcaEduAt:null, fallEduAt:null,
+    jpSeenAt:null, ruqSeenAt:null, jpAmt: practice?30:110, jpTotal: practice?30:110, jpEmptied:0, ooze: practice?0:1,
+    doctorAt:null, readBackAt:null, bolusAt:null,
+    call:null, sbarDone:null, sbarReal:null, sbarBleed:false, sbarAttempts:0, sbarOrderSent:false,
+    guardianAt:null, guardianCalm:false, guardianLines:0, hintAt:null,
+    ev:{}, fallAttemptAt:null, fallEventAt:null, sittingUp:false,
+    visits:[], opens:{}, repeats:0, log:[], ended:null, stopped:false,
+    shownVS:{sbp:140,dbp:80,pr:88,rr:18},
+  };
+}
+S = fresh('idle');
+const T = () => S.t;
+const fmt = s => { s=Math.max(0,Math.floor(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+function log(type, text){ S.log.push({t:+S.t.toFixed(1), type, text}); }
+function bump(){ S.ver++; }
+
+/* ---- V/S 엔진 (3-5 개념적 충실도) ---- */
+function painActive(){ return !S.practice && S.t>=180 && !S.clampOpen; }
+function targetVS(){
+  const t=S.t, b=S.bolusAt;
+  if(S.practice) return {sbp:128,dbp:78,pr:82,rr:16};
+  let stage=0;
+  if(b!==null && b<300) stage=0;
+  else {
+    stage = t>=480?8 : t>=300?5 : 0;
+    if(b!==null && t>=b+60) stage = b<480?'r5':'r8';
+  }
+  const pain = painActive();
+  switch(stage){
+    case 0: return pain?{sbp:150,dbp:95,pr:98,rr:18}:{sbp:140,dbp:80,pr:88,rr:18};
+    case 5: return pain?{sbp:130,dbp:90,pr:110,rr:24}:{sbp:120,dbp:75,pr:100,rr:24};
+    case 8: return {sbp:90,dbp:60,pr:120,rr:28};
+    case 'r5': return {sbp:136,dbp:88,pr:100,rr:20};
+    case 'r8': return {sbp:100,dbp:64,pr:108,rr:24};
+  }
+}
+function nrsNow(){ return S.practice?3 : painActive()?7:6; }
+function bleedingUntreated(){ return S.bolusAt===null || S.bolusAt>=480; }
+function currentVS(){ const v=S.shownVS; return {sbp:Math.round(v.sbp),dbp:Math.round(v.dbp),pr:Math.round(v.pr),rr:Math.round(v.rr),spo2:96,bt:36.8}; }
+
+/* =========================================================
+   3. 렌더러·씬
+   ========================================================= */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(stage.clientWidth, stage.clientHeight);
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor');
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdde4e2);
+const rig = new THREE.Group(); scene.add(rig);
+const camera = new THREE.PerspectiveCamera(68, stage.clientWidth/stage.clientHeight, .03, 40);
+camera.position.set(0,1.6,0); rig.add(camera);
+let yaw=0, pitch=0;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xaab4b1, 1.15));
+const sun = new THREE.DirectionalLight(0xfff6e8, 1.1); sun.position.set(3,4,1); scene.add(sun);
+const fill = new THREE.PointLight(0xffffff, 6, 8, 1.6); fill.position.set(0,2.6,-0.3); scene.add(fill);
+
+const M = (c,o={}) => new THREE.MeshStandardMaterial({color:c, roughness:o.r??.75, metalness:o.m??0, transparent:o.op!==undefined, opacity:o.op??1, emissive:o.em??0x000000, side:o.side??THREE.FrontSide});
+const box = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+const cyl = (rt,rb,h,m,s=18) => new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,s), m);
+const sph = (r,m,s=20) => new THREE.Mesh(new THREE.SphereGeometry(r,s,s*0.75|0), m);
+const cap = (r,l,m) => new THREE.Mesh(new THREE.CapsuleGeometry(r,l,6,12), m);
+function put(o,x,y,z,p){ o.position.set(x,y,z); (p||scene).add(o); return o; }
+function canvasPlane(w,h,pw,ph){
+  const c=document.createElement('canvas'); c.width=pw; c.height=ph;
+  const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:tex, toneMapped:false}));
+  return {c, ctx:c.getContext('2d'), tex, mesh};
+}
+const FONT = '"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const MONO = '"IBM Plex Mono",ui-monospace,monospace';
+
+/* ---- 방 ---- */
+const ROOM={x0:-2.5,x1:2.5,z0:-2.6,z1:2.8,h:2.8};
+{
+  const fc=document.createElement('canvas'); fc.width=fc.height=256; const g=fc.getContext('2d');
+  g.fillStyle='#c9d1cc'; g.fillRect(0,0,256,256); g.strokeStyle='#b7c0bb'; g.lineWidth=3; g.strokeRect(0,0,256,256);
+  for(let i=0;i<220;i++){ g.fillStyle=`rgba(120,135,128,${Math.random()*.12})`; g.fillRect(Math.random()*256,Math.random()*256,2,2); }
+  const ft=new THREE.CanvasTexture(fc); ft.wrapS=ft.wrapT=THREE.RepeatWrapping; ft.repeat.set(8,9); ft.colorSpace=THREE.SRGBColorSpace;
+  var floor=new THREE.Mesh(new THREE.PlaneGeometry(5,5.4), new THREE.MeshStandardMaterial({map:ft, roughness:.9}));
+  floor.rotation.x=-Math.PI/2; put(floor,0,0,0.1); floor.userData.floor=true;
+}
+const floorMesh = scene.children[scene.children.length-1];
+const wallM=M(0xeef1ea), wallM2=M(0xdfe8e4);
+put(box(5,ROOM.h,.06,wallM2),0,ROOM.h/2,ROOM.z0);
+put(box(5,ROOM.h,.06,wallM),0,ROOM.h/2,ROOM.z1);
+put(box(.06,ROOM.h,5.4,wallM),ROOM.x0,ROOM.h/2,0.1);
+put(box(.06,ROOM.h,5.4,wallM),ROOM.x1,ROOM.h/2,0.1);
+put(box(5,.02,5.4,M(0xf7f8f6)),0,ROOM.h,0.1);
+put(box(1.2,.03,.6,M(0xffffff,{em:0xfffcf2})),0,ROOM.h-.02,-.3);
+put(box(5,.12,.02,M(0x7f9b95)),0,.06,ROOM.z0+.04);
+// door (left wall, near head)
+put(box(.05,2.1,1.0,M(0x9db3ad)),ROOM.x0+.04,1.05,-1.85);
+put(box(.06,.04,.14,M(0x6f7d79,{m:.5,r:.3})),ROOM.x0+.08,1.0,-1.45);
+// window (right wall)
+put(box(.03,1.1,1.6,M(0xcfe7f2,{em:0x9fc6d6})),ROOM.x1-.04,1.55,0.3);
+put(box(.05,1.2,.06,M(0xffffff)),ROOM.x1-.05,1.55,0.3);
+// headwall gas panel
+put(box(1.6,.22,.06,M(0xdfe6e3)),0,1.45,ROOM.z0+.05);
+[[-.5,0x2e7d32],[-.3,0xffffff],[.3,0xfbc02d]].forEach(([x,c])=>put(cyl(.025,.025,.03,M(c),12).rotateX(Math.PI/2),x,1.45,ROOM.z0+.09));
+// name sign
+{ const p=canvasPlane(.5,.16,512,164); const g=p.ctx; g.fillStyle='#0e6f6a'; g.fillRect(0,0,512,164); g.fillStyle='#fff'; g.font=`600 54px ${FONT}`; g.fillText('나예민 님',28,74); g.font=`400 30px ${FONT}`; g.fillText('외과계 병동 · 1인실',28,128); p.tex.needsUpdate=true; p.mesh.rotation.y=Math.PI/2; put(p.mesh,ROOM.x0+.035,2.25,-1.85); }
+
+/* ---- 침대 (머리 -z, 발 +z; 환자 Rt = -x) ---- */
+const bed = new THREE.Group(); scene.add(bed);
+const frameM=M(0xa9b5b2,{m:.4,r:.4}), matM=M(0xf2f5f4), sheetM=M(0xffffff);
+put(box(.98,.12,2.15,frameM),0,.41,-.03,bed);
+[[-.42,-1.0],[.42,-1.0],[-.42,.95],[.42,.95]].forEach(([x,z])=>{ put(cyl(.02,.02,.32,frameM),x,.2,z,bed); put(cyl(.05,.05,.04,M(0x333a39)).rotateZ(Math.PI/2),x,.05,z,bed); });
+put(box(.9,.14,1.25,matM),0,.54,.425,bed);
+put(box(1.02,.55,.05,M(0xb9c8c4)),0,.66,-1.12,bed);
+put(box(1.02,.45,.05,M(0xb9c8c4)),0,.62,1.12,bed);
+const headSec = new THREE.Group(); put(headSec,0,.47,-.2,bed);
+put(box(.9,.14,.85,matM),0,.07,-.425,headSec);
+put(box(.52,.1,.3,sheetM),0,.19,-.68,headSec);
+
+/* ---- 환자 ---- */
+const skin=M(0xe6c2a6), gown=M(0x9cc3d6), hair=M(0x55504c);
+const pUpper=new THREE.Group(); headSec.add(pUpper);
+put(box(.38,.16,.56,gown),0,.22,-.3,pUpper);
+put(cyl(.045,.045,.08,skin),0,.25,-.6,pUpper).rotateX(Math.PI/2);
+const head=put(sph(.105,skin),0,.33,-.7,pUpper);
+put(sph(.112,hair),0,.30,-.74,pUpper).scale.set(1,.8,1);
+const eyeM=M(0x2a2523);
+put(sph(.012,eyeM,10),-.035,.425,-.69,pUpper); put(sph(.012,eyeM,10),.035,.425,-.69,pUpper);
+const browL=put(box(.035,.006,.008,eyeM),.037,.43,-.715,pUpper), browR=put(box(.035,.006,.008,eyeM),-.037,.43,-.715,pUpper);
+const mouth=put(box(.04,.006,.008,M(0x9a5a52)),0,.42,-.635,pUpper);
+function arm(x){ const g=new THREE.Group(); pUpper.add(g); const u=cap(.042,.2,gown); u.rotation.x=Math.PI/2; put(u,x,.2,-.44,g); const f=cap(.036,.2,skin); f.rotation.x=Math.PI/2; put(f,x,.2,-.17,g); put(sph(.045,skin),x,.2,.0,g); return g; }
+arm(-.25); arm(.25);
+const aRtIV=new THREE.Object3D(); put(aRtIV,-.25,.24,-.14,pUpper);
+put(box(.05,.008,.05,M(0xffffff)),-.25,.238,-.14,pUpper);
+const wristband=new THREE.Mesh(new THREE.TorusGeometry(.043,.009,8,24),M(0xffffff)); put(wristband,-.25,.2,-.06,pUpper);
+const cuff=cyl(.054,.054,.13,M(0x1e3a5f),20); cuff.rotation.x=Math.PI/2; put(cuff,.25,.2,-.46,pUpper);
+const rtivHit=put(box(.09,.06,.12,M(0xffffff,{op:0})),-.25,.24,-.14,pUpper);
+const pLower=new THREE.Group(); scene.add(pLower);
+put(box(.38,.15,.42,gown),0,.685,0,pLower);
+const dressM=()=>M(0xfafafa,{r:.9});
+const ruq=put(box(.06,.008,.06,dressM()),-.09,.764,-.11,pLower);
+const ooze=new THREE.Mesh(new THREE.CircleGeometry(.024,24),M(0xb3141a,{r:.5})); ooze.rotation.x=-Math.PI/2; put(ooze,-.09,.7695,-.11,pLower);
+const lowL=put(box(.055,.008,.055,dressM()),.11,.764,.12,pLower), lowR=put(box(.055,.008,.055,dressM()),-.11,.764,.12,pLower);
+const lowDressHit=new THREE.Group(); lowDressHit.add(lowL,lowR); pLower.add(lowDressHit);
+put(box(.88,.13,.9,M(0x7fb5ae)),0,.68,.62,pLower);
+put(box(.88,.03,.12,M(0xffffff)),0,.75,.2,pLower);
+const aJP=new THREE.Object3D(); put(aJP,-.17,.72,-.05,pLower);
+
+/* ---- side rails, call bell, remote ---- */
+const railM=M(0xc4cfcc,{m:.3,r:.4});
+const railR=put(box(.035,.26,.8,railM),-.5,.78,-.5,bed);
+const railL=put(box(.035,.26,.8,railM),.5,.78,-.5,bed);
+const bell=new THREE.Group(); put(box(.05,.03,.1,M(0x6b7472)),0,0,0,bell); put(cyl(.012,.012,.012,M(0xd32f2f)),0,.02,-.02,bell); scene.add(bell);
+const remote=new THREE.Group(); put(box(.07,.15,.03,M(0x46504e)),0,0,0,remote);
+const remoteScr=canvasPlane(.05,.04,128,100); put(remoteScr.mesh,0,.035,.0155,remote);
+remote.rotation.y=-Math.PI/2; put(remote,-.53,.7,.82);
+
+/* ---- IV pole · 수액 · 조절기 · PCA ---- */
+const pole=new THREE.Group(); put(pole,-.85,0,-.55);
+const metal=M(0xb8c2c0,{m:.6,r:.3});
+put(cyl(.012,.012,2.0,metal),0,1.0,0,pole);
+for(let i=0;i<5;i++){ const l=put(box(.28,.02,.03,metal),0,.06,0,pole); l.rotation.y=i*Math.PI*2/5; l.translateX(.14); }
+put(box(.3,.015,.015,metal),0,1.98,0,pole);
+const bag=put(box(.15,.24,.035,M(0xe8f2f6,{op:.75,r:.2})),.02,1.82,0,pole);
+const bagLbl=canvasPlane(.12,.07,256,150); { const g=bagLbl.ctx; g.fillStyle='#fff'; g.fillRect(0,0,256,150); g.fillStyle='#0d47a1'; g.font=`700 40px ${FONT}`; g.fillText('Plasma',16,52); g.font=`600 30px ${FONT}`; g.fillStyle='#222'; g.fillText('Solution A',16,92); g.fillText('1 L · IV',16,130); bagLbl.tex.needsUpdate=true; }
+bagLbl.mesh.rotation.y=Math.PI/2; put(bagLbl.mesh,.04,1.82,0,pole);
+put(cyl(.012,.012,.06,M(0xffffff,{op:.6})),.02,1.66,0,pole);
+const pump=put(box(.11,.16,.12,M(0xe9ecea)),.04,1.3,.04,pole);
+const pumpScr=canvasPlane(.1,.07,256,180); pumpScr.mesh.rotation.y=Math.PI/2; put(pumpScr.mesh,.097,1.31,.04,pole);
+const pcaBall=new THREE.Group(); put(sph(.07,M(0xffffff,{op:.45,r:.2})),0,0,0,pcaBall); put(sph(.052,M(0xf3e7a8,{r:.4})),0,0,0,pcaBall); put(cyl(.012,.012,.05,M(0x8aa)),0,-.09,0,pcaBall);
+put(pcaBall,.02,1.06,-.12,pole);
+const pcaTag=canvasPlane(.09,.035,256,100); { const g=pcaTag.ctx; g.fillStyle='#fff3cd'; g.fillRect(0,0,256,100); g.fillStyle='#5d4037'; g.font=`700 44px ${FONT}`; g.fillText('IV PCA',18,66); pcaTag.tex.needsUpdate=true; }
+pcaTag.mesh.rotation.y=Math.PI/2; put(pcaTag.mesh,.075,1.06,-.12,pole);
+const P_CLAMP=new THREE.Vector3(-.64,.86,-.4), P_BOLUS=new THREE.Vector3(-.52,.8,-.3);
+const clamp=put(box(.03,.025,.055,M(0xd84315)),P_CLAMP.x,P_CLAMP.y,P_CLAMP.z);
+const bolusBtn=put(cyl(.016,.016,.03,M(0x1565c0)),P_BOLUS.x,P_BOLUS.y,P_BOLUS.z);
+const pcaClampHit=new THREE.Group(); scene.add(pcaClampHit); pcaClampHit.add(clamp,bolusBtn);
+
+/* ---- JP bulb ---- */
+const bulb=new THREE.Group(); scene.add(bulb);
+const bulbShell=put(sph(.042,M(0xffffff,{op:.4,r:.15})),0,0,0,bulb); bulbShell.scale.set(1,1.45,1);
+const bulbLiquid=put(sph(.038,M(0xc0121a,{r:.35})),0,0,0,bulb);
+put(cyl(.014,.014,.02,M(0xeeeeee)),0,.068,0,bulb);
+
+/* ---- 모니터 · EMR 카트 · 전화 · 손소독제 · 가구 ---- */
+const mon=new THREE.Group(); put(mon,1.3,1.78,-2.5); mon.rotation.y=-.4;
+put(box(.56,.38,.06,M(0x2b3332)),0,0,0,mon);
+const monScr=canvasPlane(.52,.34,640,420); put(monScr.mesh,0,0,.031,mon);
+put(box(.06,.06,.3,metal),0,0,-.16,mon);
+const cart=new THREE.Group(); put(cart,-1.75,0,-1.45); cart.rotation.y=.5;
+put(box(.5,.8,.42,M(0x7c9b96)),0,.42,0,cart); put(box(.54,.03,.46,M(0xe3e8e6)),0,.835,0,cart);
+[[-.2,-.16],[.2,-.16],[-.2,.16],[.2,.16]].forEach(([x,z])=>put(cyl(.03,.03,.03,M(0x333a39)).rotateZ(Math.PI/2),x,.02,z,cart));
+const tablet=new THREE.Group(); put(tablet,-.06,.9,.02,cart); tablet.rotation.x=-1.0;
+put(box(.3,.2,.015,M(0x22292a)),0,0,0,tablet);
+const tabScr=canvasPlane(.27,.17,540,340); put(tabScr.mesh,0,0,.008,tablet);
+{ const g=tabScr.ctx; g.fillStyle='#f4f8f7'; g.fillRect(0,0,540,340); g.fillStyle='#0e6f6a'; g.fillRect(0,0,540,60); g.fillStyle='#fff'; g.font=`600 30px ${FONT}`; g.fillText('EMR · 나예민 10248417',18,41); g.fillStyle='#222'; g.font=`500 26px ${FONT}`; ['POST OP Order Sheet','MAR · 검사결과','환자 프로필 · 과거력'].forEach((s,i)=>g.fillText('▸ '+s,24,112+i*56)); tabScr.tex.needsUpdate=true; }
+const phone=new THREE.Group(); put(phone,.17,.87,.05,cart);
+put(box(.14,.05,.18,M(0xf1f1ee)),0,0,0,phone); put(cap(.018,.12,M(0x2b2b2b)).rotateX(Math.PI/2),0,.04,0,phone);
+const sanitizer=new THREE.Group(); put(sanitizer,ROOM.x0+.07,1.2,-1.1);
+put(box(.08,.2,.1,M(0xffffff)),0,0,0,sanitizer); put(box(.06,.03,.03,M(0x0e6f6a)),.04,-.08,0,sanitizer);
+{ const p=canvasPlane(.18,.07,256,100); const g=p.ctx; g.fillStyle='#0e6f6a'; g.fillRect(0,0,256,100); g.fillStyle='#fff'; g.font=`600 44px ${FONT}`; g.fillText('손 위생',50,66); p.tex.needsUpdate=true; p.mesh.rotation.y=Math.PI/2; put(p.mesh,ROOM.x0+.035,1.42,-1.1); }
+put(box(.45,.75,.42,M(0xd8cfc0)),1.15,.375,-1.35);
+put(cyl(.035,.03,.1,M(0xffffff,{op:.6})),1.05,.8,-1.4);
+const chair=new THREE.Group(); put(chair,1.65,0,.1); chair.rotation.y=-Math.PI/2;
+put(box(.48,.08,.46,M(0x8f6d5a)),0,.45,0,chair); put(box(.48,.5,.06,M(0x8f6d5a)),0,.72,-.22,chair);
+[[-.2,-.2],[.2,-.2],[-.2,.2],[.2,.2]].forEach(([x,z])=>put(cyl(.018,.018,.43,metal),x,.21,z,chair));
+
+/* ---- 보호자 ---- */
+const guardian=new THREE.Group(); put(guardian,1.6,0,.5); guardian.rotation.y=-Math.PI/2-.35; guardian.visible=false;
+const gBody=new THREE.Group(); guardian.add(gBody);
+put(cyl(.13,.12,.85,M(0x3d4450)),0,.43,0,gBody);
+put(box(.4,.56,.24,M(0x8a6248)),0,1.15,0,gBody);
+put(sph(.11,skin),0,1.56,0,gBody); put(sph(.113,M(0x8d8d8d)),0,1.6,-.02,gBody).scale.set(1,.7,1);
+const gArmL=new THREE.Group(); put(gArmL,.23,1.38,0,gBody); put(cap(.045,.45,M(0x8a6248)),0,-.25,0,gArmL);
+const gArmR=new THREE.Group(); put(gArmR,-.23,1.38,0,gBody); put(cap(.045,.45,M(0x8a6248)),0,-.25,0,gArmR);
+
+/* ---- 튜브 라인 ---- */
+const lineGroup=new THREE.Group(); scene.add(lineGroup);
+const tubeM=M(0xf2f7f8,{op:.85,r:.25}), pcaTubeM=M(0xfbf3cf,{op:.9,r:.3}), jpTubeM=M(0xd9e3e5,{op:.85,r:.3}), cordM=M(0x58605e);
+let lineKey='';
+const wp=o=>o.getWorldPosition(new THREE.Vector3());
+function tube(pts,r,m){ return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),48,r,6,false),m); }
+function rebuildLines(){
+  scene.updateMatrixWorld(true);
+  const iv=wp(aRtIV), jp=wp(aJP), b=wp(bulb), be=wp(bell);
+  const key=[iv,jp,b,be].map(v=>v.toArray().map(n=>n.toFixed(3)).join()).join('|');
+  if(key===lineKey) return; lineKey=key;
+  lineGroup.children.forEach(c=>c.geometry.dispose()); lineGroup.clear();
+  const pumpOut=new THREE.Vector3(-.81,1.2,-.51);
+  lineGroup.add(tube([new THREE.Vector3(-.83,1.62,-.55),new THREE.Vector3(-.82,1.45,-.53),new THREE.Vector3(-.81,1.38,-.51)],.004,tubeM));
+  lineGroup.add(tube([pumpOut,new THREE.Vector3(-.78,1.0,-.42),new THREE.Vector3(-.6,.82,-.26),iv.clone().add(new THREE.Vector3(-.02,.01,.0))],.0045,tubeM));
+  lineGroup.add(tube([new THREE.Vector3(-.83,.96,-.67),new THREE.Vector3(-.74,.9,-.5),P_CLAMP,P_BOLUS,iv.clone().add(new THREE.Vector3(.005,.01,.02))],.0045,pcaTubeM));
+  const jpPts = S.linePinned
+    ? [jp,new THREE.Vector3(-.26,.69,.08),b.clone().add(new THREE.Vector3(0,.07,0))]
+    : [jp,new THREE.Vector3(-.4,.67,.0),new THREE.Vector3(-.5,.6,.06),new THREE.Vector3(-.57,.42,.12),b.clone().add(new THREE.Vector3(0,.07,0))];
+  lineGroup.add(tube(jpPts,.005,jpTubeM));
+  lineGroup.add(tube([be,be.clone().add(new THREE.Vector3(0,.05,-.2)),new THREE.Vector3(.48,.6,-.95),new THREE.Vector3(.3,1.2,-2.55)],.004,cordM));
+}
+
+/* ---- 상호작용 대상 등록 ---- */
+const INTER=[];
+function reg(obj,id){ obj.userData.iid=id; INTER.push(obj); obj.traverse(m=>{ if(m.isMesh){ m.material=m.material.clone(); } }); }
+reg(sanitizer,'sanitizer'); reg(tablet,'chart'); reg(phone,'phone'); reg(pUpper,'patient'); reg(wristband,'wristband'); reg(cuff,'bpcuff'); reg(rtivHit,'rtiv');
+reg(mon,'monitor'); reg(remote,'remote'); reg(pcaBall,'pcaBall'); reg(pcaClampHit,'pcaClamp'); reg(pole,'pump');
+reg(ruq,'ruq'); reg(ooze,'ruq'); reg(lowDressHit,'lowDress'); reg(bulb,'jp'); reg(railL,'railL'); reg(railR,'railR'); reg(bell,'bell'); reg(guardian,'guardian');
+// pump group contains the PCA ball; keep PCA separately clickable by pushing it first
+INTER.sort((a,b)=> (a.userData.iid==='pump') - (b.userData.iid==='pump'));
+function visibleChain(o){ while(o){ if(!o.visible) return false; o=o.parent; } return true; }
+function findIid(o){ while(o){ if(o.userData.iid) return o; o=o.parent; } return null; }
+
+/* =========================================================
+   4. 시각 상태 반영
+   ========================================================= */
+function applyVisuals(dt){
+  // bed angle tween
+  S.bedAngleShown += (S.bedAngle - S.bedAngleShown)*Math.min(1,dt*3);
+  headSec.rotation.x = THREE.MathUtils.degToRad(S.bedAngleShown);
+  // getting-up posture
+  const up = S.sittingUp?1:0;
+  pUpper.rotation.x += ((up?THREE.MathUtils.degToRad(Math.max(0,55-S.bedAngleShown)):0) - pUpper.rotation.x)*Math.min(1,dt*2);
+  pUpper.position.x += ((up?.12:0)-pUpper.position.x)*Math.min(1,dt*2);
+  pLower.position.x += ((up?.14:0)-pLower.position.x)*Math.min(1,dt*2);
+  pLower.rotation.y += ((up?-.25:0)-pLower.rotation.y)*Math.min(1,dt*2);
+  // face
+  const n=S.lastNRS??nrsNow(), pain=S.practice?0.1:(painActive()?.55:.35);
+  browL.rotation.y=-pain; browR.rotation.y=pain;
+  mouth.scale.x = painActive()&&!S.practice ? 1.3 : 1;
+  // cuff
+  cuff.position.x = S.cuffArm==='L'? .25 : -.25; cuff.position.z = -.46;
+  // rails
+  railL.position.y += ((S.railLUp?.78:.45)-railL.position.y)*Math.min(1,dt*5);
+  // bell
+  if(S.bellReach){ bell.position.set(.33,.64,-.12); bell.rotation.set(0,.4,0); } else { bell.position.set(.72,.018,.38); bell.rotation.set(0,1.1,0); }
+  // remote display
+  const rk=Math.round(S.bedAngleShown); if(rk!==remoteScr.k){ remoteScr.k=rk; const g=remoteScr.ctx; g.fillStyle='#0b1a12'; g.fillRect(0,0,128,100); g.fillStyle='#8ef0b0'; g.font=`600 46px ${MONO}`; g.fillText(Math.round(S.bedAngleShown)+'°',14,64); g.font=`500 18px ${FONT}`; g.fillText('HEAD',16,90); remoteScr.tex.needsUpdate=true; }
+  // pump display
+  const bol = S.bolusAt!==null && S.t < S.bolusAt+300, pk=bol+'|'+S.rate;
+  if(pk!==pumpScr.k){ pumpScr.k=pk; const g=pumpScr.ctx; g.fillStyle='#0d1f1c'; g.fillRect(0,0,256,180); g.fillStyle='#d6fff3'; g.font=`600 64px ${MONO}`;
+    g.fillText(bol?'BOLUS':String(S.rate),bol?18:30,92); g.font=`500 28px ${FONT}`; g.fillStyle='#7fd1bd'; g.fillText(bol?'500 mL 주입 중':'mL/hr',30,140); pumpScr.tex.needsUpdate=true; }
+  // clamp
+  clamp.material.color.setHex(S.clampOpen?0xeeeeee:0xd84315); clamp.scale.set(S.clampOpen?.7:1,1,S.clampOpen?.7:1);
+  // bulb
+  const fillF=Math.min(1,S.jpAmt/200);
+  if(S.linePinned) bulb.position.set(-.33,.67,.15); else bulb.position.set(-.57,.3,.14);
+  const sq=S.bulbCompressed?.45:1; bulbShell.scale.set(sq,1.45,1);
+  bulbLiquid.scale.set(sq*.95,Math.max(.02,fillF)*1.4,.95); bulbLiquid.position.y=-.055+.055*Math.max(.02,fillF)*1.4;
+  // ooze
+  ooze.visible = S.ooze>0; ooze.scale.setScalar(Math.max(.01,S.ooze));
+  // guardian
+  guardian.visible = S.guardianAt!==null;
+  if(guardian.visible){
+    const anxious=!S.guardianCalm; gBody.position.y = anxious? Math.abs(Math.sin(performance.now()/180))*.015 : 0;
+    const pointing = S.hintAt!==null && S.t < S.hintAt+25;
+    gArmR.rotation.x += ((pointing?-1.45:0)-gArmR.rotation.x)*Math.min(1,dt*4);
+    gArmR.rotation.z += ((pointing?.15:0)-gArmR.rotation.z)*Math.min(1,dt*4);
+  }
+  rebuildLines();
+}
+
+/* ---- 모니터 화면 ---- */
+let ecgX=0, ecgPhase=0, lastMon=0;
+const ecgBuf=new Float32Array(640).fill(0);
+function drawMonitor(now,dt){
+  if(now-lastMon<60) return; const step=(now-lastMon)/1000; lastMon=now;
+  const g=monScr.ctx, W=640, H=420, v=currentVS();
+  const alarm = !S.practice && S.ev.e480 && bleedingUntreated() && S.mode==='run';
+  const beatsPerSec=v.pr/60;
+  for(let i=0;i<8;i++){ ecgPhase+=beatsPerSec*step/8; const p=ecgPhase%1; let y=0;
+    if(p<.04) y=Math.sin(p/.04*Math.PI)*.12; else if(p>.1&&p<.12) y=-.15; else if(p>=.12&&p<.15) y=1; else if(p>=.15&&p<.18) y=-.3; else if(p>.3&&p<.42) y=Math.sin((p-.3)/.12*Math.PI)*.25;
+    ecgBuf[ecgX]=y; ecgX=(ecgX+1)%380; }
+  g.fillStyle='#050908'; g.fillRect(0,0,W,H);
+  if(alarm && Math.floor(now/500)%2){ g.fillStyle='#5a0a0a'; g.fillRect(0,0,W,40); }
+  g.fillStyle='#9fb0ad'; g.font=`500 20px ${FONT}`; g.fillText('나예민 · 60F · 10248417',16,28);
+  if(alarm){ g.fillStyle='#ff5a4f'; g.font=`700 22px ${FONT}`; g.fillText('저혈압 · 빈맥 경보',400,28); }
+  g.strokeStyle='#3cff7a'; g.lineWidth=3; g.beginPath();
+  for(let x=0;x<380;x++){ const y=120-ecgBuf[x]*70; x?g.lineTo(20+x,y):g.moveTo(20+x,y); } g.stroke();
+  g.fillStyle='#050908'; g.fillRect(20+ecgX,50,14,140);
+  // pleth
+  g.strokeStyle='#4fd7ff'; g.lineWidth=2.5; g.beginPath();
+  for(let x=0;x<380;x++){ const p=((x/380)*beatsPerSec*3.2+ecgPhase*0)%1; const y=270-Math.max(0,Math.sin(p*Math.PI*2))*28; x?g.lineTo(20+x,y):g.moveTo(20+x,y); } g.stroke();
+  g.textAlign='right';
+  g.fillStyle='#3cff7a'; g.font=`500 18px ${FONT}`; g.fillText('HR',620,72); g.font=`600 64px ${MONO}`; g.fillText(v.pr,620,134);
+  g.fillStyle='#4fd7ff'; g.font=`500 18px ${FONT}`; g.fillText('SpO₂',620,182); g.font=`600 52px ${MONO}`; g.fillText(v.spo2,620,236);
+  g.fillStyle='#ffe066'; g.font=`500 18px ${FONT}`; g.fillText('RR',620,276); g.font=`600 40px ${MONO}`; g.fillText(v.rr,620,318);
+  g.textAlign='left'; g.fillStyle='#ff9ec4'; g.font=`500 18px ${FONT}`; g.fillText('NIBP',20,330);
+  const m=S.vs; g.font=`600 46px ${MONO}`;
+  if(alarm){ g.fillStyle='#ff5a4f'; g.fillText(`${v.sbp}/${v.dbp}`,20,382); }
+  else g.fillText(m?`${m.sbp}/${m.dbp}`:'---/---',20,382);
+  g.font=`500 16px ${FONT}`; g.fillStyle='#9fb0ad'; g.fillText(m?`${fmt(m.t)} 측정 · ${m.arm==='L'?'Lt':'Rt'}. arm`:'측정 전',22,408);
+  g.fillStyle='#c9d1cf'; g.font=`500 18px ${FONT}`; g.fillText('BT',300,330); g.font=`600 36px ${MONO}`; g.fillText(m?'36.8':'--.-',300,376);
+  monScr.tex.needsUpdate=true;
+}
+
+/* =========================================================
+   5. UI — 자막·음성·패널
+   ========================================================= */
+const $=id=>document.getElementById(id);
+let voiceOn=false, soundOn=false, subTimer=0;
+function speak(role,text){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  try{ const u=new SpeechSynthesisUtterance(text.replace(/[()…]/g,' ')); u.lang='ko-KR'; u.pitch=ROLE[role].pitch; u.rate=ROLE[role].rate;
+    const kv=speechSynthesis.getVoices().find(v=>v.lang&&v.lang.startsWith('ko')); if(kv) u.voice=kv; speechSynthesis.speak(u); }catch(e){}
+}
+let lastSay=null;
+function say(role,text,opt={}){
+  lastSay={role,text,until:performance.now()+Math.max(4500,text.length*110)};
+  $('sub').className=role; $('subWho').textContent=ROLE[role].who; $('subText').textContent=text; $('sub').hidden=false;
+  clearTimeout(subTimer); subTimer=setTimeout(()=>{$('sub').hidden=true;},Math.max(4500,text.length*110));
+  if(!opt.nolog) log('say',`${ROLE[role].who}: ${text}`);
+  speak(role,text); hudDirty=true;
+}
+let toastT=0;
+function toast(text,kind=''){ const el=$('toast'); el.textContent=text; el.className=kind; el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>el.hidden=true,3200); vrToast={text,until:performance.now()+3200}; hudDirty=true; }
+let bannerT=0;
+function banner(text,ms=5000){ const el=$('banner'); el.textContent=text; el.hidden=false; clearTimeout(bannerT); bannerT=setTimeout(()=>el.hidden=true,ms); vrToast={text,until:performance.now()+ms}; hudDirty=true; }
+
+/* ---- audio ---- */
+let actx=null;
+function ac(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return actx; }
+function beep(f,d=.08,vol=.04,type='sine'){ const a=ac(); if(!a||!soundOn) return; const o=a.createOscillator(), g=a.createGain(); o.type=type; o.frequency.value=f; g.gain.value=vol; g.gain.setTargetAtTime(0,a.currentTime+d*.6,d*.3); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+d+.1); }
+let beatAcc=0, alarmAcc=0;
+
+/* ---- 패널 ---- */
+let panelId=null, panelSpec=null, panelSub=null;
+function openObj(id, sub=null){
+  if(S.mode==='idle'||S.mode==='ended') return;
+  if(panelId!==id || panelSub!==sub){
+    if(!sub){ S.visits.push({id,t:+S.t.toFixed(1)});
+      const o=S.opens[id]; if(o && o.ver===S.ver) S.repeats++; S.opens[id]={ver:S.ver}; }
+  }
+  if(panelId!==id) placeNext=true;
+  panelId=id; panelSub=sub; renderPanel();
+}
+let placeNext=true, vrKind=null;
+function refresh(){ if(panelId) renderPanel(); }
+function closePanel(){ actKey=''; panelId=null; panelSub=null; panelSpec=null; $('panel').hidden=true; vrPanel.visible=false; }
+function renderPanel(){
+  const spec = panelSub==='judge' ? judgeSpec(panelId) : (SPEC[panelId]?.() || {title:LABEL[panelId], lines:[]});
+  spec.eyebrow = spec.eyebrow || (panelSub==='judge'?'판단 근거 선택':'관찰');
+  panelSpec=spec;
+  if(renderer.xr.isPresenting){ vrKind='obj'; drawVRPanel(spec,placeNext); placeNext=false; return; }
+  $('panel').hidden=false;
+  $('pEyebrow').textContent=spec.eyebrow; $('pTitle').textContent=spec.title;
+  const body=$('pBody'); body.innerHTML='';
+  for(const L of spec.lines){
+    let el;
+    if(typeof L==='string'){ el=document.createElement('p'); el.textContent=L; }
+    else if(L.kv){ el=document.createElement('dl'); el.className='kv'; L.kv.forEach(([k,v])=>{ const dt=document.createElement('dt'); dt.textContent=k; const dd=document.createElement('dd'); dd.textContent=v; el.append(dt,dd); }); }
+    else if(L.note){ el=document.createElement('p'); el.className='note'; el.textContent=L.note; }
+    else if(L.flag){ el=document.createElement('p'); el.className='flag'; el.textContent=L.flag; }
+    else if(L.h){ el=document.createElement('h4'); el.textContent=L.h; }
+    else if(L.say){ el=document.createElement('p'); el.className='say '+L.say; el.innerHTML='<small></small>'; el.firstChild.textContent=ROLE[L.say].who; el.append(L.text); }
+    else if(L.table){ el=document.createElement('table'); L.table.forEach(r=>{ const tr=document.createElement('tr'); r.forEach(c=>{ const td=document.createElement('td'); td.textContent=c; tr.append(td); }); el.append(tr); }); }
+    body.append(el);
+  }
+  const acts=$('pActions');
+  const key=spec.title+'§'+spec.actions.map(a=>[a.label,a.kind,a.disabled,a.small].join('¦')).join('§');
+  if(key!==actKey){ actKey=key; acts.innerHTML='';
+    const tabs = spec.actions.map((a,i)=>[a,i]).filter(([a])=>a.tab);
+    if(tabs.length){ const w=document.createElement('div'); w.className='tabs'; tabs.forEach(([a,i])=>w.append(mkAct(a,i))); acts.append(w); }
+    spec.actions.map((a,i)=>[a,i]).filter(([a])=>!a.tab).forEach(([a,i])=>acts.append(mkAct(a,i)));
+  }
+  acts.hidden = !spec.actions.length;
+}
+let actKey='';
+function mkAct(a,i){
+  const b=document.createElement('button'); b.className='act '+(a.kind||''); b.disabled=!!a.disabled;
+  b.textContent=a.label; if(a.small){ const s=document.createElement('small'); s.textContent=a.small; b.append(s); }
+  b.onclick=()=>{ const cur=panelSpec?.actions[i]; if(!cur||cur.disabled) return; cur.fn(); }; return b;
+}
+$('pClose').onclick=closePanel;
+
+/* ---- 판단(근거) 흐름 ---- */
+function judgeKey(id){ if(id==='remote' && (S.practice || S.bedAngle>=30 && S.bedAngle<=45) && S.det.E7) return 'remoteFixed'; return id; }
+function judgeSpec(id){
+  const opts=JUDGE[judgeKey(id)]||[];
+  const lines=[{note:'이상이라고 판단한 근거를 고르세요. 근거가 정확해야 전점이 인정됩니다. 판단은 오류당 한 번만 기록됩니다.'}];
+  const acts=opts.filter(o=>!(o.e && S.det[o.e]) && !(o.fp && S.fp[o.fp])).map(o=>({label:o.t, kind:'check', fn:()=>choose(id,o)}));
+  if(!acts.length) lines.push({flag:'이 대상에 대한 판단은 이미 기록되었습니다.'});
+  acts.push({label:'← 관찰 화면으로', kind:'', fn:()=>{ panelSub=null; renderPanel(); }});
+  return {title:LABEL[id], lines, actions:acts};
+}
+function choose(id,o){
+  bump();
+  if(S.practice){ toast('연습 병실입니다. 판단은 기록되지 않습니다.','neutral'); panelSub=null; renderPanel(); return; }
+  if(o.fp){
+    S.fp[o.fp]=S.t; log('fp',`위양성: ${FP_NAME[o.fp]} — "${o.t}"`);
+    toast('확인 결과 해당 항목은 정상입니다.','neutral');
+    if(o.say) say(o.say[0],o.say[1]);
+  } else {
+    const late = (o.e==='E5' && S.hintAt!==null) || (o.e==='E4' && S.doctorAt!==null);
+    S.det[o.e]={t:S.t, q:o.q, late, reason:o.t, via:id};
+    log('detect',`${o.e} 판단 (${o.q==='full'?'근거 정확':'근거 부정확'}${late?', 단서 이후':''}) — ${o.t}`);
+    toast('판단과 근거가 기록되었습니다.');
+    if(o.e==='E1') say('patient','네, 나예민이에요.');
+  }
+  panelSub=null; renderPanel();
+}
+const judgeAct = id => ({label:'⚠ 이상으로 판단 — 근거 선택', kind:'warn', fn:()=>{ panelSub='judge'; renderPanel(); }});
+function act(label,fn,o={}){ return {label, fn:()=>{ bump(); fn(); refresh(); }, ...o}; }
+
+/* ---- 대상별 패널 (관찰 정보 + 행동) ---- */
+const SPEC = {
+  sanitizer:()=>({title:'손소독제 디스펜서', lines:['병실 입구 벽면의 알코올 손소독제.', S.handHygieneAt!==null?{note:`손 위생 ${fmt(S.handHygieneAt)} 수행`}:''].filter(Boolean),
+    actions:[act('손 위생 수행',()=>{ S.handHygieneAt=S.t; log('act','손 위생'); toast('손 위생 완료'); },{kind:'primary'})]}),
+  chart:()=>chartSpec(),
+  phone:()=>phoneSpec(),
+  patient:()=>patientSpec(),
+  wristband:()=>({title:'환자 손목밴드 (Rt. wrist)', lines:[
+      {kv:[['성명', S.bandFixed||S.practice?PT.name:PT.band.name],['등록번호', S.bandFixed||S.practice?PT.reg:PT.band.reg],['성별/나이','F / 60'],['혈액형','A+']]},
+      S.bandFixed&&!S.practice?{note:'재출력한 손목밴드로 교체됨 (인계 간호사 확인).'}:'' ].filter(Boolean),
+    actions:[ judgeAct('wristband'), ...(S.det.E1&&!S.bandFixed?[act('손목밴드 재출력·재부착 요청 및 인계 간호사 확인',()=>{ S.bandFixed=true; S.fix.E1=S.t; log('fix','E1 손목밴드 재부착'); toast('손목밴드를 재출력해 교체했습니다.'); },{kind:'primary'})]:[]) ]}),
+  bpcuff:()=>({title: S.cuffArm==='L'?'Lt. arm 상완 BP cuff':'Rt. arm 상완 BP cuff', lines:[
+      S.cuffArm==='L'?'환자 Lt. arm 상완에 자동혈압계 cuff가 감겨 있다.':'Rt. arm 상완에 cuff가 적용되어 있다. Lt. arm은 비어 있다.',
+      {note:'모니터 화면에서 NIBP를 측정할 수 있습니다.'}],
+    actions:[ ...(S.cuffArm==='L'?[judgeAct('bpcuff')]:[]),
+      ...(S.cuffArm==='L'&&S.det.E6?[act('Lt. arm cuff 제거 → Rt. arm에 적용',()=>{ S.cuffArm='R'; S.fix.E6=S.t; log('fix','E6 cuff Rt. arm으로 이동'); say('patient','유방암 수술했기 때문에 왼팔은 보호해야 한다고 알고 있어요.'); },{kind:'primary'})]:[]),
+      ...(S.cuffArm==='L'?[act('이 cuff로 혈압 측정 (Lt. arm)',()=>measure('L'))]:[act('Rt. arm에서 V/S 측정',()=>measure('R'),{kind:'primary'})]) ]}),
+  rtiv:()=>({title:'Rt. arm 말초정맥관', lines:['Rt. 전완 22G 말초정맥관. 삽입부위 발적·부종·압통 없음, 투명 드레싱 고정 양호.','Plasma 수액 line과 IV PCA line이 Y-port로 연결되어 있다.'],
+    actions:[judgeAct('rtiv')]}),
+  monitor:()=>monitorSpec(),
+  remote:()=>({title:'침상 각도조절 리모컨', lines:[{kv:[['침상머리 각도',`${S.bedAngle}°`+(S.bedAngle===0?' (flat)':'')],['침상 높이','최저']]}],
+    actions:[ judgeAct('remote'), ...(S.det.E7||S.practice?[30,45,60].map(a=>act(`침상머리 ${a}°로 조절`,()=>setAngle(a),{kind:a===60?'':'primary'})):[]) ]}),
+  pcaBall:()=>({title:'탄력식 IV PCA (일회용)', lines:[{kv:[['약물 잔량','약 95 mL / 100 mL'],['연결부','결합 양호, 누출 없음'],['방식','clamp 개방 시 기저 유량 자동 주입, 버튼을 길게 누르면 bolus 1회']]}], actions:[judgeAct('pcaBall')]}),
+  pcaClamp:()=>pcaSpec(),
+  pump:()=>pumpSpec(),
+  ruq:()=>{ if(S.ruqSeenAt===null) S.ruqSeenAt=S.t; return {title:'우상복부 trocar site dressing', lines:[
+      S.practice?'5×5 gauze dressing, clean.':`5×5 gauze dressing에 선홍색 bloody oozing이 번져 있다 (직경 약 ${Math.round(3+S.ooze*2)} cm).`,
+      {note:'인계: 병동 도착 시 dressing 3곳 모두 clean.'}], actions:[judgeAct('ruq')]}; },
+  lowDress:()=>({title:'하복부 좌·우 trocar site dressing', lines:['5×5 gauze dressing 2곳. 삼출·출혈 없음, 고정 양호.'], actions:[judgeAct('lowDress')]}),
+  jp:()=>jpSpec(),
+  railL:()=>({title:'Lt. side rail', lines:[S.railLUp?'Lt. side rail이 올라가 있다.':'Lt. side rail이 내려가 있다.'],
+    actions:[ judgeAct('railL'), ...(S.det.E8&&!S.railLUp?[act('Lt. side rail 올리기',()=>{ S.railLUp=true; S.fix.E8rail=S.t; log('fix','E8 Lt. side rail 상승'); fixE8(); },{kind:'primary'})]:[]) ]}),
+  railR:()=>({title:'Rt. side rail', lines:['Rt. side rail이 올라가 있다. IV·PCA·JP line이 rail 사이로 지나간다.'], actions:[judgeAct('railR')]}),
+  bell:()=>({title:'call bell', lines:[S.bellReach?'call bell이 환자 Lt. 손 옆 침상 위에 있다.':'call bell이 Lt. 침상 아래 바닥에 떨어져 있다.'],
+    actions:[ judgeAct('bell'), ...(S.det.E8&&!S.bellReach?[act('call bell을 환자 손 닿는 곳에 두기',()=>{ S.bellReach=true; S.fix.E8bell=S.t; log('fix','E8 call bell 위치 교정'); fixE8(); },{kind:'primary'})]:[]) ]}),
+  guardian:()=>({title:'보호자 (남편, 63세)', lines:[ S.guardianCalm?'설명을 듣고 조금 진정했다. 의자 옆에서 지켜보고 있다.':'발을 동동 구르며 불안한 표정으로 환자를 바라본다.' ],
+    actions:[ act('현재 상태를 확인 중이며 담당의에게 보고할 것임을 설명',()=>{ S.guardianCalm=true; log('act','보호자 설명'); say('guardian','네… 빨리 좀 봐주세요.'); }) ]}),
+};
+function fixE8(){ if(S.railLUp&&S.bellReach){ say('patient','네, 벨 누를게요.'); } else toast('교정이 기록되었습니다.'); }
+function setAngle(a){
+  const prev=S.bedAngle; S.bedAngle=a; log('act',`침상머리 ${a}°`);
+  if(S.practice){ toast(`침상머리 ${a}°`); return; }
+  if(a>45){ S.fp.E7=S.fp.E7??S.t; log('fp','위양성: 45° 초과 조절'); say('patient','너무 일어나 있으니 배가 당겨요.'); return; }
+  if(prev>=30&&prev<=45){ S.fp.E7=S.fp.E7??S.t; log('fp','위양성: 교정된 각도 재조절'); toast('확인 결과 기존 각도도 정상 범위였습니다.','neutral'); return; }
+  S.fix.E7=S.t; say('patient','숨쉬기가 편해졌어요.');
+}
+function measure(arm){
+  const v=currentVS(); S.vs={...v,t:S.t,arm}; S.vsHist.push(S.vs);
+  if(arm==='L'&&!S.practice){ S.ltViolation=true; log('violation','Lt. arm에서 혈압 측정 — Lt. arm save 위반 (C2 미충족)'); say('patient','왼팔에서 혈압 측정해도 되나요?'); }
+  else toast(`V/S 측정 — BP ${v.sbp}/${v.dbp}, PR ${v.pr}, RR ${v.rr}, SpO₂ ${v.spo2}%, BT ${v.bt}℃`);
+  log('vs',`V/S (${arm==='L'?'Lt':'Rt'}. arm) BP ${v.sbp}/${v.dbp} PR ${v.pr} RR ${v.rr} SpO₂ ${v.spo2} BT ${v.bt}`);
+}
+function monitorSpec(){
+  const v=currentVS(), m=S.vs;
+  return {title:'환자 감시 모니터', lines:[
+    {kv:[['HR (연속)',`${v.pr} /min`],['SpO₂ (연속)',`${v.spo2} %`],['RR (연속)',`${v.rr} /min`],['NIBP (최근)', m?`${m.sbp}/${m.dbp} mmHg · ${fmt(m.t)} · ${m.arm==='L'?'Lt':'Rt'}. arm`:'측정 기록 없음'],['BT', m?'36.8 ℃':'—']]},
+    {note:`현재 cuff 위치: ${S.cuffArm==='L'?'Lt':'Rt'}. arm 상완`}],
+    actions:[ S.cuffArm==='L' ? act('NIBP·BT 측정 (Lt. arm cuff 사용)',()=>measure('L')) : act('NIBP·BT 측정 (Rt. arm)',()=>measure('R'),{kind:'primary'}) ]};
+}
+function patientSpec(){
+  const lines=[];
+  if(S.practice) lines.push('편안하게 누워 있다. 의식 alert.');
+  else if(S.sittingUp) lines.push({flag:'창백하고 식은땀을 흘리며, 불안한 듯 스스로 침상에서 일어나려 하고 있다.'});
+  else if(S.ev.e480 && bleedingUntreated()) lines.push('피부가 창백하고 식은땀이 난다. 매우 불안해한다.');
+  else if(painActive()) lines.push('신음하며 얼굴을 더 찡그린다. 불안해 보인다. 의식 alert.');
+  else lines.push('신음하며 얼굴을 찡그리고 있다. 의식 alert.');
+  if(S.lastNRS!==null) lines.push({note:`최근 NRS ${S.lastNRS}점 (${fmt(S.nrsAt)})`});
+  const A=[
+    act('“성함이 어떻게 되세요?” (개방형 질문)',()=>{ if(S.openQAt===null) S.openQAt=S.t; log('act','개방형 질문 환자확인'); say('patient','나예민이요.'); }),
+    act('“등록번호를 확인하겠습니다.”',()=>{ S.regAskAt=S.t; log('act','등록번호 확인 요청'); say('patient','여기 밴드에 있어요.'); }),
+    act('통증 사정 — “0점에서 10점 중 몇 점이세요?”',()=>{ const n=nrsNow(); S.lastNRS=n; S.nrsAt=S.t; log('assess',`NRS ${n}`);
+      say('patient', S.practice?'3점 정도요.': n>=7?'(신음) 아까보다 더 아파요… 7점이요.':(S.clampOpen?'(한숨) 조금 나아졌어요… 6점이요.':'(신음) 수술부위가 아파요… 6점이요.')); }),
+    act('“PCA 버튼 눌러 보셨어요?”',()=>{ log('act','PCA 사용 확인'); say('patient', S.clampOpen?'눌렀더니 좀 나아지는 것 같아요.':'눌러도 별로 안 나아지는 것 같아요.'); }),
+    act('PCA 사용법 교육 — 아플 때 버튼을 길게 누르기',()=>{ S.pcaEduAt=S.t; log('act','PCA 사용법 교육'); say('patient','네, 아플 때 길게 누를게요.'); }),
+    act('낙상 위험 설명 — 혼자 일어나지 말고 벨 누르기',()=>{ S.fallEduAt=S.t; log('act','낙상 예방 교육'); say('patient', S.bellReach?'네, 벨 누를게요.':'벨이 어디 있는지 모르겠어요…'); }),
+    act('심호흡·기침 격려 (EDBC)',()=>{ log('act','EDBC 격려'); say('patient','(천천히 숨을 쉰다) 배가 당겨요…'); }),
+  ];
+  if(S.sittingUp) A.unshift(act('환자를 안심시키고 침상에 다시 눕히기',()=>{ S.sittingUp=false; log('act','자가 이상 시도 환자 안정'); say('patient','어지러워요…'); },{kind:'primary'}));
+  return {title:'환자 나예민 (60/F)', lines, actions:A};
+}
+function pcaSpec(){
+  const lines=['탄력식 PCA 용기에서 내려온 line이 roller clamp와 bolus 버튼을 지나 Rt. arm 정맥관 Y-port로 연결된다.'];
+  if(S.pcaTraced) lines.push({kv:[['line 꺾임','없음'],['clamp', S.clampOpen?'열림':'닫힘(잠김)']]});
+  if(S.pcaBolusTried) lines.push(S.clampOpen?'bolus 버튼을 누르자 약물이 line을 따라 이동한다.':'bolus 버튼을 길게 눌러도 line 내 약물 이동이 보이지 않는다.');
+  return {title:'PCA line · clamp · bolus 버튼', lines, actions:[
+    act('line을 PCA 용기에서 환자까지 추적',()=>{ S.pcaTraced=true; log('assess','PCA line 추적'); }),
+    act('bolus 버튼을 눌러 약물 이동 확인',()=>{ S.pcaBolusTried=true; log('assess','PCA bolus 이동 확인'); }),
+    judgeAct('pcaClamp'),
+    ...(S.det.E5&&!S.clampOpen?[act('clamp 개방 → 약물 이동 확인',()=>{ S.clampOpen=true; S.fix.E5=S.t; log('fix','E5 PCA clamp 개방'); toast('clamp를 열었습니다. 약물이 주입되기 시작합니다.'); },{kind:'primary'})]:[]),
+  ]};
+}
+function pumpSpec(){
+  const bol = S.bolusAt!==null && S.t < S.bolusAt+300;
+  const A=[judgeAct('pump')];
+  if(S.det.E4 && S.rate!==80) A.push(act('처방 재확인(5 Rights) 후 80 mL/hr로 설정',()=>{ S.rate=80; S.fix.E4=S.t; log('fix','E4 주입속도 80 mL/hr'); toast('수액조절기를 80 mL/hr로 설정했습니다.'); },{kind:'primary'}));
+  if(S.doctorAt!==null && S.bolusAt===null) A.push(act('Plasma 500 mL bolus 주입 시작',()=>{ S.bolusAt=S.t; log('fix',`수액 bolus 시작 (${fmt(S.t)})`); toast('Plasma 500 mL bolus 주입을 시작했습니다.'); },{kind:'primary', disabled:S.readBackAt===null, small:S.readBackAt===null?'구두처방을 재확인(read-back)한 뒤 시작할 수 있습니다.':'구두처방 재확인 완료'}));
+  return {title:'IV pole · 수액세트 · 수액조절기', lines:[
+    {kv:[['수액','Plasma Solution A 1 L (잔량 약 920 mL)'],['조절기 표시', bol?'BOLUS 500 mL 주입 중':`${S.rate} mL/hr`],['연결','Rt. arm 말초정맥관']]},
+    S.bolusAt!==null?{note:`bolus ${fmt(S.bolusAt)} 시작 — 종료 후 처방 유량(80 mL/hr) 유지 확인 필요`}:''].filter(Boolean), actions:A};
+}
+function jpSpec(){
+  if(S.jpSeenAt===null) S.jpSeenAt=S.t;
+  const lines=[];
+  if(S.practice) lines.push('bulb 압축 유지, 옅은 장액혈성 배액 약 30 mL. line은 환자복에 고정되어 있다.');
+  else {
+    lines.push({kv:[['bulb 내 배액',`선홍색 혈성 약 ${Math.round(S.jpAmt)} mL`],['누적 배액',`약 ${Math.round(S.jpTotal)} mL (인계: 도착 시 20 mL)`],['bulb',S.bulbCompressed?'압축·캡 잠김 (음압 유지)':'둥글게 팽창되어 있음'],['line·고정',S.linePinned?'정리 후 환자복에 고정핀 고정':'침상 아래로 늘어져 있고 고정핀 없음']]});
+    if(S.bulbCompressed) lines.push({note:'압축 후 선홍색 배액이 다시 빠르게 모이고 있다.'});
+  }
+  const A=[judgeAct('jp')];
+  if(S.det.E3 && !S.bulbCompressed) A.push(act('bulb 비우기(배액량 기록) → 완전 압축 → 캡 잠금',()=>{ S.jpEmptied+=S.jpAmt; log('fix',`E3 bulb 비움 ${Math.round(S.jpAmt)} mL·압축`); S.jpAmt=0; S.bulbCompressed=true; if(S.linePinned) S.fix.E3=S.t; toast('bulb를 비우고 압축했습니다.'); },{kind:'primary'}));
+  if(S.det.E3 && !S.linePinned) A.push(act('line 정리 → 환자복에 고정핀 고정',()=>{ S.linePinned=true; log('fix','E3 line 고정'); if(S.bulbCompressed) S.fix.E3=S.t; toast('JP line을 정리해 고정했습니다.'); },{kind:'primary'}));
+  return {title:'JP drain · bulb · 고정핀', lines, actions:A};
+}
+function chartSpec(){
+  const tab=S.chartTab||'order';
+  if(!S.chartSeen) S.chartSeen={}; if(!S.chartSeen[tab]){ S.chartSeen[tab]=S.t; log('chart',`차트 확인: ${tab}`); }
+  const tabs=[['order','Order Sheet'],['profile','프로필·과거력'],['mar','MAR·검사'],['handoff','인계']].map(([k,l])=>({tab:true,label:l,kind:k===tab?'primary':'',fn:()=>{ S.chartTab=k; refresh(); }}));
+  let lines;
+  if(tab==='order') lines=[{h:'POST OP ORDER · POD 0'},{table:[
+    ['수액','Plasma 1 L IV 80 mL/hr 지속'],
+    ['PCA','일회용 탄력식 IV PCA (basal + bolus) 지속 적용'],
+    ['PRN','N/S 50 mL + Tridol 50 mg IV, NRS 4점 이상, 1일 최대 4회·최소 4시간 간격'],
+    ['항생제','N/S 100 mL + Cefazolin 1 g IV q8hr, 30분 주입'],
+    ['호흡','EDBC 1~2시간마다 10회, semi-Fowler’s position'],
+    ['식이','수술 당일 NPO, 조기 이상 격려(출혈 징후 시 보류)'],
+    ['배액관','JP drain(bulb형 폐쇄식) 1개 — 음압 유지(bulb 압축 상태 유지)'],
+    ['드레싱','trocar site 3곳 5×5 gauze 유지'],
+    ['모니터링','V/S·SpO₂ post op 1hr×2, 2hr×3, 이후 q8hr, 측정 시 NRS 동시 사정'],
+    ['지시','Lt. arm save (Lt. arm BP·IV·채혈 금지)']]}];
+  else if(tab==='profile') lines=[{kv:[['성명','나예민 (F / 60세)'],['등록번호',PT.reg],['진단','Acute cholecystitis'],['수술','금일 Lap. cholecystectomy, 병동 복귀 1시간 경과'],['과거력','뇌경색·고혈압·고지혈증(10년 전)\nLt. breast cancer → Lt. MRM with ALND (5년 전)'],['알레르기','약물·음식 없음'],['신장/체중','158 cm / 60 kg'],['보호자','남편 (63세), 상주']]}];
+  else if(tab==='mar') lines=[{h:'직전 투약기록 (MAR)'},'수술 전 Norvasc 5 mg 1T PO만 NPO except medi로 복용 (Lipitor·Aspirin 보류).','수술 후 PRN Tridol 투약 0회. IV PCA는 회복실에서 개통, 병동 도착 시 연결 상태.','Cefazolin 1 g 수술 전 1회, 병동 복귀 후 q8hr 예정.',
+    {h:'최근 검사'},{table:[['CBC','WBC 15.4↑ · Hb 10.0 · PLT 231'],['Chem','Na 137 · K 3.8 · Cl 103 · BUN 14.0 · Cr 0.62'],['LFT','AST 275↑ · ALT 182↑'],['CRP','25.2 mg/dL↑'],['Coag','PT 77% · aPTT 37 sec'],['CT','Acute cholecystitis']]}];
+  else lines=[{say:'handoff',text:HANDOFF}];
+  const A=[...tabs];
+  if(tab==='handoff') A.push({label:'인계 다시 듣기',fn:()=>say('handoff',HANDOFF)});
+  return {title:'의무기록 (EMR 태블릿)', eyebrow:'외재적 단서', lines, actions:A};
+}
+
+/* ---- SBAR 전화 ---- */
+const SB = [
+  {k:'S1', l:()=>`S · 환자 식별: 나예민 님(60/F), 등록번호 ${PT.reg}`, ok:()=>true},
+  {k:'S2', l:()=>`S · JP drain 선홍색 혈성 배액 누적 약 ${Math.round(S.jpTotal)} mL(도착 시 20 mL), RUQ dressing bloody oozing`, ok:()=>S.jpSeenAt!==null, need:'JP drain 사정 필요'},
+  {k:'B1', l:()=>'B · POD 0 Lap. cholecystectomy(급성담낭염), Lt. MRM·ALND 과거력(Lt. arm save)', ok:()=>true},
+  {k:'A1', l:()=> S.vs?`A · V/S BP ${S.vs.sbp}/${S.vs.dbp} · PR ${S.vs.pr} · RR ${S.vs.rr} · SpO₂ ${S.vs.spo2}% (${fmt(S.vs.t)} 측정)`:'A · V/S', ok:()=>!!S.vs, need:'V/S 측정 필요'},
+  {k:'A2', l:()=> S.lastNRS!==null?`A · 통증 NRS ${S.lastNRS}점${S.clampOpen?', PCA clamp 개방 후 재사정':''}`:'A · 통증 NRS', ok:()=>S.lastNRS!==null, need:'통증 사정 필요'},
+  {k:'A3', l:()=>'A · 수술 부위 출혈이 의심됨', ok:()=>!!S.det.E2, need:'출혈 판단 기록 필요'},
+  {k:'A4', l:()=>'A · 교정한 사항: '+(Object.keys(S.fix).filter(k=>k!=='E7'||true).map(k=>({E1:'손목밴드',E3:'JP 음압·고정',E4:'수액 80 mL/hr',E5:'PCA clamp 개방',E6:'cuff Rt. arm',E7:'semi-Fowler’s',E8rail:'side rail',E8bell:'call bell'})[k]).filter(Boolean).join(', ')||'없음'), ok:()=>Object.keys(S.fix).length>0, need:'교정 기록 없음'},
+  {k:'R1', l:()=>'R · 확인·진찰 및 처치 지시를 요청드립니다', ok:()=>true},
+];
+function phoneSpec(){
+  if(!S.call) return {title:'전화기 (담당의 연결)', eyebrow:'SBAR 보고', lines:['담당의에게 전화로 SBAR 보고를 할 수 있습니다. 통화 시작부터 1분 이내 보고가 권장 기준입니다.',
+      S.sbarDone!==null?{note:`보고 완료 ${fmt(S.sbarDone)} (소요 ${S.sbarReal}초)`}:''].filter(Boolean),
+    actions:[act('담당의에게 전화 걸기',()=>{ S.call={start:performance.now(),sel:{},resp:[]}; log('sbar','통화 시작'); say('doctor','네, 외과 담당의입니다. 말씀하세요.'); },{kind:'primary'})]};
+  const el=Math.round((performance.now()-S.call.start)/1000);
+  const lines=[{note:`통화 ${el}초 경과 · 보고에 포함할 내용을 선택한 뒤 “보고하기”를 누르세요.`}];
+  S.call.resp.slice(-3).forEach(r=>lines.push({say:r.role,text:r.text}));
+  const A=SB.map(it=>{ const ok=it.ok(); const on=!!S.call.sel[it.k];
+    return {label:(on?'☑ ':'☐ ')+it.l(), small: ok?'':it.need, kind:'check'+(on?' sel':''), disabled:!ok, fn:()=>{ S.call.sel[it.k]=!on; refresh(); }}; });
+  A.push(act('보고하기',sbarSubmit,{kind:'primary'}));
+  if(S.doctorAt!==null && S.readBackAt===null) A.push(act('구두처방 재확인 (read-back): “Plasma 500 mL bolus 주입 후 80 mL/hr 유지, 맞습니까?”',()=>{ S.readBackAt=S.t; log('sbar','구두처방 read-back'); docSay('네, 맞습니다.'); },{kind:'warn'}));
+  A.push(act('통화 종료',()=>{ S.call=null; log('sbar','통화 종료'); }));
+  return {title:'담당의 통화 — SBAR', eyebrow:'SBAR 보고', lines, actions:A};
+}
+function docSay(text){ S.call&&S.call.resp.push({role:'doctor',text}); say('doctor',text); }
+function sbarSubmit(){
+  const s=S.call.sel; S.sbarAttempts++;
+  const stale = S.vs && S.det.E2 && S.vs.t < S.det.E2.t;
+  const parts=Object.keys(s).filter(k=>s[k]).join(','); log('sbar',`보고 시도 #${S.sbarAttempts}: ${parts||'(없음)'}`);
+  if(!s.S1){ docSay('환자 성함과 등록번호를 다시 확인해 주세요.'); return; }
+  const miss=[];
+  if(!s.A1 || stale) miss.push(stale?'현재 활력징후는요? 출혈 확인 후 다시 측정한 값으로 알려주세요.':'현재 활력징후는요?');
+  if(!s.S2) miss.push('배액 양상과 양은 어떤가요?');
+  if(!s.A2) miss.push('통증 정도는요?');
+  if(!s.B1) miss.push('수술명과 과거력도 말씀해 주세요.');
+  if(!s.R1) miss.push('어떤 조치를 원하시나요?');
+  if(miss.length){ docSay(miss.join(' ')); return; }
+  const real=Math.round((performance.now()-S.call.start)/1000);
+  const bleed=!!(s.A3&&s.S2);
+  if(S.sbarDone===null){ S.sbarDone=S.t; S.sbarReal=real; }
+  if(bleed && !S.sbarBleed){ S.sbarBleed=true; S.sbarBleedAt=S.t; }
+  log('sbar',`SBAR 보고 완료 (${real}초${bleed?', 출혈 의심 포함':''})`);
+  if(bleed && S.doctorAt===null){
+    S.doctorAt=S.t; log('order','구두처방: Plasma 500 mL bolus, 이후 80 mL/hr 유지');
+    docSay('현재 활력징후와 통증 정도, JP drain 배액 양상과 양을 다시 확인해 주세요. PCA 및 배액관 상태를 확인하고 이상이 지속되면 다시 보고해 주세요. 출혈이 의심되니 현재 수액(Plasma)으로 500 mL bolus 주입해 주시고, 이후 처방대로 80 mL/hr로 유지되는지 확인해 주세요.');
+  } else if(S.doctorAt!==null){ docSay('곧 병실로 가겠습니다. 그때까지 활력징후를 재측정하고 계속 관찰해 주세요.'); }
+  else docSay('알겠습니다. 계속 관찰하시고 이상이 있으면 다시 보고해 주세요.');
+}
+
+/* =========================================================
+   6. 시간 앵커 이벤트 (4-4)
+   ========================================================= */
+function tick(dt){
+  if(S.mode!=='run') return;
+  S.t+=dt*S.speed; const t=S.t;
+  // drainage accumulation
+  const rate = (S.bulbCompressed?12:3.5) * (S.bolusAt!==null&&t>S.bolusAt+60?.7:1) * (t>=300&&bleedingUntreated()?1.6:1);
+  const add=rate*dt*S.speed/60; S.jpAmt+=add; S.jpTotal+=add;
+  if(!S.ev.e120 && t>=120){ S.ev.e120=1; S.guardianAt=t; log('event','2분 — 보호자 등장'); say('guardian','너무 아파하는 거 아니에요? 의사는 언제와요?'); S.guardianLines=1; S.nextG=t+45; }
+  if(S.guardianAt!==null && !S.guardianCalm && S.guardianLines<4 && t>=S.nextG){ S.guardianLines++; S.nextG=t+45; say('guardian','의사는 언제 와요? 너무 아파하잖아요.'); }
+  if(!S.ev.e180 && t>=180){ S.ev.e180=1;
+    if(S.openQAt===null) log('miss','3분 — 환자확인 미수행 (E1)');
+    if(!S.clampOpen){ log('event','3분 — 통증 트랙 악화 (NRS 7, PR 98, BP 150/95)'); say('patient','(신음) 아까보다 더 아파요…'); }
+  }
+  if(!S.ev.e300 && t>=300){ S.ev.e300=1;
+    if(bleedingUntreated()&&!(S.bolusAt!==null&&S.bolusAt<300)){ log('event','5분 — 출혈 트랙 보상기 (빈맥·빈호흡, oozing 증가)'); S.ooze=1.6; }
+    ['E2','E3','E4','E6','E7'].forEach(e=>{ if(!S.det[e]) log('miss',`5분 — ${e} 미탐지`); });
+    if(!S.clampOpen){ S.hintAt=t; log('cue','5분 — 보호자 구조 단서 (PCA)'); say('guardian','저기 이상한 것 같은데 좀 봐주세요.'); }
+  }
+  if(!S.ev.e480 && t>=480){ S.ev.e480=1;
+    banner('남은 시간 2분',6000); log('event','8분 — 남은 시간 2분 경고');
+    if(bleedingUntreated()){
+      S.ooze=2.1; log('event','8분 — 중증 악화 BP 90/60 · PR 120 · RR 28'); S.fallAttemptAt=t; S.sittingUp=true;
+      say('patient','어지러워요… 화장실 가야 할 것 같아요.');
+      if(!(S.railLUp&&S.bellReach)){ S.fallEventAt=t; log('fall','8분 — 낙상 위험 이벤트 (E8 미교정 상태에서 자가 이상 시도)'); setTimeout(()=>banner('낙상 위험! 환자가 내려간 side rail 쪽으로 일어나려 합니다',6000),1200); }
+      else log('event','자가 이상 시도 — side rail·call bell 교정되어 낙상 위험 이벤트 미발생');
+    }
+    if(!S.det.E8) log('miss','8분 — E8 미탐지');
+  }
+  if(S.bolusAt!==null && !S.ev.rec && t>=S.bolusAt+60 && S.bolusAt>=300){ S.ev.rec=1; log('event',`bolus 1분 경과 — 부분 회복 적용 (${S.bolusAt<480?'BP 136/88 · PR 100':'BP 100/64 · PR 108'})`); }
+  // all-clear end (㉮)
+  if(!S.ev.allDone && allDone()){ S.ev.allDone=1; log('event','전수 탐지·조치 + SBAR 완료'); banner('모든 항목 조치와 SBAR 보고가 완료되었습니다',3000); setTimeout(()=>endRun('complete'),2500); }
+  if(t>=600){ S.t=600; log('event','10분 00초 — Time-out'); endRun('timeout'); }
+}
+function allDone(){
+  const allDet=Object.keys(ERR).every(e=>S.det[e]);
+  const fixed=S.bandFixed&&S.bulbCompressed&&S.linePinned&&S.rate===80&&S.clampOpen&&S.cuffArm==='R'&&S.bedAngle>=30&&S.bedAngle<=45&&S.railLUp&&S.bellReach;
+  return allDet&&fixed&&S.bolusAt!==null&&S.sbarBleed;
+}
+
+/* =========================================================
+   7. 평가 (6-1)
+   ========================================================= */
+function evaluate(){
+  const rows=[]; let errPts=0, idCount=0;
+  for(const [e,info] of Object.entries(ERR)){
+    const d=S.det[e]; let pts=0, status='미탐지';
+    if(d){ idCount++;
+      let full = d.q==='full' && !d.late;
+      if(e==='E2' && !S.sbarBleed) full=false;
+      pts = full?info.pts:info.pts/2; status = full?'전점':'50%';
+    }
+    errPts+=pts; rows.push({e,info,d,pts,status});
+  }
+  const C={};
+  C.C1 = S.handHygieneAt!==null && S.openQAt!==null && S.handHygieneAt<=S.openQAt && !!S.det.E1 && S.bandFixed;
+  C.C2 = !!S.vs && S.vsHist.some(v=>v.arm==='R') && S.lastNRS!==null && !S.ltViolation;
+  C.C3 = !!S.det.E2 && S.jpSeenAt!==null && S.ruqSeenAt!==null;
+  C.C4 = S.bulbCompressed && S.linePinned;
+  C.C5 = S.bedAngle>=30 && S.bedAngle<=45 && S.fix.E7!==undefined;
+  C.C6 = S.rate===80;
+  C.C7 = S.cuffArm==='R';
+  C.C8 = S.clampOpen && S.pcaEduAt!==null;
+  C.C9 = S.railLUp && S.bellReach;
+  C.C10 = S.sbarDone!==null && S.sbarReal<=60;
+  const cCount=Object.values(C).filter(Boolean).length;
+  const chkPts=cCount/10*35;
+  const bonus=[];
+  if(S.det.E2 && S.det.E2.t<=300 && S.sbarBleed && S.sbarBleedAt<=300) bonus.push('E2');
+  if(S.det.E3 && S.det.E3.t<=300) bonus.push('E3');
+  if(S.det.E5 && S.det.E5.t<=300) bonus.push('E5');
+  const fpKeys=Object.keys(S.fp); const fpPen=Math.min(10,fpKeys.length*2);
+  const total=Math.max(0,Math.min(100,errPts+chkPts+bonus.length*2-fpPen));
+  const hiDet=['E2','E3','E4','E5','E8'].every(e=>S.det[e]);
+  const pass= total>=80 && idCount>=7 && hiDet;
+  // 4-2 지표
+  const firstDet=Math.min(...Object.values(S.det).map(d=>d.t), Infinity);
+  const seq=[]; const seen=new Set(); S.visits.forEach(v=>{ const st=STEP[v.id]; if(st&&!seen.has(st)){ seen.add(st); seq.push(st); } });
+  const lis=(a=>{ const d=[]; a.forEach(x=>{ let i=d.findIndex(y=>y>=x); if(i<0) d.push(x); else d[i]=x; }); return d.length; })(seq);
+  return {rows,errPts,idCount,C,cCount,chkPts,bonus,fpKeys,fpPen,total,pass,hiDet,firstDet,seq,congruence:Math.round(lis/9*100)};
+}
+
+/* =========================================================
+   8. 흐름 제어
+   ========================================================= */
+let retryUsed=false;
+function startRun(mode){
+  const keepSpeed=S.speed; S=fresh(mode); S.speed=keepSpeed; lineKey=''; remoteScr.k=pumpScr.k=null;
+  closePanel(); $('intro').hidden=true; $('result').hidden=true;
+  $('bEnd').disabled=false; $('bStop').disabled=false;
+  $('bEnd').textContent = mode==='practice'?'연습 종료':'수행 종료';
+  setView('door');
+  if(mode==='practice'){ say('system','연습 병실입니다. 오류가 배치되어 있지 않습니다. 이동·시점 전환·물체 확인을 연습하세요.'); }
+  else { log('event','병실 진입 — 0분'); say('handoff',HANDOFF); }
+  ac();
+}
+function endRun(reason){
+  if(S.mode!=='run' && S.mode!=='practice') return;
+  if(S.mode==='practice'){ S.mode='idle'; closePanel(); $('intro').hidden=false; $('bEnd').disabled=true; $('bStop').disabled=true; return; }
+  S.mode='ended'; S.ended=reason; closePanel(); $('bEnd').disabled=true; $('bStop').disabled=true;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  if(reason==='stop') log('event','학습자 중단 요청 — 즉시 종료');
+  if(reason==='manual') log('event',`학습자 수행 종료 (${fmt(S.t)})`);
+  showResult();
+  if(renderer.xr.isPresenting){ vrKind='result'; drawVRPanel(vrResultSpec(),true); }
+}
+$('goPractice').onclick=()=>startRun('practice');
+$('goRun').onclick=()=>startRun('run');
+$('bEnd').onclick=()=>endRun(S.mode==='practice'?'practice':'manual');
+$('bStop').onclick=()=>endRun(S.mode==='practice'?'practice':'stop');
+$('speedSeg').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.speed=+b.dataset.s; [...$('speedSeg').children].forEach(x=>x.classList.toggle('on',x===b)); };
+$('bVoice').onclick=()=>{ voiceOn=!voiceOn; $('bVoice').textContent=voiceOn?'음성 켜짐':'음성 꺼짐'; $('bVoice').classList.toggle('on',voiceOn); $('bVoice').setAttribute('aria-pressed',voiceOn); if(!voiceOn) try{speechSynthesis.cancel();}catch(e){} };
+$('bSound').onclick=()=>{ soundOn=!soundOn; ac()?.resume?.(); $('bSound').textContent=soundOn?'효과음 켜짐':'효과음 꺼짐'; $('bSound').classList.toggle('on',soundOn); $('bSound').setAttribute('aria-pressed',soundOn); };
+
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+function showResult(){
+  const R=evaluate();
+  const reasonTxt={timeout:'Time-out 10분 00초',complete:'전수 탐지·조치 + SBAR 완료',manual:'학습자 수행 종료',stop:'학습자 중단 요청'}[S.ended];
+  const pill=(ok,half)=> ok?'<span class="pill ok">충족</span>':half?'<span class="pill half">부분</span>':'<span class="pill no">미충족</span>';
+  const errRows=R.rows.map(r=>`<tr><td><b>${r.e}</b></td><td>${esc(r.info.name)}<br><span class="muted">위해도 ${r.info.risk}</span></td><td class="mono">${r.d?fmt(r.d.t):'—'}</td><td>${r.d?esc(r.d.reason)+(r.d.late?' <span class="pill half">단서 이후</span>':''):'<span class="muted">미탐지</span>'}</td><td>${r.d?(r.status==='전점'?'<span class="pill ok">전점</span>':'<span class="pill half">50%</span>'):'<span class="pill no">0</span>'}</td><td class="mono">${r.pts} / ${r.info.pts}</td></tr>`).join('');
+  const chkRows=Object.entries(CHECK).map(([k,v])=>`<tr><td><b>${k}</b></td><td>${esc(v)}</td><td>${pill(R.C[k])}</td></tr>`).join('');
+  const logRows=S.log.map(l=>`<tr><td class="mono">${fmt(l.t)}</td><td>${esc(l.type)}</td><td>${esc(l.text)}</td></tr>`).join('');
+  const sbarTxt = S.sbarDone!==null ? `${fmt(S.sbarDone)} · ${S.sbarReal}초 · 시도 ${S.sbarAttempts}회${S.sbarBleed?' · 출혈 의심 보고':''}` : '보고 없음';
+  const payload={scenario:'Room of Errors — Lap. chole POD0 (2조)', ended:S.ended, time:+S.t.toFixed(1), score:+R.total.toFixed(1), pass:R.pass,
+    errors:Object.fromEntries(R.rows.map(r=>[r.e,{detectedAt:r.d?+r.d.t.toFixed(1):null, quality:r.d?.q??null, late:r.d?.late??false, points:r.pts}])),
+    checklist:R.C, falsePositives:R.fpKeys.map(k=>FP_NAME[k]), bonus:R.bonus, sbar:{doneAt:S.sbarDone, seconds:S.sbarReal, attempts:S.sbarAttempts, bleeding:S.sbarBleed},
+    metrics:{timeToFirstDetection:isFinite(R.firstDet)?+R.firstDet.toFixed(1):null, routeCongruencePct:R.congruence, firstVisitStepOrder:R.seq, repeatedLooks:S.repeats},
+    log:S.log};
+  $('resultSheet').innerHTML=`
+    <div class="eyebrow">결과 요약 · ${esc(reasonTxt)}</div>
+    <h1>${R.pass?'통과':'재시행 대상'} · ${R.total.toFixed(1)}점</h1>
+    <p class="lede">통과 기준은 총점 80점 이상, 오류 식별률 87.5%(7/8) 이상, 고위험 오류 E2·E3·E4·E5·E8 모두 탐지입니다. ${R.pass?'세 조건을 모두 충족했습니다.':'충족하지 못한 조건이 있어 1회(10분) 재시행 대상입니다.'}</p>
+    <div class="scorebar">
+      <div class="tile"><div class="k">총점</div><div class="v">${R.total.toFixed(1)}</div><div class="s">${pill(R.total>=80)} 기준 80</div></div>
+      <div class="tile"><div class="k">오류 식별률</div><div class="v">${R.idCount}/8</div><div class="s">${pill(R.idCount>=7)} ${(R.idCount/8*100).toFixed(1)}% · 가중 ${(R.errPts/65*100).toFixed(0)}%</div></div>
+      <div class="tile"><div class="k">고위험 오류 탐지</div><div class="v">${['E2','E3','E4','E5','E8'].filter(e=>S.det[e]).length}/5</div><div class="s">${pill(R.hiDet)} E2·E3·E4·E5·E8</div></div>
+      <div class="tile"><div class="k">체크리스트</div><div class="v">${R.cCount}/10</div><div class="s">${R.chkPts.toFixed(1)} / 35점</div></div>
+      <div class="tile"><div class="k">가산·감점</div><div class="v">+${R.bonus.length*2} / −${R.fpPen}</div><div class="s">신속 탐지 ${R.bonus.join('·')||'없음'} · 위양성 ${R.fpKeys.length}건</div></div>
+    </div>
+    <section class="block"><h2>오류별 탐지 (65점)</h2><div class="tablewrap"><table><thead><tr><th>ID</th><th>오류</th><th>탐지</th><th>선택한 근거</th><th>인정</th><th>점수</th></tr></thead><tbody>${errRows}</tbody></table></div>
+      <p class="muted" style="margin-top:6px">근거가 부정확하거나 단서 제공 이후(5분 보호자 PCA 단서 후 E5, 담당의 수액 지시 후 E4) 탐지하면 50% 인정. E2는 담당의 보고(출혈 의심 포함)까지 해야 전점입니다.</p></section>
+    <section class="block"><h2>필수 중재 체크리스트 (35점)</h2><div class="tablewrap"><table><thead><tr><th>항목</th><th>내용</th><th>결과</th></tr></thead><tbody>${chkRows}</tbody></table></div></section>
+    <section class="block"><h2>SBAR · 위양성 · 탐색 지표</h2>
+      <div class="grid" style="margin-top:8px">
+        <div class="card"><p><b>SBAR</b> ${esc(sbarTxt)}</p><p class="muted">수액 bolus ${S.bolusAt!==null?fmt(S.bolusAt)+' 시작':'미시행'}</p></div>
+        <div class="card"><p><b>위양성</b> ${R.fpKeys.length?R.fpKeys.map(k=>esc(FP_NAME[k])).join(', '):'없음'}</p><p class="muted">1건당 −2점, 최대 −10점</p></div>
+        <div class="card"><p><b>최초 탐지</b> ${isFinite(R.firstDet)?fmt(R.firstDet):'—'} (기준 0:50, 허용 1:30)</p><p><b>권장 동선 일치도</b> ${R.congruence}% (기준 60%)</p><p><b>불필요 재확인</b> ${S.repeats}회 (기준 3회 이하)</p><p class="muted">성찰 자료 · 점수 미반영</p></div>
+      </div></section>
+    <section class="block"><h2>탐색 로그</h2><div class="tablewrap"><table><thead><tr><th>시각</th><th>유형</th><th>내용</th></tr></thead><tbody>${logRows}</tbody></table></div>
+      <div class="row"><button class="btn" id="copyLog">로그 JSON 복사</button><span class="muted" id="copyMsg"></span></div>
+      <textarea id="logOut" readonly></textarea></section>
+    <div class="row">
+      <button class="btn primary big" id="retry" ${retryUsed?'disabled':''}>${retryUsed?'재시도 사용함':'재시도 (1회 · 10분)'}</button>
+      <button class="btn big" id="toIntro">프리브리핑 화면으로</button>
+    </div>`;
+  $('logOut').value=JSON.stringify(payload,null,2);
+  $('copyLog').onclick=async()=>{ try{ await navigator.clipboard.writeText($('logOut').value); $('copyMsg').textContent='복사했습니다.'; }catch(e){ $('logOut').select(); $('copyMsg').textContent='텍스트를 선택했습니다. Ctrl+C로 복사하세요.'; } };
+  $('retry').onclick=()=>{ retryUsed=true; startRun('run'); };
+  $('toIntro').onclick=()=>{ $('result').hidden=true; $('intro').hidden=false; S.mode='idle'; };
+  $('result').hidden=false; $('result').scrollTop=0;
+}
+
+/* =========================================================
+   9. 데스크톱 조작
+   ========================================================= */
+const VIEWS={
+  door:{p:[-1.5,0.7],look:[-1.2,0.85,-1.7]},
+  right:{p:[-1.3,-0.05],look:[-.2,.7,-.25]},
+  left:{p:[1.2,-0.45],look:[0.1,.6,-.2]},
+  foot:{p:[0.0,2.35],look:[0,.75,-.35]},
+};
+function setView(k){
+  const v=VIEWS[k]; rig.position.set(v.p[0],0,v.p[1]); rig.rotation.set(0,0,0);
+  const d=new THREE.Vector3(v.look[0]-v.p[0], v.look[1]-1.6, v.look[2]-v.p[1]);
+  yaw=Math.atan2(-d.x,-d.z); pitch=Math.atan2(d.y,Math.hypot(d.x,d.z));
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+setView('foot');
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+let down=null, hoverObj=null;
+function pick(cx,cy){
+  const r=renderer.domElement.getBoundingClientRect(); ndc.set((cx-r.left)/r.width*2-1, -(cy-r.top)/r.height*2+1);
+  ray.setFromCamera(ndc,camera); return castAll();
+}
+function castAll(){
+  const hits=ray.intersectObjects([...INTER,floorMesh],true).filter(h=>visibleChain(h.object));
+  for(const h of hits){ if(h.object===floorMesh) return {floor:h.point}; const o=findIid(h.object); if(o) return {obj:o,point:h.point}; }
+  return {};
+}
+function clampPos(x,z){
+  x=THREE.MathUtils.clamp(x,ROOM.x0+.3,ROOM.x1-.3); z=THREE.MathUtils.clamp(z,ROOM.z0+.3,ROOM.z1-.3);
+  if(x>-.75&&x<.75&&z>-1.3&&z<1.35){ const dx=x<0?-.75-x:.75-x, dz=z<0?-1.3-z:1.35-z; if(Math.abs(dx)<Math.abs(dz)) x+=dx; else z+=dz; }
+  if(x<-.6 && x>-1.1 && z>-.85 && z<-.25) x=-1.1;
+  return [x,z];
+}
+const cv=renderer.domElement;
+cv.addEventListener('pointerdown',e=>{ down={x:e.clientX,y:e.clientY,yaw,pitch,moved:false,id:e.pointerId}; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove',e=>{
+  if(down){ const dx=e.clientX-down.x, dy=e.clientY-down.y; if(Math.hypot(dx,dy)>5) down.moved=true;
+    if(down.moved){ yaw=down.yaw+dx*.005; pitch=THREE.MathUtils.clamp(down.pitch+dy*.004,-1.2,1.0); $('tip').hidden=true; return; } }
+  if(e.pointerType==='mouse'){ const h=pick(e.clientX,e.clientY); setHover(h.obj||null);
+    const tip=$('tip'); if(h.obj&&S.mode!=='idle'){ tip.textContent=LABEL[h.obj.userData.iid]; tip.style.left=e.clientX+'px'; tip.style.top=e.clientY+'px'; tip.hidden=false; } else tip.hidden=true; }
+});
+cv.addEventListener('pointerup',e=>{
+  if(down&&!down.moved){ const h=pick(e.clientX,e.clientY);
+    if(h.obj) openObj(h.obj.userData.iid);
+    else if(h.floor && S.mode!=='idle'){ const [x,z]=clampPos(h.floor.x,h.floor.z); rig.position.x=x; rig.position.z=z; } }
+  down=null;
+});
+cv.addEventListener('pointerleave',()=>{ $('tip').hidden=true; setHover(null); });
+function setHover(o){
+  if(hoverObj===o) return;
+  const paint=(obj,on)=>obj&&obj.traverse(m=>{ if(m.isMesh&&m.material.emissive) m.material.emissive.setHex(on?0x1d6f68:0x000000); });
+  paint(hoverObj,false); hoverObj=o; if(S.mode!=='idle') paint(hoverObj,true);
+  cv.style.cursor=o&&S.mode!=='idle'?'pointer':'grab';
+}
+const keys={};
+addEventListener('keydown',e=>{ if(e.target.tagName==='TEXTAREA') return; keys[e.code]=true; if(e.code==='Escape') closePanel(); });
+addEventListener('keyup',e=>{ keys[e.code]=false; });
+function moveKeys(dt){
+  let f=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0), s=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0);
+  if(!f&&!s) return; const sp=1.4*dt;
+  const x=rig.position.x + (-Math.sin(yaw)*f + Math.cos(yaw)*s)*sp, z=rig.position.z + (-Math.cos(yaw)*f - Math.sin(yaw)*s)*sp;
+  const [cx,cz]=clampPos(x,z); rig.position.x=cx; rig.position.z=cz;
+}
+addEventListener('resize',()=>{ const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); });
+
+/* =========================================================
+   10. WebXR (immersive-vr)
+   ========================================================= */
+const vrPanelC=document.createElement('canvas'); vrPanelC.width=1024; vrPanelC.height=1024;
+let vrPanelTex=new THREE.CanvasTexture(vrPanelC); vrPanelTex.colorSpace=THREE.SRGBColorSpace;
+const vrPanel=new THREE.Mesh(new THREE.PlaneGeometry(.8,.8),new THREE.MeshBasicMaterial({map:vrPanelTex,transparent:true,toneMapped:false,side:THREE.DoubleSide}));
+vrPanel.visible=false; scene.add(vrPanel);
+let vrButtons=[], vrHover=-1, vrSpec=null;
+function wrap(g,text,maxW){ const out=[]; for(const para of String(text).split('\n')){ let line=''; for(const ch of para){ if(g.measureText(line+ch).width>maxW && line){ out.push(line); line=ch; } else line+=ch; } out.push(line); } return out; }
+function drawVRPanel(spec,place){
+  vrSpec=spec; const W=1024, g=vrPanelC.getContext('2d'); g.font=`500 30px ${FONT}`;
+  const pad=36, inner=W-pad*2;
+  const textLines=[];
+  for(const L of spec.lines){
+    if(typeof L==='string') wrap(g,L,inner).forEach(s=>textLines.push({s}));
+    else if(L.kv) L.kv.forEach(([k,v])=>wrap(g,`${k}: ${v}`,inner).forEach(s=>textLines.push({s})));
+    else if(L.note) wrap(g,L.note,inner).forEach(s=>textLines.push({s,c:'#55625f'}));
+    else if(L.flag) wrap(g,L.flag,inner).forEach(s=>textLines.push({s,c:'#9a4a00'}));
+    else if(L.h) textLines.push({s:L.h,c:'#0e6f6a'});
+    else if(L.say) wrap(g,`${ROLE[L.say].who}: ${L.text}`,inner).forEach(s=>textLines.push({s,c:'#0b4f4b'}));
+    else if(L.table) L.table.forEach(r=>wrap(g,r.join(' — '),inner).forEach(s=>textLines.push({s})));
+  }
+  const acts=[...spec.actions, {label:'닫기', fn:closePanel}];
+  g.font=`500 28px ${FONT}`;
+  const btnLayout=acts.map(a=>{ const ls=wrap(g,a.label+(a.small?` (${a.small})`:''),inner-40); return {a,ls,h:Math.max(64,ls.length*36+24)}; });
+  const H=Math.min(1700, 110 + textLines.length*40 + 24 + btnLayout.reduce((s,b)=>s+b.h+10,0) + 20);
+  if(vrPanelC.height!==H){ vrPanelC.height=H; vrPanelTex.dispose(); vrPanelTex=new THREE.CanvasTexture(vrPanelC); vrPanelTex.colorSpace=THREE.SRGBColorSpace; vrPanel.material.map=vrPanelTex; vrPanel.material.needsUpdate=true; }
+  g.fillStyle='#fbfcfb'; g.fillRect(0,0,W,H); g.strokeStyle='#0e6f6a'; g.lineWidth=6; g.strokeRect(3,3,W-6,H-6);
+  g.fillStyle='#0e6f6a'; g.font=`600 24px ${FONT}`; g.fillText(spec.eyebrow||'',pad,46);
+  g.fillStyle='#16201f'; g.font=`700 40px ${FONT}`; g.fillText(spec.title,pad,92);
+  let y=140; g.font=`500 30px ${FONT}`;
+  textLines.forEach(l=>{ g.fillStyle=l.c||'#16201f'; g.fillText(l.s,pad,y); y+=40; });
+  y+=14; vrButtons=[];
+  g.font=`500 28px ${FONT}`;
+  btnLayout.forEach((b,i)=>{
+    const dis=b.a.disabled, prim=(b.a.kind||'').includes('primary'), sel=(b.a.kind||'').includes('sel'), warn=(b.a.kind||'').includes('warn');
+    g.fillStyle= i===vrHover&&!dis?'#cfe9e6': prim?'#0e6f6a': sel?'#d9ecea': warn?'#fbecd9':'#eef2f1';
+    g.fillRect(pad,y,inner,b.h); g.strokeStyle='#b8c6c3'; g.lineWidth=2; g.strokeRect(pad,y,inner,b.h);
+    g.fillStyle= dis?'#9aa5a3': prim&&i!==vrHover?'#ffffff':'#16201f';
+    b.ls.forEach((s,j)=>g.fillText(s,pad+20,y+42+j*36));
+    vrButtons.push({x:pad,y,w:inner,h:b.h,a:b.a}); y+=b.h+10;
+  });
+  vrPanelTex.needsUpdate=true;
+  vrPanel.scale.set(1,H/W,1); vrPanel.visible=true;
+  if(place){
+    const cp=new THREE.Vector3(), cd=new THREE.Vector3(); camera.getWorldPosition(cp); camera.getWorldDirection(cd); cd.y=0; cd.normalize();
+    const ph=.8*H/W; vrPanel.position.copy(cp).addScaledVector(cd,.85); vrPanel.position.y=Math.max(ph/2+.05, cp.y-.02-ph/2); vrPanel.lookAt(cp.x,vrPanel.position.y,cp.z);
+  }
+}
+function vrPanelHit(uv){ const H=vrPanelC.height, px=uv.x*1024, py=(1-uv.y)*H; return vrButtons.findIndex(b=>px>=b.x&&px<=b.x+b.w&&py>=b.y&&py<=b.y+b.h); }
+function vrSystemSpec(){ return {title:'메뉴', eyebrow:'시스템', lines:[S.mode==='run'?`경과 ${fmt(S.t)} · 남은 시간 ${fmt(600-S.t)}`:'대기 중'], actions:[
+  ...(S.mode==='idle'?[{label:'연습 병실 시작',fn:()=>{startRun('practice');closePanel();}},{label:'시나리오 시작 · 10:00',kind:'primary',fn:()=>{startRun('run');closePanel();}}]:[]),
+  ...(S.mode==='run'||S.mode==='practice'?[{label:S.mode==='practice'?'연습 종료':'수행 종료',fn:()=>endRun(S.mode==='practice'?'practice':'manual')},{label:'중단하겠습니다',kind:'warn',fn:()=>endRun(S.mode==='practice'?'practice':'stop')}]:[]),
+  {label:'VR 종료',fn:()=>renderer.xr.getSession()?.end()} ]}; }
+function vrResultSpec(){ const R=evaluate(); return {title:`${R.pass?'통과':'재시행 대상'} · ${R.total.toFixed(1)}점`, eyebrow:'결과 요약', lines:[
+  `오류 식별 ${R.idCount}/8 · 체크리스트 ${R.cCount}/10 · 가산 +${R.bonus.length*2} · 위양성 −${R.fpPen}`,
+  ...R.rows.map(r=>`${r.e} ${r.d?'탐지 '+fmt(r.d.t)+' · '+r.status:'미탐지'}`),{note:'자세한 결과와 로그는 VR을 종료하면 화면에서 볼 수 있습니다.'}], actions:[{label:'VR 종료',fn:()=>renderer.xr.getSession()?.end()}]}; }
+
+// HUD (head-locked)
+const hud=canvasPlane(.42,.105,1024,256); hud.mesh.material.transparent=true; hud.mesh.position.set(0,-.2,-.75); camera.add(hud.mesh); hud.mesh.visible=false;
+let hudDirty=true, hudLast='', vrToast=null;
+function drawHUD(){
+  const g=hud.ctx; const sec=Math.floor(S.t);
+  const sub = lastSay && performance.now()<lastSay.until ? lastSay : null;
+  const tst = vrToast && performance.now()<vrToast.until ? vrToast : null;
+  const key=[sec,S.mode,sub?.text,tst?.text].join('|'); if(key===hudLast) return; hudLast=key;
+  g.clearRect(0,0,1024,256);
+  g.fillStyle='rgba(12,18,17,.78)'; g.fillRect(0,0,1024,72);
+  g.fillStyle=S.t>=480?'#ff8a80':'#e6f2ef'; g.font=`600 40px ${MONO}`; g.fillText(S.mode==='run'?fmt(600-S.t):S.mode==='practice'?'연습':'--:--',20,50);
+  g.font=`500 28px ${FONT}`; g.fillStyle='#c9d6d3'; g.fillText(tst?tst.text.slice(0,40):'그립: 메뉴 · 트리거: 선택/이동 · 스틱: 회전',200,48);
+  if(sub){ g.fillStyle='rgba(12,18,17,.82)'; g.fillRect(0,86,1024,170); g.fillStyle='#9fd8d2'; g.font=`600 24px ${FONT}`; g.fillText(ROLE[sub.role].who,20,118);
+    g.fillStyle='#fff'; g.font=`500 30px ${FONT}`; wrap(g,sub.text,980).slice(0,3).forEach((s,i)=>g.fillText(s,20,158+i*38)); }
+  hud.tex.needsUpdate=true;
+}
+
+const ctrls=[], tmpM=new THREE.Matrix4();
+const reticle=new THREE.Mesh(new THREE.RingGeometry(.03,.045,24),new THREE.MeshBasicMaterial({color:0x0e6f6a,side:THREE.DoubleSide})); reticle.rotation.x=-Math.PI/2; reticle.visible=false; scene.add(reticle);
+for(let i=0;i<2;i++){
+  const c=renderer.xr.getController(i);
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,0,-1)]),new THREE.LineBasicMaterial({color:0x7fd6cf}));
+  line.scale.z=4; c.add(line); c.userData.line=line;
+  c.addEventListener('selectstart',()=>xrSelect(c));
+  c.addEventListener('squeezestart',()=>{ vrKind='system'; drawVRPanel(vrSystemSpec(),true); });
+  c.addEventListener('connected',e=>{ c.userData.src=e.data; });
+  rig.add(c); ctrls.push(c);
+  const grip=renderer.xr.getControllerGrip(i); grip.add(box(.03,.03,.1,M(0x30403e))); rig.add(grip);
+}
+function xrRay(c){ tmpM.identity().extractRotation(c.matrixWorld); ray.ray.origin.setFromMatrixPosition(c.matrixWorld); ray.ray.direction.set(0,0,-1).applyMatrix4(tmpM); }
+function xrCast(c){
+  xrRay(c);
+  if(vrPanel.visible){ const h=ray.intersectObject(vrPanel); if(h.length) return {panel:h[0]}; }
+  return castAll();
+}
+function xrSelect(c){
+  const h=xrCast(c);
+  if(h.panel){ const i=vrPanelHit(h.panel.uv); if(i>=0){ const b=vrButtons[i]; if(!b.a.disabled){ b.a.fn(); if(!vrPanel.visible) return; if(vrKind==='obj'&&panelId) renderPanel(); else if(vrKind==='system') drawVRPanel(vrSystemSpec(),false); } } return; }
+  if(h.obj){ openObj(h.obj.userData.iid); return; }
+  if(h.floor && S.mode!=='idle'){ const cp=new THREE.Vector3(); camera.getWorldPosition(cp); const off=cp.sub(rig.position);
+    const [x,z]=clampPos(h.floor.x,h.floor.z); rig.position.x=x-off.x; rig.position.z=z-off.z; }
+}
+let snapCD=0;
+function xrFrame(dt){
+  snapCD-=dt; let rh=false;
+  for(const c of ctrls){
+    const h=xrCast(c); const L=c.userData.line;
+    if(h.panel){ L.scale.z=h.panel.distance; const i=vrPanelHit(h.panel.uv); if(i!==vrHover){ vrHover=i; drawVRPanel(vrSpec,false); } rh=true; }
+    else if(h.obj){ L.scale.z=ray.ray.origin.distanceTo(h.point); }
+    else if(h.floor){ L.scale.z=ray.ray.origin.distanceTo(h.floor); reticle.position.copy(h.floor).setY(.01); reticle.visible=true; }
+    else L.scale.z=4;
+    const gp=c.userData.src?.gamepad; if(gp&&gp.axes.length>=4&&snapCD<=0){ const ax=gp.axes[2]; if(Math.abs(ax)>.7){ rig.rotation.y-=Math.sign(ax)*Math.PI/6; snapCD=.35; } }
+  }
+  if(!rh && vrHover!==-1 && vrPanel.visible){ vrHover=-1; drawVRPanel(vrSpec,false); }
+}
+async function initXR(){
+  const b=$('bVR'), note=$('xrNote');
+  if(!('xr' in navigator)){ b.title='이 브라우저는 WebXR을 지원하지 않습니다'; note.textContent='VR: 이 브라우저/화면에서는 WebXR을 쓸 수 없어 PC 모드로 진행합니다. Quest 브라우저 등에서 HTTPS로 호스팅한 이 파일을 열면 VR 시작 버튼이 활성화됩니다.'; return; }
+  let ok=false; try{ ok=await navigator.xr.isSessionSupported('immersive-vr'); }catch(e){}
+  if(!ok){ b.title='immersive-vr 세션을 사용할 수 없습니다'; note.textContent='VR: 연결된 HMD가 없거나 이 화면에서 WebXR이 허용되지 않아 PC 모드로 진행합니다. HMD 브라우저에서 HTTPS로 호스팅한 파일을 열면 VR로 접속할 수 있습니다.'; return; }
+  b.disabled=false; b.title=''; note.textContent='VR: HMD 사용 가능 — 상단 “VR 시작”으로 접속하세요.';
+  b.onclick=async()=>{
+    if(renderer.xr.isPresenting){ renderer.xr.getSession().end(); return; }
+    try{ const s=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','bounded-floor']});
+      await renderer.xr.setSession(s); b.textContent='VR 종료'; hud.mesh.visible=true; $('panel').hidden=true;
+      if(S.mode==='idle'){ vrKind='system'; drawVRPanel(vrSystemSpec(),true); } else if(panelId){ placeNext=true; renderPanel(); }
+      s.addEventListener('end',()=>{ b.textContent='VR 시작'; hud.mesh.visible=false; vrPanel.visible=false; reticle.visible=false; rig.rotation.set(0,0,0); camera.position.set(0,1.6,0); if(panelId) renderPanel(); });
+    }catch(e){ toast('VR 세션을 시작하지 못했습니다: '+e.message,'neutral'); }
+  };
+}
+initXR();
+
+/* =========================================================
+   11. 루프
+   ========================================================= */
+const clock=new THREE.Clock(); let uiAcc=0;
+renderer.setAnimationLoop(()=>{
+  const dt=Math.min(.1,clock.getDelta()), now=performance.now();
+  tick(dt);
+  // V/S tween
+  const tv=targetVS(), k=Math.min(1,dt*S.speed/8);
+  for(const f of ['sbp','dbp','pr','rr']) S.shownVS[f]+= (tv[f]-S.shownVS[f])*k;
+  if(!renderer.xr.isPresenting){ camera.rotation.set(pitch,yaw,0,'YXZ'); moveKeys(dt); }
+  else { xrFrame(dt); hudDirty=true; }
+  applyVisuals(dt);
+  drawMonitor(now,dt);
+  // audio
+  if(soundOn && (S.mode==='run'||S.mode==='practice')){
+    beatAcc+=dt*currentVS().pr/60; if(beatAcc>=1){ beatAcc-=1; beep(880,.05,.012); }
+    if(S.mode==='run' && S.ev.e480 && bleedingUntreated()){ alarmAcc+=dt; if(alarmAcc>1.2){ alarmAcc=0; beep(960,.18,.05,'square'); setTimeout(()=>beep(720,.18,.05,'square'),220); } }
+  }
+  // HUD DOM
+  uiAcc+=dt; if(uiAcc>.2){ uiAcc=0;
+    const cl=$('clock'); if(S.mode==='run'){ $('clockLbl').textContent='남은 시간'; $('clockT').textContent=fmt(600-S.t); cl.classList.toggle('late',S.t>=480); }
+    else if(S.mode==='practice'){ $('clockLbl').textContent='연습 병실'; $('clockT').textContent=fmt(S.t); cl.classList.remove('late'); }
+    else if(S.mode==='ended'){ $('clockLbl').textContent='종료'; $('clockT').textContent=fmt(S.t); }
+    if(panelId==='monitor'||panelId==='phone'||panelId==='jp') { if(!renderer.xr.isPresenting) renderPanel(); }
+  }
+  if(S.mode==='practice') S.t+=dt;
+  if(renderer.xr.isPresenting && hudDirty) drawHUD();
+  renderer.render(scene,camera);
+});
+window.__roe={get S(){return S}, drawVRPanel, vrSystemSpec, vrResultSpec, get vrPanelC(){return vrPanelC}, openObj, closePanel, setView, pick, evaluate};
+document.fonts?.ready?.then(()=>{ remoteScr.k=pumpScr.k=null; });
+</script>
+
+</html>

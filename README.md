@@ -57,3 +57,29 @@
 환자 정보와 처방 문구는 `boardTex`(처방·정보 보드), 활력징후 계산은 `targets()` 함수에 있습니다.
 
 테스트용으로 주소 뒤에 `?speed=10`을 붙이면 시간이 10배로 흐릅니다. (예: `.../test2/?speed=10`)
+
+---
+
+## 두 번째 버전: Room of Errors WebXR 프로토타입 (`RoomOfErrors_WebXR.html`)
+
+2조 중간보고서(3~6장)를 바탕으로 만든 다른 버전입니다. 위의 `index.html`과 별개 파일이라 서로 영향을 주지 않습니다.
+
+| 파일 | 설명 |
+|---|---|
+| `index.html` | 위에서 설명한 버전 (seonyoung101 작성) |
+| `RoomOfErrors_WebXR.html` | 중간보고서 기반 버전 — 전체 소스 한 파일 (Three.js 0.160.0 jsDelivr CDN) |
+| `artifact-index.html` | `RoomOfErrors_WebXR.html`의 Claude 아티팩트 게시용 본문 (doctype/head 없음, 내용 동일) |
+
+### 실행
+- PC: `RoomOfErrors_WebXR.html`을 브라우저로 열기
+- GitHub Pages를 켠 경우: `https://cf5h5kndzb-prog.github.io/-SBAR-/RoomOfErrors_WebXR.html`
+- VR(HMD): 위 Pages 주소를 Quest 브라우저에서 열고 상단 "VR 시작"
+  - 트리거: 선택·바닥 순간이동 / 스틱 좌우: 회전 / 그립: 메뉴
+
+### 이 버전의 특징
+- 이상을 발견하면 **판단 근거를 선택**해야 탐지로 인정 (근거 부정확·단서 이후 탐지는 50%), 정상 항목 오인 시 위양성 감점
+- 시간 앵커 2·3·5·8·10분: 보호자 등장, 통증 트랙(E5), 출혈 트랙(E2), 8분 중증 악화·낙상 위험, Time-out — 수치는 보고서 3-5 표 그대로
+- NPC: 환자·보호자·담당의(전화)·인계 간호사, 음성(TTS) 선택
+- SBAR 보고(사정한 항목만 보고 가능, 누락 시 담당의 재질문) → 구두처방 read-back → 수액 bolus → 부분 회복
+- 6-1 정량 평가(오류 65점 + 체크리스트 C1~C10 35점, 가산·감점, 통과 조건 3가지), 4-2 탐색 지표, 로그 JSON
+- 연습 병실(오류 없음), 시연 배속 1×·2×·4×, "중단하겠습니다" 버튼
