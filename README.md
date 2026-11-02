@@ -1,23 +1,85 @@
-# -SBAR-
-담낭절제술 후 임상간호 판단 및 SBAR 보고 시뮬레이션
+# Room of Error 3D 시뮬레이션 (WebXR / PC)
 
-## Room of Errors — WebXR 프로토타입
+복강경 담낭절제술 당일 환자의 안전위험 및 이상징후를 찾는 Room of Error 시뮬레이션입니다.
+설치나 빌드 없이 `index.html` 파일 하나로 동작하며, GitHub Pages 주소로 실행합니다.
 
-시뮬레이션테크놀로지Ⅱ 2조 (오선영 · 이새롬 · 황인경) 중간보고서 기반.
+## 실행 (GitHub Pages)
+
+1. 저장소(`seonyoung101/test2`)에 `index.html`, `README.md`를 올립니다. (Add file → Upload files → Commit changes)
+   다른 저장소의 기존 파일을 바꾸려면 같은 이름으로 올려 덮어씁니다.
+2. Settings → Pages → Source `Deploy from a branch` → Branch `main` / `/ (root)` → Save
+3. 1~2분 뒤 `https://seonyoung101.github.io/test2/` 접속 (저장소 이름이 다르면 주소의 `test2` 부분을 바꿉니다.)
+
+※ three.js를 인터넷(unpkg CDN)에서 불러오므로 인터넷 연결이 필요합니다. Chrome / Edge 권장.
+
+## 시나리오
+
+- 환자 나예민(60세 여), 복강경 담낭절제술 당일, 제한시간 10분, 인계 후 시작
+- 오류 8개
+
+| ID | 오류 |
+|---|---|
+| E1 | 손목밴드 불일치 (밴드 "김서연" ↔ 처방 "나예민") |
+| E2 | JP 혈성 배액 증가 · dressing 출혈 |
+| E3 | JP bulb 미압축 · line 늘어짐 |
+| E4 | 수액 속도 20 mL/hr (처방 80 mL/hr) |
+| E5 | PCA clamp 잠김 |
+| E6 | Lt. arm에 BP cuff (Lt. arm save 위반) |
+| E7 | 침상 머리 각도 0° |
+| E8 | 낙상 위험 (난간 내림 · call bell이 바닥에) |
+
+- 시간 앵커
+  - 2분: 보호자 방문
+  - 3분: 통증 상승 (PCA가 잠겨 있으면 NRS 8)
+  - 5분: 출혈 악화 + 구조 단서 (E2를 못 찾았으면 붉은 원으로 표시)
+  - 8분: 중증 악화 · 낙상 위험 (9분까지 E8을 못 찾으면 낙상 발생, −10점)
+  - 10분: Time-out → 결과·해설·디브리핑 질문
+- 환자 활력징후는 오류를 찾았는지에 따라 달라집니다. 출혈(E2)과 수액 속도(E4)를 못 찾으면 시간이 갈수록 HR↑·BP↓·SpO₂↓가 됩니다.
+
+## 조작
+
+**PC**
+- 왼쪽 드래그: 회전 / 휠: 확대·축소 / 오른쪽 드래그: 이동
+- 물체 위에 마우스를 올리면 이름과 현재 상태(수액 펌프 설정값 등)가 표시됩니다.
+- 의심되는 물체를 클릭하면 오류로 지정됩니다. 맞으면 바로 교정되는 모습이 보입니다(수액 속도 정정, 커프 이동, 침상 올림 등).
+- 오답 클릭 −2점, 힌트(최대 3회) −3점, 낙상 발생 −10점
+
+**VR (WebXR)**
+- 헤드셋 브라우저(Meta Quest Browser 등)로 위 주소에 접속 → 오른쪽 아래 `ENTER VR` 버튼
+- 컨트롤러의 광선으로 가리키고 트리거로 선택합니다. 4초 뒤 평가가 자동 시작됩니다.
+- 남은 시간·발견 수·가리킨 물체 정보는 병실 안의 패널에 표시됩니다. 자세한 결과는 VR을 종료한 뒤 PC 화면에 나옵니다.
+
+**모드**: 평가 모드(10분, 상태 변화 포함) / 연습 모드(시간 제한 없음, 상태 변화 없음)
+
+## 수정하기
+
+`index.html` 안의 `ERRORS` 배열에서 오류 제목·해설·교정 문구를, `EVENTS` 배열에서 시간 앵커를 바꿀 수 있습니다.
+환자 정보와 처방 문구는 `boardTex`(처방·정보 보드), 활력징후 계산은 `targets()` 함수에 있습니다.
+
+테스트용으로 주소 뒤에 `?speed=10`을 붙이면 시간이 10배로 흐릅니다. (예: `.../test2/?speed=10`)
+
+---
+
+## 두 번째 버전: Room of Errors WebXR 프로토타입 (`RoomOfErrors_WebXR.html`)
+
+2조 중간보고서(3~6장)를 바탕으로 만든 다른 버전입니다. 위의 `index.html`과 별개 파일이라 서로 영향을 주지 않습니다.
 
 | 파일 | 설명 |
 |---|---|
-| `RoomOfErrors_WebXR.html` | 실행용 전체 소스 (HTML + CSS + JavaScript 모듈). Three.js 0.160.0을 jsDelivr CDN에서 불러옴 |
-| `artifact-index.html` | Claude 아티팩트 게시용 본문 (doctype/head 없는 버전, 내용 동일) |
+| `index.html` | 위에서 설명한 버전 (seonyoung101 작성) |
+| `RoomOfErrors_WebXR.html` | 중간보고서 기반 버전 — 전체 소스 한 파일 (Three.js 0.160.0 jsDelivr CDN) |
+| `artifact-index.html` | `RoomOfErrors_WebXR.html`의 Claude 아티팩트 게시용 본문 (doctype/head 없음, 내용 동일) |
 
 ### 실행
 - PC: `RoomOfErrors_WebXR.html`을 브라우저로 열기
-- VR(HMD): HTTPS로 호스팅(GitHub Pages 등) 후 Quest 브라우저에서 열고 상단 "VR 시작"
+- GitHub Pages를 켠 경우: `https://cf5h5kndzb-prog.github.io/-SBAR-/RoomOfErrors_WebXR.html`
+- VR(HMD): 위 Pages 주소를 Quest 브라우저에서 열고 상단 "VR 시작"
   - 트리거: 선택·바닥 순간이동 / 스틱 좌우: 회전 / 그립: 메뉴
 
-### 구현 범위
-- E1~E8 오류 탐지(근거 선택)·교정, 위양성 감점
-- 시간 앵커 2·3·5·8·10분: 보호자 등장, 통증 트랙, 출혈 트랙, 8분 중증 악화·낙상 위험, Time-out
+### 이 버전의 특징
+- 이상을 발견하면 **판단 근거를 선택**해야 탐지로 인정 (근거 부정확·단서 이후 탐지는 50%), 정상 항목 오인 시 위양성 감점
+- 시간 앵커 2·3·5·8·10분: 보호자 등장, 통증 트랙(E5), 출혈 트랙(E2), 8분 중증 악화·낙상 위험, Time-out — 수치는 보고서 3-5 표 그대로
 - NPC: 환자·보호자·담당의(전화)·인계 간호사, 음성(TTS) 선택
-- SBAR 보고 → 구두처방 read-back → 수액 bolus → 부분 회복
-- 6-1 정량 평가(65+35점, 가산·감점, 통과 조건), 4-2 탐색 지표, 로그 JSON
+- SBAR 보고(사정한 항목만 보고 가능, 누락 시 담당의 재질문) → 구두처방 read-back → 수액 bolus → 부분 회복
+- 6-1 정량 평가(오류 65점 + 체크리스트 C1~C10 35점, 가산·감점, 통과 조건 3가지), 4-2 탐색 지표, 로그 JSON
+- 연습 병실(오류 없음), 시연 배속 1×·2×·4×, "중단하겠습니다" 버튼

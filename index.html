@@ -1,0 +1,1292 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Room of Error 3D 시뮬레이션</title>
+<style>
+  :root{
+    --bg:#10181d; --card:#ffffff; --ink:#1d2b33; --muted:#5d6d77; --line:#d9e2e7;
+    --brand:#1f6f8b; --danger:#d63031; --ok:#1e8e5a; --warn:#e6a100;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+    font-family:system-ui,-apple-system,"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;line-height:1.5}
+  #app{position:fixed;inset:0}
+  #app canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:6px 14px}
+  button:hover{background:#eef3f6}
+  button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  button.primary:hover{background:#185a72}
+  button:disabled{opacity:.45;cursor:not-allowed}
+
+  #top{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;
+    padding:8px 14px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);z-index:20}
+  #top h1{font-size:15px;margin:0}
+  #top h1 small{font-weight:400;color:var(--muted);margin-left:6px}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pill{background:#f4f7f9;border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:14px;font-variant-numeric:tabular-nums}
+  .pill.warn{border-color:var(--danger);color:var(--danger);font-weight:700}
+
+  #side{position:fixed;left:12px;top:64px;width:270px;max-height:calc(100% - 130px);overflow:auto;
+    background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:12px;padding:12px;z-index:15;font-size:13px}
+  #side h2{font-size:14px;margin:0 0 6px}
+  #list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:5px}
+  #list li{border:1px dashed var(--line);border-radius:8px;padding:5px 9px;color:var(--muted)}
+  #list li.done{border:1px solid var(--ok);background:#effaf4;color:var(--ink)}
+  #list li small{display:block;color:var(--muted)}
+  #feed{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:12px}
+  #feed li{padding:4px 8px;border-left:3px solid var(--line);background:#f7f9fa;border-radius:4px}
+  #feed li.alert{border-left-color:var(--danger);background:#fff4f4}
+  #feed li.good{border-left-color:var(--ok)}
+  #feed b{font-variant-numeric:tabular-nums;margin-right:4px}
+  details{margin:0 0 10px}
+  details summary{cursor:pointer;font-weight:700}
+  details p{margin:4px 0}
+  #side.hide{display:none}
+  @media (max-width:820px){ #side{width:240px} }
+
+  #tip{position:fixed;z-index:30;pointer-events:none;background:rgba(16,24,29,.92);color:#fff;padding:6px 10px;border-radius:8px;
+    font-size:13px;max-width:340px;white-space:pre-line}
+  #tip b{display:block}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#10181d;color:#fff;padding:10px 18px;border-radius:12px;
+    font-size:15px;max-width:min(92vw,720px);text-align:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
+  #toast.show{opacity:.96}
+  #toast.alert{background:var(--danger)}
+  #toast.good{background:var(--ok)}
+  #hint{position:fixed;right:14px;top:64px;font-size:12px;color:#fff;background:rgba(16,24,29,.6);padding:6px 10px;border-radius:8px;z-index:12}
+
+  .overlay{position:fixed;inset:0;background:rgba(16,24,29,.7);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100;overflow:auto}
+  .overlay[hidden]{display:none}
+  .modal{background:#fff;border-radius:16px;max-width:720px;width:100%;padding:24px;max-height:94vh;overflow:auto}
+  .modal h2{margin:0 0 8px}
+  .sbar{background:#f4f7f9;border-radius:10px;padding:10px 14px;font-size:14px;margin:10px 0}
+  .sbar b{color:var(--brand)}
+  .opts{display:grid;gap:8px;margin:14px 0;padding:12px;background:#f4f7f9;border-radius:10px;font-size:14px}
+  .opts label{display:flex;gap:8px;align-items:center}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .score{font-size:40px;font-weight:800;color:var(--brand);margin:2px 0}
+  .res{border-left:4px solid var(--ok);padding:6px 10px;margin:8px 0;background:#f7fbf9;border-radius:4px;font-size:14px}
+  .res.miss{border-left-color:var(--danger);background:#fff5f5}
+  .res b{display:block}
+  .tag{display:inline-block;font-size:12px;background:#f4f7f9;border:1px solid var(--line);border-radius:999px;padding:0 8px;margin-right:6px;color:var(--muted)}
+  ol.q{padding-left:20px;font-size:14px}
+  #noGL{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;z-index:200;padding:24px;text-align:center}
+  #noGL[hidden]{display:none}
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="noGL" hidden>이 브라우저(또는 기기)에서는 WebGL을 사용할 수 없습니다. 최신 Chrome 또는 Edge로 열어 주세요.</div>
+
+<header id="top">
+  <h1>🏥 Room of Error 3D<small>복강경 담낭절제술 당일 환자</small></h1>
+  <div class="stats">
+    <button id="sideToggle">목록</button>
+    <span class="pill" id="timerPill">⏱ <b id="timer">--:--</b></span>
+    <span class="pill">발견 <b id="foundCount">0</b> / <b id="totalCount">8</b></span>
+    <span class="pill">오답 <b id="missCount">0</b></span>
+    <button id="hintBtn" disabled>힌트 (<span id="hintLeft">3</span>)</button>
+    <button id="giveUpBtn" disabled>종료</button>
+  </div>
+</header>
+
+<aside id="side">
+  <details>
+    <summary>인계 내용 (SBAR)</summary>
+    <p><b>S</b> 나예민(60세 여), 복강경 담낭절제술 당일. 병실 입실 후 활력징후 안정.</p>
+    <p><b>B</b> 담낭결석, 전신마취 수술. 우상복부 JP 1개, Lt. arm IV, PCA 사용. 알레르기 없음.</p>
+    <p><b>A</b> 통증 NRS 4, 낙상 고위험.</p>
+    <p><b>R</b> 병실을 둘러보며 안전을 확인하고, 이상이 있으면 바로 조치·보고.</p>
+  </details>
+  <h2>찾은 오류</h2>
+  <ul id="list"></ul>
+  <h2>진행 기록</h2>
+  <ul id="feed"></ul>
+</aside>
+
+<div id="hint">드래그: 회전 · 휠: 확대 · 우클릭 드래그: 이동 · 클릭: 오류 지정</div>
+<div id="tip" hidden></div>
+<div id="toast"></div>
+
+<div class="overlay" id="startOv">
+  <div class="modal">
+    <h2>Room of Error · 복강경 담낭절제술 후 환자</h2>
+    <p>당신은 병동 간호사입니다. 인계를 받고 병실에 들어왔습니다. 제한시간 <b>10분</b> 안에 환자의 안전을 위협하는 <b>오류 8개</b>를 찾아 클릭하세요.
+       시간이 지나면 환자 상태가 변하므로(보호자 방문, 통증 상승, 출혈 악화) 서둘러 확인해야 합니다.</p>
+    <div class="sbar">
+      <b>S</b> 나예민(60세 여), 복강경 담낭절제술 당일. 병실 입실 후 활력징후 안정.<br>
+      <b>B</b> 담낭결석, 전신마취 수술. 우상복부 JP 1개, Lt. arm IV, PCA 사용. 알레르기 없음.<br>
+      <b>A</b> 통증 NRS 4, 낙상 고위험.<br>
+      <b>R</b> 병실을 둘러보며 안전을 확인하고, 이상이 있으면 바로 조치·보고.
+    </div>
+    <div class="opts">
+      <label><input type="radio" name="mode" value="timed" checked> 평가 모드 (10분, 시간에 따라 환자 상태 변화)</label>
+      <label><input type="radio" name="mode" value="free"> 연습 모드 (시간 제한·상태 변화 없음)</label>
+    </div>
+    <p style="font-size:13px;color:#5d6d77;margin:0">
+      PC: 마우스로 장면을 돌려 보고 의심 가는 물체를 클릭 · VR: 화면 오른쪽 아래 <b>ENTER VR</b> 버튼 후 컨트롤러 트리거로 선택.<br>
+      오답 클릭은 −2점, 힌트는 −3점, 낙상 발생은 −10점입니다.
+    </p>
+    <div class="row"><button class="primary" id="startBtn">시작하기</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="endOv" hidden>
+  <div class="modal">
+    <h2 id="endTitle">결과</h2>
+    <div class="score" id="endScore"></div>
+    <div id="endSummary" style="font-size:14px;color:#5d6d77"></div>
+    <div id="endList"></div>
+    <h3>진행 기록</h3>
+    <ul id="endFeed" style="font-size:13px;padding-left:18px"></ul>
+    <h3>디브리핑 질문</h3>
+    <ol class="q" id="debrief"></ol>
+    <div class="row">
+      <button class="primary" id="retryBtn">다시 하기</button>
+      <button id="closeBtn">장면 다시 보기</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+/* ============================================================
+   설정 · 데이터
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const FONT = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+const params = new URLSearchParams(location.search);
+const SPEED = Math.max(0.1, Math.min(60, Number(params.get('speed')) || 1));   // 테스트용 배속 (?speed=10)
+const LIMIT = 600;       // 10분
+const HINTS_MAX = 3;
+
+const ERRORS = [
+  { id:'E1', cat:'환자 확인', title:'손목밴드 이름 불일치',
+    why:'손목밴드에는 "김서연", 병상 정보와 처방에는 "나예민"으로 되어 있습니다. 환자 오인은 투약·수혈·검사 오류로 이어집니다. 이름과 등록번호(또는 생년월일) 2가지 이상으로 확인하고 밴드를 즉시 재발급합니다.',
+    fix:'손목밴드를 "나예민 · 60/F"로 교체했습니다.' },
+  { id:'E2', cat:'합병증 관찰', title:'JP 혈성 배액 증가 · dressing 출혈',
+    why:'복강경 담낭절제술 후 JP 배액이 선홍색으로 늘고 복부 dressing으로 출혈이 번지고 있습니다. 활력징후(빈맥·저혈압·창백)를 확인하고 배액량을 기록한 뒤 즉시 의사에게 SBAR로 보고합니다.',
+    fix:'dressing을 확인·압박 교체하고 의사에게 출혈을 보고했습니다.' },
+  { id:'E3', cat:'배액관 관리', title:'JP bulb 미압축 · line 늘어짐',
+    why:'JP는 bulb를 눌러 음압을 유지해야 배액됩니다. bulb가 부풀어 있으면 흡인이 되지 않고, 늘어진 라인은 걸림·당김으로 이탈할 위험이 있습니다. bulb를 압축하고 라인을 고정합니다.',
+    fix:'bulb를 압축하고 라인을 환의에 고정했습니다.' },
+  { id:'E4', cat:'투약·수액', title:'수액 속도 20 mL/hr (처방 80 mL/hr)',
+    why:'처방과 다른 속도로 주입되면 수술 후 환자의 체액 균형이 깨지고 저혈량이 악화될 수 있습니다. 처방·펌프 설정·환자 상태를 대조(이중 확인)하고 속도를 정정합니다.',
+    fix:'수액 속도를 처방대로 80 mL/hr로 정정했습니다.' },
+  { id:'E5', cat:'통증 관리', title:'PCA clamp 잠김',
+    why:'PCA 라인 클램프가 잠겨 있으면 진통제가 전달되지 않아 통증이 급격히 올라갑니다. 통증 사정(NRS)과 함께 라인 개방 여부와 펌프 설정을 확인합니다.',
+    fix:'클램프를 열고 PCA가 정상 작동하는지 확인했습니다.' },
+  { id:'E6', cat:'혈관 보호', title:'Lt. arm에 혈압 커프 (Lt. arm save 위반)',
+    why:'Lt. arm은 IV 라인이 있어 보호(save)해야 하는 팔입니다. 같은 팔에 커프를 감으면 주입이 막히고 정맥염·혈종 위험이 있습니다. 혈압은 반대쪽(Rt.) 팔에서 측정합니다.',
+    fix:'커프를 Rt. arm으로 옮겼습니다.' },
+  { id:'E7', cat:'체위', title:'침상 머리 각도 0°',
+    why:'복강경 수술 후에는 호흡 편안함과 복부 이완, 흡인 예방을 위해 침상 머리를 30° 이상 올린 반좌위(semi-Fowler)를 유지합니다. 현재는 완전히 평평합니다.',
+    fix:'침상 머리를 30°로 올렸습니다.' },
+  { id:'E8', cat:'낙상 예방', title:'낙상 위험: 난간 내림 · call bell이 바닥',
+    why:'낙상 고위험 환자는 침상 난간을 올리고 호출벨을 손이 닿는 곳에 두어야 합니다. 통증·출혈로 불안정해지는 후반부에 특히 위험합니다. 침상 낮추기와 바퀴 잠금도 함께 확인합니다.',
+    fix:'난간을 올리고 call bell을 환자 손 옆에 두었습니다.' }
+];
+const ERR = Object.fromEntries(ERRORS.map(e => [e.id, e]));
+
+const DEBRIEF = [
+  '가장 위험하다고 판단한 오류는 무엇이며, 우선순위를 정한 근거(ABC, 환자 상태 변화)는 무엇인가요?',
+  '출혈이 의심될 때 의사에게 SBAR(상황-배경-사정-제안)로 어떻게 보고하겠습니까? 직접 말해 보세요.',
+  '이런 오류가 실제 병동에서 생기는 시스템적 원인(인계, 이중 확인 절차, 물품·장비, 의사소통)은 무엇일까요?',
+  '2분에 방문한 보호자에게 어떻게 응대하고, 낙상 예방을 위해 어떤 교육을 하겠습니까?'
+];
+
+/* ============================================================
+   상태
+   ============================================================ */
+const state = {
+  phase:'idle', practice:false, t:0,
+  found:new Set(), misses:0, hints:0, fell:false,
+  done:new Set(), log:[], lastMsg:'', hover:'', inXR:false
+};
+const vit = { hr:92, sbp:114, dbp:72, spo2:97, rr:18, temp:36.8, pain:4 };
+let phaseF = 0.1;
+let hobDeg = 0;
+let ivRate = 20;
+let pcaOpen = false;
+let bandName = '김서연';
+let jpSlack = true;
+let tubesDirty = true;
+let lastSec = -1;
+
+/* ============================================================
+   렌더러 · 씬
+   ============================================================ */
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+} catch (e) { $('noGL').hidden = false; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.xr.enabled = true;
+$('app').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdde6ea);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 40);
+const dolly = new THREE.Group();
+dolly.add(camera);
+scene.add(dolly);
+camera.position.set(-0.05, 1.6, 1.95);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(-0.4, 0.95, -1.1);
+controls.minDistance = 0.5;
+controls.maxDistance = 4.6;
+controls.maxPolarAngle = Math.PI * 0.62;
+controls.enableDamping = true;
+controls.update();
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb8c4ca, 1.25));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+sun.position.set(2, 3.2, 2.2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-4, right:4, top:4, bottom:-4, near:0.5, far:10 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const world = new THREE.Group();
+scene.add(world);
+
+/* ---------- 도우미 ---------- */
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color:c, roughness:0.75, metalness:0.04 }, o));
+const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+const CYL = (r, h, s = 20) => new THREE.CylinderGeometry(r, r, h, s);
+const SPH = r => new THREE.SphereGeometry(r, 24, 16);
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+function add(parent, geo, material, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(geo, material);
+  m.position.set(x, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+function group(parent, x = 0, y = 0, z = 0) {
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  parent.add(g);
+  return g;
+}
+function tag(o, label, read, err) {
+  o.userData.label = label;
+  if (read) o.userData.read = read;
+  if (err) o.userData.err = err;
+  return o;
+}
+function skip(o) { o.userData.skip = true; return o; }
+
+function hitSphere(parent, x, y, z, r, label, err, read) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), new THREE.MeshBasicMaterial({ visible:false }));
+  m.position.set(x, y, z);
+  parent.add(m);
+  return tag(m, label, read, err);
+}
+
+/* 텍스트 캔버스 텍스처 */
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.userData = { c, draw };
+  paint(tex);
+  return tex;
+}
+function paint(tex) {
+  const { c, draw } = tex.userData;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  draw(g, c.width, c.height);
+  tex.needsUpdate = true;
+}
+function wrap(g, text, x, y, maxW, lh) {
+  let line = '';
+  for (const ch of text) {
+    if (ch === '\n') { g.fillText(line, x, y); y += lh; line = ''; continue; }
+    const test = line + ch;
+    if (g.measureText(test).width > maxW && line) { g.fillText(line, x, y); y += lh; line = ch; }
+    else line = test;
+  }
+  if (line) { g.fillText(line, x, y); y += lh; }
+  return y;
+}
+function screenMesh(parent, tex, w, h, x, y, z, ry = 0) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map:tex, toneMapped:false }));
+  m.position.set(x, y, z);
+  m.rotation.y = ry;
+  parent.add(m);
+  return m;
+}
+
+/* ============================================================
+   병실
+   ============================================================ */
+const wallMat = mat(0xeef3f5, { roughness:0.95 });
+const floorTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#dfe5e8'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#c9d2d6'; g.lineWidth = 3; g.strokeRect(0, 0, w, h);
+});
+floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+floorTex.repeat.set(6, 5);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 5), new THREE.MeshStandardMaterial({ map:floorTex, roughness:0.6 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; world.add(skip(floor));
+
+function wall(w, h, x, y, z, ry, rx = 0) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
+  m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.receiveShadow = true;
+  world.add(skip(m));
+  return m;
+}
+wall(6, 2.6, 0, 1.3, -2.5, 0);            // 뒷벽
+wall(5, 2.6, -3, 1.3, 0, Math.PI / 2);    // 왼벽
+wall(5, 2.6, 3, 1.3, 0, -Math.PI / 2);    // 오른벽
+wall(6, 2.6, 0, 1.3, 2.5, Math.PI);       // 앞벽
+wall(6, 5, 0, 2.6, 0, 0, Math.PI / 2);    // 천장
+for (const z of [-1, 1]) {
+  const l = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.5), new THREE.MeshBasicMaterial({ color:0xffffff }));
+  l.rotation.x = Math.PI / 2; l.position.set(0, 2.59, z); world.add(skip(l));
+}
+
+// 창문 (왼벽)
+{
+  const g = group(world, -2.99, 1.55, -0.2);
+  add(g, B(0.04, 1.1, 1.7), mat(0xf5f7f8));
+  const glass = add(g, B(0.02, 0.95, 1.55), new THREE.MeshStandardMaterial({ color:0xbfe3f5, emissive:0x9fd0ea, emissiveIntensity:0.55 }), 0.02);
+  add(g, B(0.03, 0.05, 1.55), mat(0xf5f7f8), 0.03);
+  add(g, B(0.03, 0.95, 0.05), mat(0xf5f7f8), 0.03);
+  tag(g, '창문', '');
+}
+// 출입문 (오른벽)
+{
+  const g = group(world, 2.97, 1.0, 1.4);
+  add(g, B(0.05, 2.0, 0.95), mat(0xb89a74));
+  add(g, B(0.08, 0.04, 0.16), mat(0x8a98a0), -0.03, 0, 0.35);
+  tag(g, '출입문', '');
+}
+// 벽시계 (남은 시간)
+const clockTex = canvasTex(512, 224, (g, w, h) => {
+  g.fillStyle = '#10181d'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#8fa3ad'; g.font = `28px ${FONT}`; g.fillText('남은 시간', 20, 44);
+  g.fillStyle = (LIMIT - state.t < 60 && state.phase === 'running') ? '#ff5a5a' : '#6dff9b';
+  g.font = `bold 110px ${FONT}`;
+  g.fillText(state.practice ? '연습' : fmt(LIMIT - state.t), 20, 160);
+});
+{
+  const g = group(world, 0.1, 2.15, -2.48);
+  add(g, B(0.56, 0.26, 0.03), mat(0x20282d));
+  screenMesh(g, clockTex, 0.5, 0.22, 0, 0, 0.02);
+  tag(g, '벽시계', () => '남은 시간 ' + fmt(LIMIT - state.t));
+}
+
+// 처방/정보 보드 (뒷벽 왼쪽)
+const boardTex = canvasTex(1024, 760, (g, w, h) => {
+  g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#1f6f8b'; g.fillRect(0, 0, w, 70);
+  g.fillStyle = '#fff'; g.font = `bold 36px ${FONT}`; g.fillText('302호 1번 침상 · 처방 / 간호 정보', 24, 49);
+  const rows = [
+    ['환자', '나예민 (F/60) · 등록번호 20251031-0427'],
+    ['진단', '담낭결석 · 복강경 담낭절제술 당일 (POD#0)'],
+    ['알레르기', '없음'],
+    ['수액', 'N/S 1000 mL · 80 mL/hr'],
+    ['통증', 'PCA(Fentanyl) 사용 · 클램프 개방 유지'],
+    ['JP', '우상복부 · bulb 압축(음압) 유지 · 배액량 기록'],
+    ['혈관', 'Lt. arm IV 유지 (Lt. arm save: 혈압 측정·채혈 금지)'],
+    ['활동', '침상 머리 30° 이상 · 낙상 고위험'],
+    ['낙상 예방', '난간 up · call bell은 손 닿는 곳에']
+  ];
+  let y = 120;
+  g.textBaseline = 'alphabetic';
+  for (const [k, v] of rows) {
+    g.font = `bold 27px ${FONT}`; g.fillStyle = '#1f6f8b'; g.fillText(k, 24, y);
+    g.font = `27px ${FONT}`; g.fillStyle = '#1d2b33';
+    y = wrap(g, v, 190, y, 810, 34) + 20;
+  }
+});
+{
+  const g = group(world, -1.75, 1.6, -2.48);
+  add(g, B(1.56, 1.17, 0.03), mat(0x8a98a0));
+  screenMesh(g, boardTex, 1.5, 1.11, 0, 0, 0.02);
+  tag(g, '처방·정보 보드', () =>
+    '환자: 나예민 (F/60) · 등록번호 20251031-0427\n진단: 복강경 담낭절제술 당일\n수액: N/S 1000 mL · 80 mL/hr\n통증: PCA 사용 · 클램프 개방 유지\nJP: bulb 압축 유지\n혈관: Lt. arm IV 유지 (Lt. arm save)\n활동: 침상 머리 30° 이상 · 낙상 고위험\n난간 up · call bell 손 닿는 곳');
+}
+
+// 활력징후 모니터 (뒷벽 오른쪽)
+const monTex = canvasTex(800, 480, (g, w, h) => drawMonitor(g, w, h));
+const monitorGroup = group(world, 1.95, 1.7, -2.47);
+add(monitorGroup, B(1.14, 0.7, 0.05), mat(0x20282d));
+screenMesh(monitorGroup, monTex, 1.06, 0.636, 0, 0, 0.03);
+tag(monitorGroup, '활력징후 모니터', () =>
+  `HR ${Math.round(vit.hr)} · BP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)} · SpO₂ ${Math.round(vit.spo2)}% · RR ${Math.round(vit.rr)} · BT ${vit.temp.toFixed(1)}℃\n통증 NRS ${vit.pain}/10`);
+
+function ecg(p) {
+  if (p < 0.08) return 0.12 * Math.sin(p / 0.08 * Math.PI);
+  if (p < 0.16) return 0;
+  if (p < 0.18) return -0.15;
+  if (p < 0.22) return 1 - Math.abs(p - 0.20) / 0.02;
+  if (p < 0.25) return -0.25;
+  if (p < 0.32) return 0;
+  if (p < 0.50) return 0.28 * Math.sin((p - 0.32) / 0.18 * Math.PI);
+  return 0;
+}
+function drawMonitor(g, w, h) {
+  g.fillStyle = '#050a0d'; g.fillRect(0, 0, w, h);
+  const alarm = vit.sbp < 90 || vit.hr > 120 || vit.spo2 < 92;
+  if (alarm && Math.floor(performance.now() / 500) % 2 === 0) { g.fillStyle = '#c0392b'; g.fillRect(0, 0, w, 36); g.fillStyle = '#fff'; g.font = `bold 24px ${FONT}`; g.fillText('ALARM  활력징후 이상', 16, 27); }
+  // ECG
+  g.strokeStyle = '#3dff7a'; g.lineWidth = 3; g.beginPath();
+  const now = performance.now() / 1000, base = 130, amp = 70, span = 3.2, pw = 520;
+  for (let x = 0; x <= pw; x += 3) {
+    const tt = now - (pw - x) / pw * span;
+    const p = ((tt * vit.hr / 60) % 1 + 1) % 1;
+    const y = base - ecg(p) * amp;
+    if (x === 0) g.moveTo(x + 16, y); else g.lineTo(x + 16, y);
+  }
+  g.stroke();
+  g.fillStyle = '#3dff7a'; g.font = `22px ${FONT}`; g.fillText('II', 16, 66);
+  g.fillStyle = '#5ec8ff'; g.fillText('SpO₂ pleth', 16, 262);
+  g.strokeStyle = '#5ec8ff'; g.lineWidth = 3; g.beginPath();
+  for (let x = 0; x <= pw; x += 3) {
+    const tt = now - (pw - x) / pw * span;
+    const p = ((tt * vit.hr / 60) % 1 + 1) % 1;
+    const y = 340 - Math.max(0, Math.sin(p * Math.PI * 1.6)) * 50;
+    if (x === 0) g.moveTo(x + 16, y); else g.lineTo(x + 16, y);
+  }
+  g.stroke();
+  // 수치
+  const hrCol = vit.hr > 120 ? '#ff5252' : '#3dff7a';
+  g.fillStyle = hrCol; g.font = `bold 26px ${FONT}`; g.fillText('HR', 566, 60);
+  g.font = `bold 72px ${FONT}`; g.fillText(String(Math.round(vit.hr)), 640, 70);
+  const bpCol = vit.sbp < 90 ? '#ff5252' : '#ffffff';
+  g.fillStyle = bpCol; g.font = `bold 24px ${FONT}`; g.fillText('NIBP', 566, 128);
+  g.font = `bold 50px ${FONT}`; g.fillText(`${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`, 566, 184);
+  g.fillStyle = vit.spo2 < 92 ? '#ff5252' : '#5ec8ff'; g.font = `bold 24px ${FONT}`; g.fillText('SpO₂', 566, 246);
+  g.font = `bold 56px ${FONT}`; g.fillText(`${Math.round(vit.spo2)}%`, 566, 304);
+  g.fillStyle = '#ffd166'; g.font = `bold 24px ${FONT}`; g.fillText('RR', 566, 360);
+  g.font = `bold 40px ${FONT}`; g.fillText(String(Math.round(vit.rr)), 626, 362);
+  g.fillStyle = '#c8d3d9'; g.font = `22px ${FONT}`;
+  g.fillText(`BT ${vit.temp.toFixed(1)} ℃`, 566, 412);
+  g.fillText(`통증 NRS ${vit.pain}/10`, 16, 450);
+}
+
+// 손소독제, 손상성 폐기물 용기, 쓰레기통, 탁자, 의자 (정상 물품)
+{
+  const g = group(world, 2.93, 1.25, 0.4);
+  add(g, B(0.08, 0.26, 0.12), mat(0xffffff));
+  add(g, B(0.1, 0.03, 0.05), mat(0x8a98a0), -0.02, -0.04, 0);
+  tag(g, '손소독제', () => '충분히 채워져 있음');
+}
+{
+  const g = group(world, 2.9, 1.0, -0.7);
+  add(g, B(0.12, 0.26, 0.18), mat(0xf5c518));
+  tag(g, '손상성 폐기물 용기', () => '노란색 전용 용기');
+}
+{
+  const g = group(world, 2.5, 0, -1.9);
+  add(g, CYL(0.17, 0.5), mat(0x5b6770), 0, 0.25, 0);
+  tag(g, '일반 폐기물통', () => '일반 폐기물');
+}
+{
+  const g = group(world, -1.2, 0, -1.95);
+  add(g, B(0.55, 0.05, 0.42), mat(0xb89a74), 0, 0.72, 0);
+  add(g, B(0.05, 0.7, 0.05), mat(0x8d7a5c), -0.24, 0.35, -0.17);
+  add(g, B(0.05, 0.7, 0.05), mat(0x8d7a5c), 0.24, 0.35, -0.17);
+  add(g, B(0.05, 0.7, 0.05), mat(0x8d7a5c), -0.24, 0.35, 0.17);
+  add(g, B(0.05, 0.7, 0.05), mat(0x8d7a5c), 0.24, 0.35, 0.17);
+  add(g, CYL(0.04, 0.1), mat(0xcfe9f7), -0.12, 0.8, 0);
+  add(g, B(0.12, 0.04, 0.08), mat(0xf5f5f5), 0.1, 0.77, 0.04);
+  tag(g, '침상 옆 탁자', () => '물컵, 휴지');
+}
+{
+  const g = group(world, -2.1, 0, 0.5);
+  add(g, B(0.45, 0.06, 0.45), mat(0x5b7a8a), 0, 0.45, 0);
+  add(g, B(0.45, 0.45, 0.06), mat(0x5b7a8a), 0, 0.7, -0.2);
+  for (const [x, z] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) add(g, B(0.04, 0.45, 0.04), mat(0x44525a), x, 0.22, z);
+  tag(g, '보호자 의자', '');
+}
+
+/* ============================================================
+   침상 (머리 쪽 = -z, 환자의 오른쪽(Rt.) = -x, 왼쪽(Lt.) = +x)
+   ============================================================ */
+const bed = group(world, 0, 0, 0);
+const frameMat = mat(0x8a9ba5);
+const mattressMat = mat(0xe8f0f5);
+const HINGE = V(0, 0.62, -0.75);
+
+add(bed, B(0.95, 0.1, 2.1), frameMat, 0, 0.43, -0.8);
+add(bed, B(0.95, 0.5, 0.05), frameMat, 0, 0.7, -1.88);     // 머리판
+for (const x of [-0.4, 0.4]) for (const z of [-1.7, 0.1]) {
+  const w = add(bed, CYL(0.07, 0.06, 16), mat(0x3a444a), x, 0.07, z);
+  w.rotation.z = Math.PI / 2;
+  add(bed, CYL(0.012, 0.3), frameMat, x, 0.22, z);
+}
+// 발판(풋보드) + 안내판
+const hobTex = canvasTex(512, 256, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#d63031'; g.fillRect(0, 0, w, 78);
+  g.fillStyle = '#fff'; g.font = `bold 46px ${FONT}`; g.fillText('낙상 고위험', 24, 58);
+  g.fillStyle = '#1d2b33'; g.font = `bold 40px ${FONT}`; g.fillText('나예민 (F/60)', 24, 132);
+  g.font = `bold 62px ${FONT}`; g.fillStyle = '#1f6f8b'; g.fillText(`HOB ${hobDeg}°`, 24, 218);
+});
+const foot = group(bed, 0, 0.64, 0.27);
+add(foot, B(0.95, 0.4, 0.04), frameMat);
+const hobPlate = group(foot, 0, 0, 0);
+screenMesh(hobPlate, hobTex, 0.4, 0.2, 0, 0, 0.025);
+hitSphere(hobPlate, 0, 0, 0.03, 0.17, 'HOB 표시판', 'E7', () => `침상 머리 각도 ${hobDeg}°`);
+
+// 고정 매트리스 + 이불
+add(bed, B(0.9, 0.14, 1.0), mattressMat, 0, 0.55, -0.25);
+const blanket = add(bed, B(0.84, 0.12, 0.88), mat(0x7fb3d5), 0, 0.69, -0.3);
+tag(blanket, '이불', '');
+{ blanket.position.z = -0.31; }
+
+// 머리쪽 접히는 부분
+const headGroup = new THREE.Group();
+headGroup.position.copy(HINGE);
+bed.add(headGroup);
+const headMattress = add(headGroup, B(0.9, 0.14, 1.1), mattressMat, 0, -0.07, -0.55);
+tag(headMattress, '침상 머리 쪽', () => `침상 머리 각도 ${hobDeg}°`, 'E7');
+
+// 환자
+const gownMat = mat(0xcfe8ef);
+const skinMat = mat(0xf3c9a5);
+const torso = add(headGroup, B(0.56, 0.2, 0.85), gownMat, 0, 0.1, -0.475);
+tag(torso, '환자 (나예민)', () => `나예민 (F/60) · 통증 NRS ${vit.pain}/10 · HR ${Math.round(vit.hr)} · BP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`);
+const pillow = add(headGroup, B(0.5, 0.1, 0.34), mat(0xffffff), 0, 0.05, -0.98);
+tag(pillow, '베개', '');
+const head = add(headGroup, SPH(0.115), skinMat, 0, 0.2, -0.96);
+tag(head, '환자 (나예민)', () => `통증 NRS ${vit.pain}/10`);
+const hair = add(headGroup, SPH(0.122), mat(0xbdbdbd), 0, 0.185, -0.995);
+hair.scale.set(1, 0.9, 0.85);
+tag(hair, '환자 (나예민)', () => `통증 NRS ${vit.pain}/10`);
+const eyeMat = mat(0x222222);
+add(headGroup, SPH(0.011), eyeMat, -0.04, 0.3, -0.935);
+add(headGroup, SPH(0.011), eyeMat, 0.04, 0.3, -0.935);
+const browL = add(headGroup, B(0.05, 0.006, 0.01), eyeMat, -0.04, 0.31, -0.965);
+const browR = add(headGroup, B(0.05, 0.006, 0.01), eyeMat, 0.04, 0.31, -0.965);
+const mouth = add(headGroup, B(0.05, 0.006, 0.01), mat(0xb05a5a), 0, 0.305, -0.885);
+
+// 팔 (Rt. = -x, Lt. = +x)
+function arm(side) {
+  const x = side * 0.33;
+  const up = add(headGroup, CYL(0.04, 0.3, 12), gownMat, x, 0.05, -0.62);
+  up.rotation.x = Math.PI / 2;
+  const fore = add(headGroup, CYL(0.034, 0.33, 12), skinMat, x + side * 0.01, 0.045, -0.28);
+  fore.rotation.x = Math.PI / 2;
+  add(headGroup, SPH(0.045), skinMat, x + side * 0.01, 0.045, -0.09);
+  tag(up, side < 0 ? '환자 오른팔 (Rt. arm)' : '환자 왼팔 (Lt. arm)', side < 0 ? '' : 'IV 라인 유지 중인 팔');
+  tag(fore, side < 0 ? '환자 오른팔 (Rt. arm)' : '환자 왼팔 (Lt. arm)', side < 0 ? '' : 'IV 라인 유지 중인 팔');
+}
+arm(-1); arm(1);
+
+// E1 손목밴드 (Rt. wrist)
+const bandTex = canvasTex(256, 128, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#1f6f8b'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
+  g.fillStyle = '#1d2b33'; g.font = `bold 54px ${FONT}`; g.fillText(bandName, 20, 66);
+  g.font = `34px ${FONT}`; g.fillText(bandName === '김서연' ? '60/F · 20250714-1180' : '60/F · 20251031-0427', 20, 108);
+});
+const bandG = group(headGroup, -0.34, 0.045, -0.2);
+{
+  const ring = add(bandG, CYL(0.04, 0.05, 16), mat(0xffffff));
+  ring.rotation.x = Math.PI / 2;
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.045), new THREE.MeshBasicMaterial({ map:bandTex }));
+  plate.rotation.x = -Math.PI / 2; plate.position.set(0, 0.043, 0);
+  bandG.add(plate);
+  hitSphere(bandG, 0, 0.02, 0, 0.075, '환자 손목밴드', 'E1', () => `손목밴드: ${bandName} · 60/F`);
+}
+
+// IV 카테터 (Lt. 손등)
+{
+  const cath = add(headGroup, B(0.03, 0.012, 0.05), mat(0x2f80ed), 0.35, 0.085, -0.15);
+  add(headGroup, B(0.05, 0.006, 0.04), mat(0xffffff), 0.35, 0.082, -0.15);
+  tag(cath, 'IV 카테터 (Lt. arm)', () => 'Lt. arm IV 유지 중');
+}
+
+// 복부 dressing (E2) — JP 삽입 부위 (환자 오른쪽 = -x)
+const dressG = group(headGroup, 0, 0.2, 0);
+add(dressG, B(0.12, 0.008, 0.11), mat(0xffffff), -0.1, 0.003, -0.27);
+const stainMat = new THREE.MeshBasicMaterial({ color:0xb3001b });
+const stain = new THREE.Mesh(new THREE.CircleGeometry(0.04, 20), stainMat);
+stain.rotation.x = -Math.PI / 2; stain.position.set(-0.1, 0.0085, -0.27);
+dressG.add(stain);
+add(dressG, B(0.05, 0.006, 0.05), mat(0xffffff), 0.04, 0.003, -0.2);
+add(dressG, B(0.05, 0.006, 0.05), mat(0xffffff), 0.14, 0.003, -0.3);
+hitSphere(dressG, -0.1, 0.01, -0.27, 0.085, '복부 dressing', 'E2', () => stain.userData.fixed ? 'dressing 교체 · 압박 중' : 'dressing에 선홍색 혈액 번짐');
+dressG.userData.err = 'E2'; dressG.userData.label = '복부 dressing';
+dressG.userData.read = () => stain.userData.fixed ? 'dressing 교체 · 압박 중' : 'dressing에 선홍색 혈액 번짐';
+
+// BP 커프 (E6): 처음에는 Lt. arm
+const cuff = group(headGroup, 0.33, 0.05, -0.55);
+{
+  const c = add(cuff, CYL(0.062, 0.13, 20), mat(0x24485a));
+  c.rotation.x = Math.PI / 2;
+  add(cuff, B(0.03, 0.02, 0.1), mat(0xdde6ea), 0, 0.062, 0);
+  hitSphere(cuff, 0, 0.02, 0, 0.1, '혈압 커프', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (IV 있는 팔)');
+  cuff.userData.side = 'L';
+  cuff.userData.err = 'E6'; cuff.userData.label = '혈압 커프';
+  cuff.userData.read = () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (IV 있는 팔)';
+}
+
+// 난간 (E8: Rt. 난간이 내려가 있음)
+function makeRail(x, down) {
+  const g = group(world, x, 0, -1.0);
+  const m = mat(0x9aa8b0);
+  add(g, B(0.03, 0.04, 1.0), m, 0, 0.98, 0);
+  add(g, B(0.03, 0.03, 1.0), m, 0, 0.82, 0);
+  add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, -0.48);
+  add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, 0.48);
+  g.position.y = down ? -0.38 : 0;
+  return g;
+}
+const railL = makeRail(0.5, false);
+tag(railL, '침상 난간 (Lt.)', () => '올려져 있음');
+const railR = makeRail(-0.5, true);
+tag(railR, '침상 난간 (Rt.)', () => railR.userData.up ? '올려져 있음' : '내려가 있음', 'E8');
+{
+  const hb = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.45, 1.0), new THREE.MeshBasicMaterial({ visible:false }));
+  hb.position.set(0, 0.8, 0);
+  railR.add(hb);
+}
+
+// call bell (E8: 바닥에 떨어짐)
+const bell = group(world, -0.8, 0.04, -1.25);
+{
+  add(bell, B(0.08, 0.04, 0.06), mat(0xe8743b));
+  add(bell, SPH(0.018), mat(0xffffff), 0, 0.03, 0);
+  hitSphere(bell, 0, 0.02, 0, 0.1, 'Call bell', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
+  bell.userData.err = 'E8'; bell.userData.label = 'Call bell';
+  bell.userData.read = () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음';
+}
+
+/* ---------- 수액 폴대 · 펌프 (Lt. 쪽) ---------- */
+const POLE = V(0.95, 0, -1.15);
+const pole = group(world, POLE.x, 0, POLE.z);
+{
+  const m = mat(0x9aa8b0, { metalness:0.4 });
+  add(pole, CYL(0.015, 1.95), m, 0, 0.975, 0);
+  add(pole, B(0.5, 0.03, 0.05), m, 0, 0.03, 0);
+  add(pole, B(0.05, 0.03, 0.5), m, 0, 0.03, 0);
+  add(pole, B(0.3, 0.02, 0.02), m, 0, 1.94, 0);
+  tag(pole, 'IV 폴대', '');
+}
+{
+  const bag = group(world, 0.95, 1.74, -1.15);
+  const b = add(bag, SPH(0.1), mat(0xf5ecb8, { transparent:true, opacity:0.75 }));
+  b.scale.set(0.8, 1.35, 0.4);
+  const lbl = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.fillStyle = '#1d2b33'; g.font = `bold 40px ${FONT}`; g.fillText('N/S 0.9%', 18, 58); g.font = `34px ${FONT}`; g.fillText('1000 mL', 18, 104); });
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.05), new THREE.MeshBasicMaterial({ map:lbl }));
+  p.position.set(0, 0, 0.045); bag.add(p);
+  add(bag, CYL(0.006, 0.16), mat(0xdddddd), 0, 0.19, 0);
+  add(world, CYL(0.006, 0.12), mat(0xdfefff), 0.95, 1.58, -1.15);
+  tag(bag, '수액 백 (N/S 1000 mL)', () => 'N/S 0.9% 1000 mL');
+}
+
+// 수액 펌프 (E4)
+const ivTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#0e2a36'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#8fd3f4'; g.font = `bold 26px ${FONT}`; g.fillText('INFUSION PUMP', 14, 36);
+  g.fillStyle = '#ffffff'; g.font = `bold 92px ${FONT}`; g.fillText(String(ivRate), 14, 140);
+  g.font = `bold 30px ${FONT}`; g.fillStyle = '#8fd3f4'; g.fillText('mL/hr', 14, 180);
+  g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('N/S 1000 mL', 14, 218);
+  g.fillStyle = '#3dff7a'; g.fillText('● RUNNING', 130, 244);
+});
+const ivPump = group(world, 0.95, 1.38, -1.04);
+add(ivPump, B(0.26, 0.3, 0.16), mat(0xf0f4f6));
+screenMesh(ivPump, ivTex, 0.2, 0.2, 0, 0.02, 0.083);
+hitSphere(ivPump, 0, 0, 0.05, 0.19, '수액 펌프', 'E4', () => `수액 펌프 설정: ${ivRate} mL/hr`);
+ivPump.userData.err = 'E4'; ivPump.userData.label = '수액 펌프';
+ivPump.userData.read = () => `수액 펌프 설정: ${ivRate} mL/hr`;
+
+// PCA 펌프 (E5)
+const pcaTex = canvasTex(256, 160, (g, w, h) => {
+  g.fillStyle = '#2a1d3a'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#d8b4fe'; g.font = `bold 26px ${FONT}`; g.fillText('PCA PUMP', 14, 34);
+  g.fillStyle = '#ffffff'; g.font = `26px ${FONT}`; g.fillText('Fentanyl · Lockout 10 min', 14, 72);
+  g.font = `bold 34px ${FONT}`;
+  g.fillStyle = pcaOpen ? '#3dff7a' : '#ff5252';
+  g.fillText(pcaOpen ? 'CLAMP : OPEN' : 'CLAMP : CLOSED', 14, 128);
+});
+const pcaPump = group(world, 0.95, 0.92, -1.04);
+add(pcaPump, B(0.26, 0.2, 0.16), mat(0xe9e2f2));
+screenMesh(pcaPump, pcaTex, 0.22, 0.138, 0, 0.0, 0.083);
+hitSphere(pcaPump, 0, 0, 0.05, 0.16, 'PCA 펌프', 'E5', () => pcaOpen ? 'PCA: 클램프 열림' : 'PCA: 클램프 잠김 (CLOSED)');
+pcaPump.userData.err = 'E5'; pcaPump.userData.label = 'PCA 펌프';
+pcaPump.userData.read = () => pcaOpen ? 'PCA: 클램프 열림' : 'PCA: 클램프 잠김 (CLOSED)';
+
+const clampMat = new THREE.MeshStandardMaterial({ color:0xd63031, roughness:0.5 });
+const clamp = add(world, B(0.035, 0.03, 0.03), clampMat);
+hitSphere(clamp, 0, 0, 0, 0.07, 'PCA 라인 클램프', 'E5', () => pcaOpen ? '클램프 열림' : '클램프 잠김');
+clamp.userData.err = 'E5'; clamp.userData.label = 'PCA 라인 클램프';
+clamp.userData.read = () => pcaOpen ? '클램프 열림' : '클램프 잠김';
+
+/* ---------- JP bulb (E3) ---------- */
+const BULB_POS = V(-0.6, 0.5, -0.78);
+const bulb = group(world, BULB_POS.x, BULB_POS.y, BULB_POS.z);
+{
+  const shell = add(bulb, SPH(0.058), mat(0xffffff, { transparent:true, opacity:0.4 }));
+  const fluid = add(bulb, SPH(0.046), mat(0xb3001b));
+  fluid.scale.set(1, 0.55, 1); fluid.position.y = -0.012;
+  add(bulb, CYL(0.012, 0.03), mat(0xdddddd), 0, 0.06, 0);
+  hitSphere(bulb, 0, 0, 0, 0.1, 'JP bulb', 'E3', () => bulb.userData.fixed ? 'JP bulb: 압축(음압 유지), 선홍색 배액' : 'JP bulb: 부풀어 있음(음압 없음), 선홍색 배액');
+  bulb.userData.err = 'E3'; bulb.userData.label = 'JP bulb';
+  bulb.userData.read = () => bulb.userData.fixed ? 'JP bulb: 압축(음압 유지), 선홍색 배액' : 'JP bulb: 부풀어 있음(음압 없음), 선홍색 배액';
+}
+
+/* ---------- 튜브 ---------- */
+const tubeMat = new THREE.MeshStandardMaterial({ color:0xcfe9f5, roughness:0.4, transparent:true, opacity:0.9 });
+function makeTube(color, r, label, err, read) {
+  const m = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color, roughness:0.5 }));
+  m.userData.r = r;
+  world.add(tag(m, label, read, err));
+  return m;
+}
+function setTube(m, pts) {
+  m.geometry.dispose();
+  m.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(10, pts.length * 8), m.userData.r, 6, false);
+}
+const ivTube = makeTube(0xcfe9f5, 0.006, 'IV 라인', null, () => 'Lt. arm으로 연결');
+const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
+const jpTube = makeTube(0xf2dede, 0.007, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: 바닥으로 늘어져 있음' : 'JP 라인: 고정됨');
+const cuffTube = makeTube(0x24485a, 0.007, '혈압 커프 호스', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (IV 있는 팔)');
+const cordTube = makeTube(0x444444, 0.004, 'Call bell 줄', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
+for (const t of [ivTube, pcaTube, jpTube, cuffTube, cordTube]) t.castShadow = false;
+
+const _v = new THREE.Vector3();
+function hg(x, y, z) { return headGroup.localToWorld(_v.set(x, y, z).clone()); }
+function rebuildTubes() {
+  headGroup.updateMatrixWorld(true);
+  cuff.updateMatrixWorld(true);
+  const site = hg(0.35, 0.095, -0.15);
+  setTube(ivTube, [V(0.95, 1.23, -1.0), V(0.82, 1.05, -1.06), V(0.62, 0.92, -1.1), site]);
+  const pcaPts = [V(0.95, 0.88, -1.0), V(0.8, 0.8, -1.02), V(0.62, 0.78, -1.06), site];
+  setTube(pcaTube, pcaPts);
+  clamp.position.copy(new THREE.CatmullRomCurve3(pcaPts).getPoint(0.45));
+  const A = hg(-0.1, 0.215, -0.27);
+  const top = BULB_POS.clone().add(V(0, 0.07, 0));
+  if (jpSlack) setTube(jpTube, [A, V(-0.36, 0.64, -0.98), V(-0.6, 0.3, -1.02), V(-0.74, 0.05, -0.9), V(-0.55, 0.03, -0.7), V(-0.5, 0.3, -0.72), top]);
+  else setTube(jpTube, [A, V(-0.3, 0.7, -0.98), top]);
+  const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
+  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, V(0.4, 0.95, -1.7), V(1.0, 1.05, -2.2), V(1.8, 1.36, -2.44)]);
+  else setTube(cuffTube, [cp, V(-0.25, 0.9, -1.9), V(0.5, 1.05, -2.3), V(1.8, 1.36, -2.44)]);
+  const clip = V(-0.5, 0.64, -1.2);
+  const bp = new THREE.Vector3(); bell.getWorldPosition(bp);
+  setTube(cordTube, bell.userData.fixed ? [clip, V(-0.46, 0.66, -1.0), bp.clone().add(V(0, 0.02, 0))] : [clip, V(-0.6, 0.3, -1.25), bp.clone().add(V(0, 0.02, 0))]);
+  tubesDirty = false;
+}
+
+/* ---------- 보호자 ---------- */
+const guardian = group(world, 2.8, 0, 1.4);
+guardian.visible = false;
+{
+  add(guardian, CYL(0.2, 0.85, 20), mat(0x8d6e63), 0, 0.6, 0);
+  add(guardian, CYL(0.12, 0.5, 14), mat(0x44525a), 0, 0.25, 0);
+  add(guardian, SPH(0.12), skinMat, 0, 1.2, 0);
+  const h = add(guardian, SPH(0.125), mat(0x2b2b2b), 0, 1.24, -0.02); h.scale.set(1, 0.8, 1);
+  tag(guardian, '보호자', () => '환자의 가족');
+}
+const bubbleText = '간호사님, 어머니가 얼굴이 하얗고 식은땀을 흘리세요. 배가 많이 아프시대요.';
+const bubbleTex = canvasTex(640, 220, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#1f6f8b'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
+  g.fillStyle = '#1d2b33'; g.font = `32px ${FONT}`;
+  wrap(g, bubbleText, 24, 56, w - 48, 42);
+});
+const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map:bubbleTex, depthTest:false }));
+bubble.scale.set(1.05, 0.36, 1);
+bubble.position.set(0, 1.85, 0);
+bubble.visible = false;
+bubble.raycast = () => {};
+guardian.add(bubble);
+let bubbleTTL = 0;
+let guardianWalk = -1;
+
+/* ============================================================
+   마커 (찾음 / 힌트)
+   ============================================================ */
+function ringTex(color) {
+  return canvasTex(128, 128, g => { g.strokeStyle = color; g.lineWidth = 10; g.beginPath(); g.arc(64, 64, 50, 0, Math.PI * 2); g.stroke(); });
+}
+const greenRing = ringTex('#1ee08a'), orangeRing = ringTex('#ffb020'), redRing = ringTex('#ff4d4d');
+function makeRing(tex, size) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, depthTest:false, transparent:true }));
+  s.scale.set(size, size, 1); s.renderOrder = 10; s.raycast = () => {};
+  s.userData.size = size;
+  return s;
+}
+const ANCHOR = {
+  E1: [bandG, 0.22], E2: [dressG, 0.3], E3: [bulb, 0.26], E4: [ivPump, 0.42],
+  E5: [pcaPump, 0.4], E6: [cuff, 0.3], E7: [hobPlate, 0.36], E8: [railR, 0.7]
+};
+const hintRings = [];
+function addHint(id, ttl, red = false) {
+  const [a, size] = ANCHOR[id];
+  const s = makeRing(red ? redRing : orangeRing, size);
+  a.add(s);
+  hintRings.push({ s, until: performance.now() + ttl * 1000 });
+}
+
+/* ============================================================
+   수정(보정) 애니메이션
+   ============================================================ */
+const tweens = [];
+const ease = p => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+function tween(dur, fn, done) { tweens.push({ t:0, dur, fn, done }); }
+
+const FIX = {
+  E1() { bandName = '나예민'; paint(bandTex); },
+  E2() {
+    stain.userData.fixed = true;
+    tween(1, p => { const s = 1 - 0.65 * ease(p); stain.scale.setScalar(s); stainMat.color.setRGB(0.7 + 0.2 * p, 0.2 + 0.4 * p, 0.25 + 0.4 * p); });
+  },
+  E3() {
+    bulb.userData.fixed = true; jpSlack = false;
+    tween(0.9, p => { const e = ease(p); bulb.scale.set(1 - 0.28 * e, 1 - 0.5 * e, 1 - 0.28 * e); tubesDirty = true; }, () => { tubesDirty = true; });
+  },
+  E4() { ivRate = 80; paint(ivTex); },
+  E5() { pcaOpen = true; clampMat.color.set(0x2ecc71); clamp.rotation.z = Math.PI / 2; paint(pcaTex); },
+  E6() {
+    cuff.userData.side = 'R';
+    const a = cuff.position.clone(), b = V(-0.33, 0.05, -0.55);
+    tween(0.9, p => { const e = ease(p); cuff.position.lerpVectors(a, b, e); cuff.position.y = 0.05 + 0.14 * Math.sin(Math.PI * e); tubesDirty = true; }, () => { cuff.position.copy(b); tubesDirty = true; });
+  },
+  E7() {
+    tween(1.4, p => { const e = ease(p); headGroup.rotation.x = e * (Math.PI / 6); hobDeg = Math.round(e * 30); tubesDirty = true; }, () => { hobDeg = 30; paint(hobTex); tubesDirty = true; });
+  },
+  E8() {
+    railR.userData.up = true; bell.userData.fixed = true;
+    const y0 = railR.position.y;
+    tween(0.9, p => { railR.position.y = y0 + (0 - y0) * ease(p); });
+    const a = bell.position.clone(), b = V(-0.42, 0.665, -0.84);
+    tween(1.0, p => { const e = ease(p); bell.position.lerpVectors(a, b, e); bell.position.y = a.y + (b.y - a.y) * e + 0.15 * Math.sin(Math.PI * e); tubesDirty = true; }, () => { bell.position.copy(b); tubesDirty = true; });
+  }
+};
+
+/* ============================================================
+   HUD (DOM)
+   ============================================================ */
+function fmt(s) { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+let toastTimer = null;
+function toast(msg, kind = '', ms = 3200) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'show ' + kind;
+  state.lastMsg = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, ms);
+}
+function feed(text, kind = '') {
+  const stamp = state.practice ? '' : fmt(state.t);
+  state.log.push({ stamp, text, kind });
+  const li = document.createElement('li');
+  li.className = kind;
+  li.innerHTML = (stamp ? '<b>' + stamp + '</b>' : '') + text;
+  $('feed').prepend(li);
+}
+function renderList() {
+  const ul = $('list'); ul.innerHTML = '';
+  for (const e of ERRORS) {
+    const li = document.createElement('li');
+    if (state.found.has(e.id)) { li.className = 'done'; li.innerHTML = '<b>✔ ' + e.id + ' ' + e.title + '</b><small>' + e.cat + '</small>'; }
+    else li.textContent = '？ ' + e.id + ' 아직 못 찾음';
+    ul.appendChild(li);
+  }
+  $('foundCount').textContent = state.found.size;
+  $('missCount').textContent = state.misses;
+  $('hintLeft').textContent = HINTS_MAX - state.hints;
+}
+for (const q of DEBRIEF) { const li = document.createElement('li'); li.textContent = q; $('debrief').appendChild(li); }
+renderList();
+
+/* ============================================================
+   선택(레이캐스트)
+   ============================================================ */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+function pickNow() {
+  const hits = raycaster.intersectObjects(world.children, true);
+  for (const h of hits) {
+    if (h.object.isSprite) continue;
+    let o = h.object;
+    while (o && !(o.userData.err || o.userData.label || o.userData.skip)) o = o.parent;
+    if (!o || o.userData.skip) return null;
+    if (!o.userData.err && !o.userData.label) return null;
+    return o;
+  }
+  return null;
+}
+function pickScreen(cx, cy) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  return pickNow();
+}
+const _m = new THREE.Matrix4();
+function pickController(c) {
+  _m.identity().extractRotation(c.matrixWorld);
+  raycaster.ray.origin.setFromMatrixPosition(c.matrixWorld);
+  raycaster.ray.direction.set(0, 0, -1).applyMatrix4(_m);
+  raycaster.camera = camera;
+  return pickNow();
+}
+function describe(o) {
+  if (!o) return '';
+  const r = typeof o.userData.read === 'function' ? o.userData.read() : o.userData.read;
+  return { label:o.userData.label || '', read:r || '' };
+}
+
+function onSelect(o) {
+  if (state.phase !== 'running' || !o) return;
+  const id = o.userData.err;
+  if (id) foundError(id);
+  else {
+    state.misses++; renderList();
+    toast(`"${o.userData.label}"은(는) 이상이 없어 보입니다. (−2점)`, '', 1800);
+  }
+}
+function foundError(id) {
+  if (state.found.has(id)) { toast(ERR[id].id + ' 은(는) 이미 확인했습니다.', '', 1500); return; }
+  state.found.add(id);
+  FIX[id]();
+  tubesDirty = true;
+  const [a, size] = ANCHOR[id];
+  const ring = makeRing(greenRing, size);
+  a.add(ring);
+  const e = ERR[id];
+  toast(`✔ ${e.id} ${e.title}\n${e.fix}`, 'good', 3800);
+  feed(`✔ ${e.id} ${e.title}`, 'good');
+  renderList();
+  if (state.found.size === ERRORS.length) end('complete');
+}
+
+/* PC 입력: 클릭/드래그 구분 */
+{
+  const dom = renderer.domElement;
+  let down = null, lastHover = 0;
+  dom.addEventListener('pointerdown', e => { down = { x:e.clientX, y:e.clientY, t:performance.now() }; });
+  dom.addEventListener('pointerup', e => {
+    if (!down) return;
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    const dt = performance.now() - down.t;
+    down = null;
+    if (moved < 6 && dt < 700 && e.button === 0) onSelect(pickScreen(e.clientX, e.clientY));
+  });
+  dom.addEventListener('pointermove', e => {
+    const now = performance.now();
+    if (now - lastHover < 50) return;
+    lastHover = now;
+    if (state.phase !== 'running' || e.buttons) { hideTip(); return; }
+    const o = pickScreen(e.clientX, e.clientY);
+    if (!o) { hideTip(); return; }
+    const d = describe(o);
+    const tip = $('tip');
+    tip.innerHTML = '<b>' + d.label + '</b>' + (d.read ? escapeHtml(d.read) : '');
+    tip.hidden = false;
+    tip.style.left = Math.min(e.clientX + 16, innerWidth - 360) + 'px';
+    tip.style.top = Math.min(e.clientY + 16, innerHeight - 120) + 'px';
+    state.hover = d.label + (d.read ? ' · ' + d.read : '');
+  });
+  dom.addEventListener('pointerleave', hideTip);
+}
+function hideTip() { $('tip').hidden = true; state.hover = ''; }
+function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c])); }
+
+/* ============================================================
+   시나리오 진행 (시간 앵커)
+   ============================================================ */
+const EVENTS = [
+  { t:120, run:evGuardian },
+  { t:180, run:evPain },
+  { t:300, run:evBleed },
+  { t:480, run:evSevere },
+  { t:540, run:evFall }
+];
+function evGuardian() {
+  guardian.visible = true; guardianWalk = 0; bubble.visible = true; bubbleTTL = 14;
+  toast('🚪 보호자가 병실에 들어왔습니다.', 'alert', 4200);
+  feed('보호자 방문: "얼굴이 하얗고 식은땀을 흘려요. 배가 많이 아프대요."', 'alert');
+}
+function evPain() {
+  toast('😣 환자가 통증을 호소합니다 (NRS 상승).', 'alert', 4200);
+  feed(state.found.has('E5') ? '통증 호소 (PCA 작동 중, NRS 4)' : '통증 NRS 상승 (PCA 약물이 전달되지 않음)', 'alert');
+}
+function evBleed() {
+  toast('🩸 출혈이 악화되고 있습니다! 활력징후와 dressing을 확인하세요.', 'alert', 5200);
+  feed('출혈 악화: 빈맥·저혈압 진행. 구조 단서: 복부 dressing과 JP 배액을 확인하세요.', 'alert');
+  if (!state.found.has('E2')) addHint('E2', 12, true);   // 구조 단서
+}
+function evSevere() {
+  toast('⚠ 환자 상태가 중증으로 악화됩니다! 침대에서 내려오려고 합니다 (낙상 위험).', 'alert', 5200);
+  feed('중증 악화 · 낙상 위험: 환자가 불안정하게 움직입니다.', 'alert');
+  if (!state.found.has('E8')) addHint('E8', 10, true);
+}
+function evFall() {
+  if (!state.found.has('E8') && !state.fell) {
+    state.fell = true;
+    toast('❌ 낙상 사고가 발생했습니다. (−10점)', 'alert', 5200);
+    feed('낙상 발생: 난간이 내려가 있고 호출벨이 손에 닿지 않았습니다.', 'alert');
+  }
+}
+
+function targets() {
+  const f = state.found;
+  const bleed = (f.has('E2') ? 0.25 : 1) + (f.has('E4') ? 0 : 0.3);
+  const painT = state.practice ? 4 : (state.t >= 180 ? (f.has('E5') ? 4 : 8) : (f.has('E5') ? 3 : 5));
+  phaseF = state.practice ? 0.1 : (state.t < 180 ? 0.1 : state.t < 300 ? 0.25 : state.t < 480 ? 1.0 : 1.7);
+  const hiPain = painT >= 7 ? 1 : 0;
+  return {
+    pain: painT,
+    hr: Math.min(150, 90 + hiPain * 10 + 30 * bleed * phaseF),
+    sbp: Math.max(60, 114 - 20 * bleed * phaseF),
+    dbp: Math.max(34, 72 - 12 * bleed * phaseF),
+    spo2: Math.max(86, 97 - 2 * bleed * phaseF),
+    rr: Math.min(32, 18 + 4 * bleed * phaseF + hiPain * 2)
+  };
+}
+
+/* ============================================================
+   시작 · 종료
+   ============================================================ */
+function start() {
+  state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
+  Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fell:false });
+  state.found.clear(); state.done.clear(); state.log.length = 0;
+  $('feed').innerHTML = '';
+  $('startOv').hidden = true; $('endOv').hidden = true;
+  $('hintBtn').disabled = false; $('giveUpBtn').disabled = false;
+  renderList();
+  feed(state.practice ? '연습 모드를 시작했습니다.' : '인계를 마치고 병실에 들어왔습니다.');
+  toast(state.practice ? '의심되는 물체를 클릭하세요.' : '인계를 받고 병실에 입장했습니다. 오류 8개를 찾으세요!', '', 3500);
+}
+
+function calcScore() {
+  return Math.max(0, Math.round(state.found.size / ERRORS.length * 100) - state.misses * 2 - state.hints * 3 - (state.fell ? 10 : 0));
+}
+function end(reason) {
+  if (state.phase !== 'running') return;
+  state.phase = 'ended';
+  $('hintBtn').disabled = true; $('giveUpBtn').disabled = true;
+  hideTip();
+  for (const e of ERRORS) if (!state.found.has(e.id)) addHint(e.id, 3600, true);
+  const score = calcScore();
+  $('endTitle').textContent = reason === 'complete' ? '🎉 오류 8개를 모두 찾았습니다!' : reason === 'timeout' ? '⏰ Time-out (10분 종료)' : '결과';
+  $('endScore').textContent = score + '점';
+  $('endSummary').textContent = `발견 ${state.found.size}/${ERRORS.length} · 오답 ${state.misses} · 힌트 ${state.hints}` +
+    (state.fell ? ' · 낙상 발생(−10)' : '') + (state.practice ? '' : ' · 소요 ' + fmt(Math.min(LIMIT, state.t)));
+  const box = $('endList'); box.innerHTML = '';
+  const ordered = [...ERRORS].sort((a, b) => state.found.has(b.id) - state.found.has(a.id));
+  for (const e of ordered) {
+    const ok = state.found.has(e.id);
+    const d = document.createElement('div');
+    d.className = 'res' + (ok ? '' : ' miss');
+    d.innerHTML = '<b>' + (ok ? '✔ ' : '✘ 놓침 · ') + e.id + ' ' + e.title + '</b><span class="tag">' + e.cat + '</span>' + e.why;
+    box.appendChild(d);
+  }
+  const ef = $('endFeed'); ef.innerHTML = '';
+  for (const l of state.log) { const li = document.createElement('li'); li.textContent = (l.stamp ? '[' + l.stamp + '] ' : '') + l.text.replace(/<[^>]+>/g, ''); ef.appendChild(li); }
+  try {
+    const best = Number(localStorage.getItem('roe3d_best') || 0);
+    if (score > best) { localStorage.setItem('roe3d_best', score); $('endSummary').textContent += ' · 🏆 최고 기록'; }
+  } catch (_) {}
+  state.lastMsg = `종료 · ${score}점 (발견 ${state.found.size}/${ERRORS.length})`;
+  $('endOv').hidden = false;
+}
+
+function hint() {
+  if (state.phase !== 'running' || state.hints >= HINTS_MAX) return;
+  const left = ERRORS.filter(e => !state.found.has(e.id));
+  if (!left.length) return;
+  const e = left[Math.floor(Math.random() * left.length)];
+  addHint(e.id, 4);
+  state.hints++; renderList();
+  toast('힌트: 주황색 원 근처에 오류가 있습니다. (−3점)', '', 2600);
+}
+
+$('startBtn').addEventListener('click', start);
+$('hintBtn').addEventListener('click', hint);
+$('giveUpBtn').addEventListener('click', () => end('giveup'));
+$('retryBtn').addEventListener('click', () => location.reload());
+$('closeBtn').addEventListener('click', () => { $('endOv').hidden = true; });
+$('sideToggle').addEventListener('click', () => $('side').classList.toggle('hide'));
+if (innerWidth <= 820) $('side').classList.add('hide');
+
+/* ============================================================
+   VR 지원 (WebXR)
+   ============================================================ */
+const vrBtn = VRButton.createButton(renderer);
+vrBtn.style.zIndex = 150;
+vrBtn.style.left = 'auto'; vrBtn.style.right = '16px'; vrBtn.style.bottom = '16px';
+document.body.appendChild(vrBtn);
+
+const vrHudTex = canvasTex(1024, 512, drawVRHud);
+const vrHud = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.7), new THREE.MeshBasicMaterial({ map:vrHudTex, toneMapped:false }));
+vrHud.position.set(1.5, 1.45, 1.2);
+vrHud.visible = false;
+scene.add(vrHud);
+
+function drawVRHud(g, w, h) {
+  g.fillStyle = 'rgba(16,24,29,0.92)'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#6dff9b'; g.font = `bold 84px ${FONT}`;
+  g.fillText(state.practice ? '연습' : fmt(LIMIT - state.t), 30, 100);
+  g.fillStyle = '#ffffff'; g.font = `bold 44px ${FONT}`;
+  g.fillText(`발견 ${state.found.size}/${ERRORS.length}   오답 ${state.misses}`, 380, 90);
+  g.fillStyle = '#c8d3d9'; g.font = `34px ${FONT}`;
+  if (state.phase === 'idle') wrap(g, '잠시 후 평가가 시작됩니다. 트리거로 의심되는 물체를 선택하세요.', 30, 170, w - 60, 46);
+  else wrap(g, state.lastMsg || '', 30, 170, w - 60, 46);
+  g.fillStyle = '#ffd166'; g.font = `32px ${FONT}`;
+  wrap(g, state.hover ? '▶ ' + state.hover : '', 30, 400, w - 60, 42);
+}
+
+const controllers = [];
+for (let i = 0; i < 2; i++) {
+  const c = renderer.xr.getController(i);
+  const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0, 0, 0), V(0, 0, -3)]), new THREE.LineBasicMaterial({ color:0xffd166 }));
+  ray.visible = false;
+  c.add(ray);
+  c.userData.ray = ray;
+  c.addEventListener('selectstart', () => { if (state.phase === 'running') onSelect(pickController(c)); });
+  dolly.add(c);
+  controllers.push(c);
+}
+
+let savedCamPos = null, vrAutoStart = 0;
+renderer.xr.addEventListener('sessionstart', () => {
+  state.inXR = true;
+  savedCamPos = camera.position.clone();
+  controls.enabled = false;
+  dolly.position.set(0, 0, 2.1);
+  vrHud.visible = true;
+  vrHud.lookAt(0, 1.45, 2.1);
+  controllers.forEach(c => { c.userData.ray.visible = true; });
+  if (state.phase === 'idle') vrAutoStart = 4;
+});
+renderer.xr.addEventListener('sessionend', () => {
+  state.inXR = false;
+  dolly.position.set(0, 0, 0);
+  if (savedCamPos) camera.position.copy(savedCamPos);
+  controls.enabled = true; controls.update();
+  vrHud.visible = false;
+  controllers.forEach(c => { c.userData.ray.visible = false; });
+});
+
+/* ============================================================
+   프레임 루프
+   ============================================================ */
+const clock = new THREE.Clock();
+let monAcc = 0, hudAcc = 0, xrHoverAcc = 0;
+const camMin = V(-2.7, 0.35, -2.3), camMax = V(2.7, 2.35, 2.3);
+const tgtMin = V(-2.6, 0.2, -2.3), tgtMax = V(2.6, 1.9, 2.3);
+
+function frame() {
+  const rawDt = clock.getDelta();          // 실제 경과 시간 (프레임이 느려도 10분은 10분)
+  const dt = Math.min(rawDt, 0.1);         // 애니메이션용
+
+  // 시뮬레이션 시간
+  if (state.phase === 'running' && !state.practice) {
+    state.t += rawDt * SPEED;
+    for (const ev of EVENTS) if (state.t >= ev.t && !state.done.has(ev.t)) { state.done.add(ev.t); ev.run(); }
+    if (state.t >= LIMIT) { state.t = LIMIT; end('timeout'); }
+  }
+  const sec = Math.floor(state.t);
+  if (sec !== lastSec) {
+    lastSec = sec;
+    const left = LIMIT - state.t;
+    $('timer').textContent = state.practice ? '연습' : fmt(left);
+    $('timerPill').classList.toggle('warn', !state.practice && state.phase === 'running' && left <= 60);
+    paint(clockTex);
+  }
+  if (vrAutoStart > 0) { vrAutoStart -= dt; if (vrAutoStart <= 0 && state.phase === 'idle') start(); }
+
+  // 활력징후(부드럽게 변화)
+  const tg = targets();
+  const k = Math.min(1, dt * 0.6);
+  for (const key of ['hr', 'sbp', 'dbp', 'spo2', 'rr']) vit[key] += (tg[key] - vit[key]) * k;
+  vit.pain = tg.pain;
+
+  // 환자 표정
+  const pn = vit.pain;
+  browL.rotation.y = (pn - 3) * 0.06; browR.rotation.y = -(pn - 3) * 0.06;
+  mouth.scale.z = 1 + Math.max(0, pn - 4) * 0.9;
+  mouth.scale.x = 1 - Math.max(0, pn - 4) * 0.06;
+
+  // 보호자 걸어오기
+  if (guardianWalk >= 0 && guardianWalk < 1) {
+    guardianWalk = Math.min(1, guardianWalk + dt / 4);
+    guardian.position.set(2.8 + (1.2 - 2.8) * guardianWalk, 0, 1.4 + (0.2 - 1.4) * guardianWalk);
+    guardian.lookAt(0.3, 0, -0.6);   // 수평으로만 회전 (눕지 않게)
+  }
+  if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
+
+  // 트윈
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i];
+    tw.t += dt;
+    const p = Math.min(1, tw.t / tw.dur);
+    tw.fn(p);
+    if (p >= 1) { tweens.splice(i, 1); if (tw.done) tw.done(); }
+  }
+  if (tubesDirty) rebuildTubes();
+
+  // 힌트 링
+  const now = performance.now();
+  for (let i = hintRings.length - 1; i >= 0; i--) {
+    const h = hintRings[i];
+    if (now > h.until) { h.s.parent && h.s.parent.remove(h.s); h.s.material.dispose(); hintRings.splice(i, 1); continue; }
+    const sz = h.s.userData.size * (1 + 0.18 * Math.sin(now / 130));
+    h.s.scale.set(sz, sz, 1);
+  }
+
+  // 모니터 / VR HUD 갱신
+  monAcc += dt; if (monAcc > 0.08) { monAcc = 0; paint(monTex); }
+  hudAcc += dt; if (hudAcc > 0.25 && state.inXR) { hudAcc = 0; paint(vrHudTex); }
+
+  // VR 컨트롤러 호버
+  if (state.inXR) {
+    xrHoverAcc += dt;
+    if (xrHoverAcc > 0.15) {
+      xrHoverAcc = 0;
+      let txt = '';
+      for (const c of controllers) {
+        const o = pickController(c);
+        if (o) { const d = describe(o); txt = d.label + (d.read ? ' · ' + d.read : ''); break; }
+      }
+      state.hover = txt;
+    }
+  } else {
+    controls.update();
+    camera.position.clamp(camMin, camMax);
+    controls.target.clamp(tgtMin, tgtMax);
+  }
+
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(frame);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// 테스트·디버그용
+window.__roe = { state, ERRORS, start, foundError, vit, camera, controls, scene, renderer, end, paint, vrHudTex, vrHud };
+</script>
+</body>
+</html>
