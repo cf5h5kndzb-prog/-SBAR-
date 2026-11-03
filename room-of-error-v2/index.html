@@ -1,0 +1,1436 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Room of Error — 담낭절제술 후 간호</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --ink: #1d2733;
+  --ink-soft: #5b6775;
+  --line: #dde3ea;
+  --navy: #1f3b5b;
+  --teal: #12857a;
+  --red: #c9302c;
+  --amber: #e2a32b;
+  --floor: #eef1f3;
+  --floor-line: #e1e6ea;
+  --wall: #c9d3dc;
+  --screen: #cfe6f0;
+  --bed: #fbfcfd;
+  --bed-edge: #a9b6c3;
+  --bed-head: #b9dcd7;
+  --rail: #7d8c9b;
+  --rail-down: #e9eef2;
+  --rail-down-edge: #b0bcc8;
+  --skin: #f1cfb2;
+  --gown: #bcd3ea;
+  --blanket: #d9e6f2;
+  font-family: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  color: var(--ink);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); line-height: 1.55; }
+h1, h2, h3, h4 { line-height: 1.3; margin: 0 0 .5em; }
+.muted { color: var(--ink-soft); }
+.hidden { display: none !important; }
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* buttons */
+.btn { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  padding: .5em 1em; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn:hover { border-color: var(--navy); }
+.btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+.btn.ghost { background: transparent; }
+.btn.danger { background: #fff; color: var(--red); border-color: #f0c2c0; }
+.btn.big { font-size: 1.1rem; padding: .8em 1.8em; }
+
+/* intro */
+.intro { max-width: 960px; margin: 0 auto; padding: 48px 20px; }
+.eyebrow { color: var(--teal); font-weight: 700; letter-spacing: .02em; margin: 0 0 .4em; font-size: .9rem; }
+.intro h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); }
+.lead { font-size: 1.08rem; max-width: 46em; }
+.intro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.card ul { padding-left: 1.1em; margin: 0; }
+.quote { border-left: 4px solid var(--teal); padding: .4em .9em; background: #f0f8f7; margin: .4em 0 1em; }
+.field { display: block; margin-top: .7em; font-size: .92rem; color: var(--ink-soft); }
+.field input, .field select { display: block; width: 100%; margin-top: .3em; font: inherit; padding: .5em .6em; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); }
+.note { color: var(--ink-soft); }
+
+/* topbar */
+.topbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; background: var(--navy); color: #fff; flex-wrap: wrap; }
+.topbar .muted { color: #b8c7d8; margin-left: .6em; }
+.tb-right { display: flex; gap: 6px; flex-wrap: wrap; }
+.topbar .btn { padding: .4em .8em; font-size: .9rem; }
+.topbar .btn.ghost { color: #fff; border-color: #4d6a8a; }
+.timer { font-variant-numeric: tabular-nums; font-size: 1.6rem; font-weight: 800; letter-spacing: .04em; }
+.timer.warn { color: #ffb4a8; }
+.banner { text-align: center; padding: 6px; font-weight: 700; }
+.banner.warn { background: #fff4d6; color: #7a5200; }
+.banner.alarm { background: #ffdddb; color: #8f1d1a; animation: blink 1s steps(2) infinite; }
+
+/* sim layout */
+.sim { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: 14px; padding: 14px 16px; max-width: 1440px; margin: 0 auto; }
+.room-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+.roomsvg { width: 100%; height: auto; display: block; }
+.hint { margin: 4px 8px; color: var(--ink-soft); font-size: .88rem; }
+
+.hot { cursor: pointer; outline: none; }
+.hit { fill: transparent; }
+.hot:hover .hit, .hot:focus .hit { fill: rgba(18,133,122,.08); stroke: rgba(18,133,122,.6); stroke-dasharray: 5 4; rx: 8; filter: none; }
+.hot.sel .hit { fill: rgba(31,59,91,.07); stroke: var(--navy); stroke-width: 2; stroke-dasharray: 5 4; filter: none; }
+.hot:hover > *, .hot:focus > * { filter: drop-shadow(0 0 4px rgba(18, 133, 122, .9)); }
+.hot.sel > * { filter: drop-shadow(0 0 5px rgba(31, 59, 91, .95)); }
+.obj { fill: #e3e8ee; stroke: #b9c4cf; stroke-width: 2; }
+.skin { fill: var(--skin); stroke: #c79d7d; stroke-width: 1.5; }
+.skin.pale { fill: #ece6df; }
+.gown { fill: var(--gown); }
+.blanket { fill: var(--blanket); }
+.lbl { font-size: 14px; fill: var(--ink-soft); font-weight: 600; }
+.lbl-s { font-size: 12px; fill: var(--ink-soft); font-weight: 600; }
+.lbl-w { font-size: 13px; fill: #40505f; font-weight: 700; }
+.npo { font-size: 18px; font-weight: 900; fill: var(--red); }
+.pumpnum { font-size: 22px; font-weight: 800; fill: #7CFC9A; font-family: ui-monospace, monospace; }
+.pumpnum-s { font-size: 15px; font-weight: 800; fill: #7CFC9A; font-family: ui-monospace, monospace; }
+.mon-s { font-size: 17px; font-weight: 800; font-family: ui-monospace, monospace; }
+.alert-t { font-size: 16px; font-weight: 800; fill: var(--red); }
+.blink { animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+
+/* panel */
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; align-self: start;
+  position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow: auto; }
+.panel-empty p { color: var(--ink-soft); }
+.panel h4 { margin-top: 1em; color: var(--ink-soft); font-size: .85rem; text-transform: none; }
+.panel .desc { color: var(--ink-soft); margin: 0; }
+.findings { list-style: none; padding: 0; margin: 0; }
+.findings li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.flag { font: inherit; font-size: .85rem; border: 1px solid #e8b3b0; color: var(--red); background: #fff; border-radius: 6px; padding: .25em .6em; cursor: pointer; white-space: nowrap; }
+.flag.on { background: #f6f7f8; color: var(--ink-soft); border-color: var(--line); cursor: default; }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.act { font: inherit; font-size: .9rem; border: 1px solid var(--line); background: #f7f9fb; border-radius: 8px; padding: .45em .75em; cursor: pointer; text-align: left; }
+.act:hover { border-color: var(--teal); }
+.act.done { color: var(--teal); background: #eef8f6; cursor: default; }
+.act.urgent { border-color: var(--red); background: #fff1f0; color: var(--red); font-weight: 700; }
+.custom { margin: .6em 0; }
+.slider { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.slider input[type=number] { width: 90px; font: inherit; padding: .35em .5em; border: 1px solid var(--line); border-radius: 6px; }
+.mon { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: #111a22; border-radius: 10px; padding: 10px; color: #cfd8e0; }
+.mon.alarm { outline: 3px solid #ff4d4d; animation: blink 1s steps(2) infinite; }
+.mon div { display: flex; flex-direction: column; }
+.mon span { font-size: .72rem; opacity: .8; }
+.mon b { font-size: 1.25rem; font-family: ui-monospace, monospace; }
+.mon small { font-size: .65rem; opacity: .7; }
+.mon .g { color: #7CFC9A; } .mon .r { color: #ff8a8a; } .mon .y { color: #ffe27a; } .mon .c { color: #7ee0ff; }
+.danger-t { color: var(--red); }
+
+/* log */
+.logbox { max-width: 1440px; margin: 0 auto 30px; padding: 0 16px; }
+.logbox h4 { color: var(--ink-soft); }
+#log { list-style: none; padding: 10px 14px; margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; max-height: 260px; overflow: auto; font-size: .92rem; }
+#log li { padding: 3px 0; border-bottom: 1px solid #f0f2f4; }
+#log .lt { display: inline-block; width: 3.6em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.log-sys { color: #5a4b00; }
+.log-act { color: var(--navy); }
+.log-fp { color: var(--red); }
+.log-fix, .log-detect { color: var(--teal); }
+.log-judge { color: #8a8f96; font-size: .85rem; }
+
+/* modal */
+.modal { position: fixed; inset: 0; background: rgba(15, 25, 35, .5); display: flex; align-items: flex-start; justify-content: center; z-index: 20; padding: 30px 12px; overflow: auto; }
+.modal-box { position: relative; background: var(--card); border-radius: 14px; padding: 22px 24px; width: min(860px, 100%); box-shadow: 0 20px 50px rgba(0, 0, 0, .25); }
+.modal-x { position: absolute; right: 12px; top: 8px; border: 0; background: none; font-size: 1.8rem; cursor: pointer; color: var(--ink-soft); }
+.choices { display: grid; gap: 8px; margin: 10px 0 14px; }
+.choice { font: inherit; text-align: left; border: 1px solid var(--line); background: #f8fafb; border-radius: 10px; padding: .7em .9em; cursor: pointer; }
+.choice:hover { border-color: var(--navy); background: #eef3f8; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tab { font: inherit; border: 0; background: none; padding: .5em .9em; cursor: pointer; border-bottom: 3px solid transparent; color: var(--ink-soft); font-weight: 600; }
+.tab.on { border-color: var(--navy); color: var(--navy); }
+.tbl { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.tbl th, .tbl td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+.tbl th { background: #f3f6f9; font-weight: 700; }
+.tbl tr.hl td { background: #fff4f2; }
+.dl { display: grid; grid-template-columns: 9em 1fr; gap: 6px 12px; }
+.dl dt { color: var(--ink-soft); }
+.dl dd { margin: 0; }
+.plain { padding-left: 1.1em; }
+
+.sbar { display: grid; gap: 10px; }
+.sbar fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.sbar legend { font-weight: 700; color: var(--navy); padding: 0 4px; }
+.sbar input, .sbar select, .sbar textarea { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: .35em .5em; }
+.sbar input.n { width: 4.5em; }
+.sbar label.full { display: grid; gap: 4px; font-weight: 700; color: var(--navy); }
+.sbar textarea { width: 100%; resize: vertical; font-weight: 400; color: var(--ink); }
+.sbar .chk label { font-size: .92rem; }
+.drask { background: #fff7e6; border: 1px solid #f1d59a; border-radius: 10px; padding: 6px 12px; margin-bottom: 10px; }
+.drask p { margin: .3em 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 10px; }
+
+/* toast */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: .7em 1.2em; border-radius: 10px; z-index: 30; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.toast.neutral { background: #3d4a57; }
+
+/* result */
+.result { max-width: 1000px; margin: 0 auto; padding: 40px 20px 60px; }
+.result h2 { margin-top: 1.6em; font-size: 1.2rem; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; }
+.kpi span { color: var(--ink-soft); font-size: .85rem; }
+.kpi b { font-size: 1.6rem; }
+.kpi small { color: var(--ink-soft); }
+.ok { color: var(--teal); font-weight: 800; }
+.no { color: #b0b7bf; }
+.result .row { justify-content: flex-start; margin-top: 24px; }
+
+@media (max-width: 900px) {
+  .sim { grid-template-columns: 1fr; }
+  .panel { position: static; max-height: none; }
+  .intro-grid, .kpis { grid-template-columns: 1fr; }
+  .mon { grid-template-columns: repeat(3, 1fr); }
+  .dl { grid-template-columns: 1fr; }
+  .tbl { font-size: .85rem; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ============ 1. 시작(프리브리핑 안내) ============ -->
+<section id="screen-intro" class="screen active">
+  <div class="intro">
+    <p class="eyebrow">시뮬레이션테크놀로지 · 2조 · Room of Error 프로토타입</p>
+    <h1>복강경 담낭절제술 후<br>안전위험 및 이상징후 인지</h1>
+    <p class="lead">수술 당일 병동에 복귀한 지 1시간 된 60세 여성 환자의 병실에 <b>8개의 안전 오류</b>가 숨어 있습니다.
+      처방·인계와 병실을 대조해 오류를 찾고 교정한 뒤, 재사정 결과를 담당의에게 <b>SBAR</b>로 보고하세요.</p>
+
+    <div class="intro-grid">
+      <div class="card">
+        <h3>진행 규칙</h3>
+        <ul>
+          <li>제한시간 <b>10분 00초</b> (SBAR 보고 포함)</li>
+          <li>탐색 순서는 자유입니다. 누적 탐지 수는 표시되지 않습니다.</li>
+          <li>미교정 오류가 있으면 <b>3·5·8분</b>에 환자 상태가 악화됩니다.</li>
+          <li>오류는 <b>‘이상 보고’ + 근거 선택</b>으로 탐지가 인정됩니다. 정상 항목을 오류로 보고하면 감점됩니다.</li>
+          <li>어지러움·불편감이 있으면 언제든 <b>‘중단하겠습니다’</b>를 누르세요.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>인계 (인계 간호사)</h3>
+        <p class="quote" id="intro-handover"></p>
+        <label class="field">학습자 이름 또는 번호 <input id="learner" placeholder="예: 홍길동"></label>
+        <label class="field">역할
+          <select id="role"><option>수행 간호사</option><option>관찰자</option></select>
+        </label>
+      </div>
+    </div>
+
+    <p class="note">모두 찾지 못해도 실패가 아닙니다. 오류를 탐색하고 판단하는 과정 자체가 학습입니다.</p>
+    <button id="btn-start" class="btn primary big">병실 들어가기</button>
+  </div>
+</section>
+
+<!-- ============ 2. 시뮬레이션 ============ -->
+<section id="screen-sim" class="screen">
+  <header class="topbar">
+    <div class="tb-left">
+      <strong>Room of Error</strong>
+      <span class="muted" id="tb-patient">나예민 / F / 60 · POD 0</span>
+    </div>
+    <div class="timer" id="timer">10:00</div>
+    <div class="tb-right">
+      <button class="btn ghost" id="btn-emr">차트</button>
+      <button class="btn ghost" id="btn-phone">담당의 전화(SBAR)</button>
+      <button class="btn" id="btn-finish">수행 종료</button>
+      <button class="btn danger" id="btn-stop">중단하겠습니다</button>
+    </div>
+  </header>
+  <div id="banner" class="banner hidden"></div>
+
+  <main class="sim">
+    <div class="room-wrap">
+      <div id="room"></div>
+      <p class="hint">병실의 사물·환자·보호자를 눌러 확인하세요.</p>
+    </div>
+    <aside class="panel" id="panel">
+      <div class="panel-empty">
+        <h3>확인할 대상을 선택하세요</h3>
+        <p>차트(태블릿)에서 Order Sheet와 과거력을 먼저 확인하면 병실 세팅과 대조하기 쉽습니다.</p>
+      </div>
+    </aside>
+  </main>
+
+  <section class="logbox">
+    <h4>대화·사건 기록</h4>
+    <ol id="log"></ol>
+  </section>
+</section>
+
+<!-- ============ 3. 결과 ============ -->
+<section id="screen-result" class="screen">
+  <div class="result" id="result"></div>
+</section>
+
+<!-- 모달 -->
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <button class="modal-x" id="modal-x" aria-label="닫기">×</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* =========================================================
+ * Room of Error 시나리오 데이터 — 2조 보고서(오류 8개 개정판) 기준
+ * 수치·대사·배점은 보고서 3-2, 3-5, 3-7, 4-3, 4-4, 6-1을 옮김
+ * ========================================================= */
+window.SCN = {
+  limitSec: 600,          // 10분 00초 Time-out
+  bonusSec: 300,          // 가산점 기준 5분
+  sbarLimitSec: 60,       // SBAR 1분 이내
+  recoveryDelay: 60,      // bolus 시작 1분 후 회복 반영
+
+  patient: { name: '나예민', regNo: '10458231', sex: 'F', age: 60 },
+  wristWrong: { name: '나애민', regNo: '10458213' },   // E1 손목밴드 불일치
+
+  baseline: { sbp: 140, dbp: 80, pr: 88, rr: 18, spo2: 96, bt: 36.8, nrs: 6 },
+  /* 출혈 트랙(E2) 기본값 — 통증 기여분 제외 */
+  bleed: {
+    s0:  { sbp: 140, dbp: 80, pr: 88,  rr: 18 },
+    s5:  { sbp: 120, dbp: 75, pr: 100, rr: 24 },   // 5분, 출혈 트랙 미조치 (E5 교정 시 값)
+    s8:  { sbp: 90,  dbp: 60, pr: 120, rr: 28 },   // 8분, 출혈 주도
+    r58: { sbp: 136, dbp: 88, pr: 100, rr: 20 },   // 회복: 5~8분 사이 처치
+    r8:  { sbp: 100, dbp: 64, pr: 108, rr: 24 }    // 회복: 8분 이후 처치
+  },
+  /* 통증 트랙(E5) 기여분 — 3분 E5 미교정 시, 교정하면 소실 */
+  pain: { sbp: 10, dbp: 15, pr: 10, nrs: 1 },
+
+  handover: '수술 후 병동으로 올라온 환자입니다. 1시간 전 병동 도착 시 JP drain은 혈성 20 mL였고, IV PCA 적용 중이며, Lt. arm save 처방 있습니다. 수술 후 처방과 환자 상태 확인 부탁드립니다.',
+
+  lines: {
+    chief: '수술부위가 아파요… (신음)',
+    name: '나예민이요.',
+    nameConfirm: '네, 나예민이에요.',
+    regno: '여기 밴드에 있어요. (손목밴드를 보여줌)',
+    pcaBad: '눌러도 별로 안 나아지는 것 같아요…',
+    pcaGood: '눌렀더니 좀 나아지는 것 같아요.',
+    ltArmBP: '왼팔에서 혈압 측정해도 되나요?',
+    ltCuff: '유방암 수술했기 때문에 왼팔은 보호해야 한다고 알고 있어요…',
+    stage1: '아까보다 더 아파요… (찡그림, 신음)',
+    stage5: '계속 배가 아파요…',
+    stage8: '너무 불안해요, 좀 일어나 볼래요. (어지러움, 식은땀)',
+    drainCheck: '확인해 주셔서 마음이 놓여요.',
+    bed: '숨쉬기가 편해졌어요.',
+    bedTooHigh: '너무 일어나 있으니 배가 당겨요.',
+    fall: '네, 벨 누를게요.',
+    calm: '네… 누워 있을게요.',
+    guardian1: '너무 아파하는 거 아니에요? 의사는 언제와요?',
+    guardianCue: '저기 이상한 것 같은데 좀 봐주세요. (PCA를 가리킴)',
+    guardianCalm: '아, 그렇군요. 알겠습니다.',
+    repeatId: '아까 말씀드렸는데요…',
+    fpDressing: '왜 자꾸 만지세요?',
+    fpJp: '뭘 하시는 거예요?',
+    fpPca: '주사 들어가고 있던 거 아니에요?',
+    fpRestraint: '왜 묶으세요?',
+    fpRtArm: '오른팔은 괜찮은데요.',
+    dr1: '현재 활력징후와 통증 정도, JP drain 배액 양상과 양을 다시 확인해 주세요. PCA 및 배액관 상태를 확인하고 이상이 지속되면 다시 보고해 주세요. 출혈이 의심되니 현재 수액(Plasma)으로 500 mL bolus 주입해 주시고, 이후 처방대로 80 mL/hr로 유지되는지 확인해 주세요.',
+    dr2: '곧 병실로 가겠습니다. 그때까지 활력징후를 재측정하고 계속 관찰해 주세요.',
+    drReadback: '네, 맞습니다. 진행해 주세요.',
+    drAskVs: '현재 활력징후는요?',
+    drAskDrain: '배액 양상과 양은 어떤가요?',
+    drAskPain: '통증 정도는요?',
+    drAskId: '환자 성함과 등록번호를 다시 확인해 주세요.',
+    drAskSbar: '상황(S)·배경(B)·사정(A)·요청(R)을 순서대로 다시 말씀해 주세요.'
+  },
+
+  /* 오류 정의 (3-2, 4-3-0, 6-1) — rationale[0]이 적절한 근거 */
+  errors: {
+    E1: { title: '환자 식별 — 손목밴드 정보 불일치', sev: '중', pts: 5, judgeAt: 180,
+      rationale: ['개방형 질문으로 받은 성명과 차트의 등록번호가 손목밴드와 불일치함(2가지 식별정보 대조)',
+        '손목밴드에 낙상 고위험 표식이 없음', '손목밴드가 수술측 팔에 채워져 있음'] },
+    E2: { title: '출혈 이상징후 — JP 선홍색 배액 급증·dressing bloody oozing', sev: '상', pts: 10, judgeAt: 300,
+      rationale: ['도착 시 20 mL에서 1시간 동안 80 mL 이상 증가한 선홍색 배액과 우상복부 dressing bloody oozing → 출혈 이상징후',
+        '수술 당일 혈성 배액은 정상 경과이므로 관찰만 하면 됨', '배액이 줄어 배액관 폐색이 의심됨'] },
+    E3: { title: '배액관 기능 — bulb 미압축·고정 불량', sev: '상', pts: 10, judgeAt: 300,
+      rationale: ['음압 유지 처방과 달리 bulb가 팽창해 음압이 소실 → 배액이 실제 출혈량을 과소반영할 수 있고, 고정 불량으로 당김·자가발관 위험',
+        'bulb가 가득 차 있어 즉시 drain을 제거해야 함', 'bulb는 팽창 상태로 두어야 배액이 잘 됨'] },
+    E4: { title: '수액 속도 — 처방 80 mL/hr ≠ 세팅 20 mL/hr', sev: '상', pts: 10, judgeAt: 300,
+      rationale: ['처방 속도 80 mL/hr와 수액조절기 20 mL/hr가 불일치(투약 5 Rights 위반)',
+        '수액 종류가 처방과 다름', 'NPO 환자에게는 수액을 주입하지 않아야 함'] },
+    E5: { title: '통증조절 — IV PCA clamp 잠김', sev: '상', pts: 10, judgeAt: 180,
+      rationale: ['clamp가 잠겨 기저 유량과 bolus가 주입되지 않아 통증 조절 실패',
+        'PCA 약물 잔량이 부족함', 'bolus를 너무 자주 눌러 기기가 잠금 상태가 됨'] },
+    E6: { title: '상지 보호 — Lt. arm save인데 Lt. arm에 BP cuff', sev: '중', pts: 5, judgeAt: 300,
+      rationale: ['Lt. MRM with ALND 과거력으로 Lt. arm save(BP·IV·채혈 금지) 처방이 있는데 Lt. arm에 BP cuff가 감겨 있음',
+        'BP cuff 크기가 환자 팔 둘레에 맞지 않음', 'Rt. arm에 IV가 있어 혈압은 반드시 Lt. arm에서 재야 함'] },
+    E7: { title: '체위 — 침상머리 0°(처방 semi-Fowler’s)', sev: '중', pts: 5, judgeAt: 300,
+      rationale: ['처방은 semi-Fowler’s(30~45°) — 복부근육 이완과 횡격막 호흡 증진을 위해 침상머리를 올려야 함',
+        '출혈이 의심되므로 머리를 낮춘 현재 자세가 적절함', '수술 직후에는 Fowler’s 90°를 유지해야 함'] },
+    E8: { title: '낙상 — side rail 하강·call bell 바닥', sev: '상', pts: 10, judgeAt: 480,
+      rationale: ['side rail이 내려가 있고 call bell이 손에 닿지 않아 수술 후 낙상 위험',
+        '양쪽 side rail이 모두 올라가 있어 억제대가 필요함', 'call bell이 너무 가까워 수면을 방해함'] }
+  },
+
+  /* 필수 중재 체크리스트 (2-4) */
+  checklist: {
+    C1:  '손위생 후 개방형 질문과 2가지 식별정보로 환자 확인, 손목밴드 재부착 요청',
+    C2:  '과거력·Lt. arm save 확인 후 적절한 상지(Rt. arm)에서 V/S·SpO₂ 측정, NRS 사정',
+    C3:  '수술부위 dressing과 JP drain 배액 양·색·양상 사정',
+    C4:  'JP drain bulb 압축(음압)·line 피부 고정',
+    C5:  '침상머리 semi-Fowler’s(30~45°) 조절',
+    C6:  '수액 속도를 처방(80 mL/hr)과 대조하여 교정',
+    C7:  'Lt. arm의 BP cuff 제거 후 적절한 부위에서 혈압 측정',
+    C8:  'PCA clamp 개방 확인 및 bolus 사용법 교육',
+    C9:  'side rail 상승·call bell 손 닿는 곳 비치',
+    C10: '재사정 후 SBAR 보고(1분 이내, V/S·NRS·배액량 포함)'
+  },
+  lo2Items: ['C1', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'],
+  mustDetect: ['E2', 'E3', 'E4', 'E5', 'E8'],
+
+  /* 권장 탐색 동선 (4-2, 9단계) */
+  route: ['chart', 'wristband', 'monitor', 'bed_remote', 'pca', 'dressing', 'jp', 'pump', 'rail'],
+
+  /* EMR 화면 내용 */
+  emr: {
+    order: `
+      <table class="tbl">
+        <thead><tr><th>구분</th><th>처방</th><th>빈도·시각</th><th>비고</th></tr></thead>
+        <tbody>
+          <tr><td>수액</td><td>Plasma 1 L IV</td><td><b>80 mL/hr</b> 지속</td><td>처방 유량과 실제 세팅 일치 확인</td></tr>
+          <tr><td>PCA</td><td>일회용(탄력식) IV PCA — basal + bolus</td><td>수술 후 지속</td><td>line 개방·clamp 잠김 여부, bolus 사용법 교육</td></tr>
+          <tr><td>약물</td><td>Cefazolin 1 g + N/S 100 mL IV</td><td>q8hr, 30분 주입</td><td>투여 전 알레르기·5 Rights 확인</td></tr>
+          <tr><td>약물</td><td>PRN Tridol 50 mg + N/S 50 mL IV</td><td>NRS 4점 이상, 최대 1일 4회, 최소 간격 4시간</td><td>투여 전·후 NRS, 이상반응 사정</td></tr>
+          <tr><td>산소·호흡</td><td>EDBC, <b>semi-Fowler’s position</b></td><td>1~2시간마다 10회</td><td>semi-Fowler’s 확인 (30~45°)</td></tr>
+          <tr><td>식이·활동</td><td><b>NPO</b>(수술 당일), 조기이상 격려(출혈 징후 시 보류)</td><td>수술 당일</td><td>임의로 물·음식 제공 금지</td></tr>
+          <tr><td>배액관·드레싱</td><td>JP drain(bulb형 폐쇄식) 1개, <b>음압 유지(bulb 압축 상태 유지)</b> · trocar site 3곳 5×5 gauze</td><td>매 근무·필요 시</td><td>연결·고정·음압 유지, 배액 양·색·양상 관찰, 이상 시 V/S 재사정 후 보고</td></tr>
+          <tr><td>모니터링</td><td>V/S & SpO₂</td><td>Post op 1hr ×2, 2hr ×3, 이후 8hr</td><td>측정 시 NRS 동시 사정</td></tr>
+          <tr class="hl"><td>지시처방</td><td><b>Lt. arm save</b> · JP drain 음압 유지</td><td>지속</td><td>Lt. arm BP·IV·채혈 금지</td></tr>
+        </tbody>
+      </table>`,
+    profile: `
+      <dl class="dl">
+        <dt>성명 / 성별 / 나이</dt><dd>나예민 / 여 / 60세</dd>
+        <dt>등록번호</dt><dd><b>10458231</b></dd>
+        <dt>진단</dt><dd>Acute cholecystitis, s/p Laparoscopic cholecystectomy (POD 0) — 병동 복귀 1시간 경과</dd>
+        <dt>과거력</dt><dd>뇌경색, 고혈압, 고지혈증 — 10년 전<br><b>Lt. breast cancer → Lt. MRM with ALND (5년 전)</b></dd>
+        <dt>알레르기</dt><dd>약물·음식 알레르기 없음</dd>
+        <dt>현병력</dt><dd>식후 소화불량·복부 불편감 지속 후 우상복부 통증으로 내원. 복부 CT상 acute cholecystitis 진단 후 금일 수술</dd>
+        <dt>병동 도착 시</dt><dd>trocar site dressing 3곳 clean · <b>Rt. arm</b> 말초정맥관으로 Plasma 1 L 주입(처방 80 mL/hr) · IV PCA 연결 · JP drain 혈성 <b>20 mL</b></dd>
+        <dt>보호자</dt><dd>남편(63세), 병실 상주</dd>
+      </dl>`,
+    mar: `
+      <ul class="plain">
+        <li>보유약: Norvasc 5 mg, Lipitor 10 mg, Aspirin 100 mg — 수술 전 <b>Norvasc만</b> NPO except medi로 복용</li>
+        <li>PRN Tridol: 수술 후 투약 <b>0회</b></li>
+        <li>Cefazolin: 수술 전 1회 투여, 병동 복귀 후 8시간 간격 투여 예정</li>
+        <li>IV PCA: 회복실에서 개통, 병동 도착 시 연결 상태</li>
+      </ul>`,
+    lab: `
+      <table class="tbl">
+        <tbody>
+          <tr><td>CBC</td><td>WBC 15.4 ×10³/μL ↑, <b>Hb 10.0 g/dL</b>, PLT 231 ×10³/μL</td></tr>
+          <tr><td>Electrolyte / Renal</td><td>Na 137, K 3.8, Cl 103 mmol/L, BUN 14.0, Cr 0.62 mg/dL</td></tr>
+          <tr><td>LFT</td><td>AST 275 ↑, ALT 182 ↑</td></tr>
+          <tr><td>CRP</td><td>25.2 mg/dL ↑</td></tr>
+          <tr><td>Coagulation</td><td>PT 77%, aPTT 37 sec</td></tr>
+          <tr><td>영상</td><td>Abdomen CT: acute cholecystitis</td></tr>
+        </tbody>
+      </table>`,
+    handover: `
+      <p class="quote">“수술 후 병동으로 올라온 환자입니다. 1시간 전 병동 도착 시 <b>JP drain은 혈성 20 mL</b>였고, IV PCA 적용 중이며, <b>Lt. arm save</b> 처방 있습니다. 수술 후 처방과 환자 상태 확인 부탁드립니다.”</p>
+      <p class="muted">인계 간호사는 추가 질문에 답하지만 오류의 위치나 정답은 알려주지 않습니다.</p>`
+  }
+};
+
+</script>
+<script>
+/* =========================================================
+ * Room of Error — 시뮬레이션 엔진 + 화면 (오류 8개 개정판)
+ * - 통증 트랙(E5, 3분)과 출혈 트랙(E2, 5·8분) 분리
+ * - E2 SBAR 보고 → 담당의 bolus 구두처방 → read-back → bolus 시작 → 1분 후 회복 행
+ * - 탐지·교정·위양성·SBAR 판정, 6-1 채점(65+35), 탐색 로그 내보내기
+ * 테스트용 배속: index.html?speed=10
+ * ========================================================= */
+(function () {
+  'use strict';
+  const C = window.SCN;
+  const $ = (s) => document.querySelector(s);
+  const params = new URLSearchParams(location.search);
+  const SPEED = Math.max(1, Number(params.get('speed')) || 1);
+  const LIMIT = C.limitSec;
+
+  let st = null;
+  let tickId = null;
+  let startPerf = 0;
+  let attempt = 0;
+
+  /* ---------------- 상태 ---------------- */
+  function freshState() {
+    return {
+      t: 0, running: false, ended: false, endReason: '',
+      learner: '', role: '', attempt: attempt,
+      v: Object.assign({}, C.baseline),
+      bleed: 's0',          // s0 → s5 → s8, 또는 회복 r58 / r8
+      bleedStopped: false,  // bolus 시작으로 출혈 트랙 추가 악화 중단
+      painOn: false,        // 3분 E5 미교정으로 통증 기여분 적용 중
+      fired: {},
+      bp: { measured: false }, ltCuff: true, ltBP: false,
+      drain: 100, oozingMore: false,
+      detected: {}, resolved: {}, done: {}, flagged: {}, fp: [], fpKeys: {},
+      e5Cue: false, guardian: false, guardianCalm: false, guardianLast: 0,
+      bedAngle: 0, pumpRate: 20,
+      openQ: false, regno: false, nrsAskedAt: null,
+      standing: false, calmed: false,
+      sbar: { openAt: null, reports: [], complete: 0, c10: false, lastAsk: [], draft: null },
+      orderAt: null, readbackAt: null, bolusAt: null, recoveryAt: null,
+      visits: [], actionSeq: 0, lastOpenSeq: {}, repeats: 0,
+      log: [], current: null
+    };
+  }
+
+  const fmt = (sec) => {
+    sec = Math.max(0, Math.floor(sec));
+    return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+  };
+  const now = () => +st.t.toFixed(1);
+  const res = (e) => st.resolved[e] != null;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  /* ---------------- 활력징후 (3-5 적용 규칙) ---------------- */
+  function computeVitals() {
+    const b = C.bleed[st.bleed];
+    const v = { sbp: b.sbp, dbp: b.dbp, pr: b.pr, rr: b.rr, spo2: 96, bt: 36.8, nrs: 6 };
+    const painActive = st.painOn && !res('E5');
+    if (painActive) {
+      v.nrs += C.pain.nrs;
+      // 8분·회복 행은 출혈이 주도하므로 통증 기여분을 더하지 않음 (규칙 3)
+      if (st.bleed === 's0' || st.bleed === 's5') {
+        v.sbp += C.pain.sbp; v.dbp += C.pain.dbp; v.pr += C.pain.pr;
+      }
+    }
+    st.v = v;
+  }
+
+  /* ---------------- 기록 ---------------- */
+  function addLog(cat, who, msg) {
+    st.log.push({ t: now(), cat, who, msg });
+    const li = document.createElement('li');
+    li.className = 'log-' + cat;
+    li.innerHTML = `<span class="lt">${fmt(st.t)}</span>${who ? `<b>${esc(who)}</b> ` : ''}${esc(msg)}`;
+    $('#log').prepend(li);
+  }
+  const say = (who, msg) => addLog('talk', who, msg);
+  const sys = (msg) => addLog('sys', '', msg);
+  const act = (msg) => addLog('act', '', msg);
+
+  function toast(msg, kind) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.className = 'toast ' + (kind || '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.add('hidden'), 2600);
+  }
+  function banner(msg, kind) {
+    const el = $('#banner');
+    el.textContent = msg;
+    el.className = 'banner ' + (kind || '');
+  }
+
+  /* ---------------- 시간 진행 ---------------- */
+  function tick() {
+    if (!st.running) return;
+    st.t = Math.min(LIMIT, ((performance.now() - startPerf) / 1000) * SPEED);
+    runAnchors();
+    const left = LIMIT - st.t;
+    const tm = $('#timer');
+    tm.textContent = fmt(left);
+    tm.classList.toggle('warn', left <= 120);
+    if (st.t >= LIMIT) endSim('timeout');
+  }
+
+  function once(sec, key, fn) {
+    if (st.t >= sec && !st.fired[key]) { st.fired[key] = true; fn(); }
+  }
+  function judgeUndetected(e) {
+    if (!st.detected[e]) addLog('judge', '', `${e} 미탐지 기록 (판정 시점 ${fmt(C.errors[e].judgeAt)})`);
+  }
+  const unresolvedList = () => Object.keys(C.errors).filter((e) => !res(e));
+
+  function runAnchors() {
+    // 2분: 보호자 등장
+    once(120, 'guardian', () => {
+      st.guardian = true; st.guardianLast = st.t;
+      say('보호자', C.lines.guardian1);
+      redraw();
+    });
+    if (st.guardian && !st.guardianCalm && st.t - st.guardianLast >= 45 && st.t < LIMIT - 5) {
+      st.guardianLast = st.t;
+      say('보호자', C.lines.guardian1);
+    }
+    // 3분: 통증 트랙
+    once(180, 'a3', () => {
+      judgeUndetected('E1'); judgeUndetected('E5');
+      if (!res('E5')) {
+        st.painOn = true; computeVitals();
+        sys(`[3분] 통증 트랙 — PCA 작동 이상으로 통증조절 실패: NRS ${st.v.nrs}, BP ${st.v.sbp}/${st.v.dbp}, PR ${st.v.pr}`);
+        say('환자', C.lines.stage1);
+      }
+      redraw();
+    });
+    // 5분: 구조 단서 + 출혈 트랙
+    once(300, 'a5', () => {
+      ['E2', 'E3', 'E4', 'E6', 'E7'].forEach(judgeUndetected);
+      if (!st.detected.E5 && !res('E5')) {
+        st.e5Cue = true;
+        say('보호자', C.lines.guardianCue);
+        sys('[5분] 1차 구조 단서 — 이후 E5 탐지 시 배점 50%');
+      }
+      if (!st.bleedStopped) {
+        st.bleed = 's5'; st.drain = 160; st.oozingMore = true; computeVitals();
+        sys(`[5분] 출혈 트랙(보상기) — BP ${st.v.sbp}/${st.v.dbp}, PR ${st.v.pr}, RR ${st.v.rr}, SpO₂ 96%`);
+        say('환자', C.lines.stage5);
+      }
+      redraw();
+    });
+    // 8분: 남은 시간 경고(전원) + 출혈 트랙 중증 악화
+    once(480, 'a8', () => {
+      judgeUndetected('E8');
+      const left = unresolvedList();
+      banner('남은 시간 2분', 'warn');
+      sys(`[8분] 남은 시간 2분 경고 — 미조치 오류: ${left.length ? left.join(', ') : '없음'}`);
+      if (!st.bleedStopped) {
+        st.bleed = 's8'; st.drain = 220; computeVitals();
+        st.standing = true;
+        sys('[8분] 출혈 트랙 중증 악화 — BP 90/60, PR 120, RR 28, SpO₂ 96% · 저혈압·빈맥 알람');
+        say('환자', C.lines.stage8);
+        if (!res('E8')) sys('낙상 위험 이벤트 — side rail 하강·call bell 바닥 상태에서 환자가 스스로 일어나려 함');
+        banner('⚠ 저혈압·빈맥 알람 · 남은 시간 2분', 'alarm');
+      }
+      redraw();
+    });
+    // bolus 시작 1분 후 회복 행 반영
+    if (st.bolusAt != null && st.recoveryAt == null && st.t >= st.bolusAt + C.recoveryDelay) {
+      st.recoveryAt = now();
+      if (st.bolusAt < 300) {
+        sys('bolus 효과 — 5분 이전 처치로 출혈 트랙 악화 미적용, 현재 값 유지');
+      } else {
+        st.bleed = st.bolusAt < 480 ? 'r58' : 'r8';
+        computeVitals();
+        sys(`bolus 시작 1분 후 부분 회복 — BP ${st.v.sbp}/${st.v.dbp}, PR ${st.v.pr}, RR ${st.v.rr}, SpO₂ 96% (출혈 지속으로 기준값까지는 회복하지 않음)`);
+        if (st.t >= 480) banner('남은 시간 2분 이내', 'warn');
+      }
+      redraw();
+    }
+  }
+
+  /* ---------------- 교정 판정 ---------------- */
+  function checkResolved() {
+    const mark = (e, cond) => { if (cond && !res(e)) { st.resolved[e] = now(); addLog('fix', '', `${e} 조치 완료`); } };
+    mark('E1', st.done.wb_reprint != null);
+    mark('E3', st.done.jp_compress != null && st.done.jp_fix != null);
+    mark('E4', st.pumpRate === 80);
+    mark('E5', st.done.pca_open != null);
+    mark('E6', !st.ltCuff);
+    mark('E7', st.bedAngle >= 30 && st.bedAngle <= 45);
+    mark('E8', st.done.rail_up != null && st.done.bell_place != null);
+    // E2: SBAR 보고 완료 + bolus 시작 시 조치 완료 (출혈 트랙)
+    mark('E2', st.sbar.complete > 0 && st.bolusAt != null);
+    computeVitals();
+    autoEndCheck();
+  }
+
+  function autoEndCheck() {
+    const all = Object.keys(C.errors);
+    if (!st.ended && !st.fired.autoEnd && all.every((e) => st.detected[e]) && all.every(res) && st.sbar.complete > 0) {
+      st.fired.autoEnd = true;
+      sys('모든 오류 탐지·조치 및 SBAR 보고 완료');
+      setTimeout(() => endSim('complete'), 600);
+    }
+  }
+
+  function addFP(key, desc, patientLine) {
+    if (st.fpKeys[key]) { toast('이미 기록된 항목입니다.'); return; }
+    st.fpKeys[key] = true;
+    st.fp.push({ t: now(), key, desc });
+    addLog('fp', '', `위양성: ${desc}`);
+    if (patientLine) say('환자', patientLine);
+    toast('해당 항목은 정상입니다.', 'neutral');
+  }
+
+  /* ---------------- 행동 ---------------- */
+  function measureBP(arm) {
+    st.bp = { measured: true, sbp: st.v.sbp, dbp: st.v.dbp, at: now(), arm };
+    act(`${arm}. arm NIBP 측정 → ${st.v.sbp}/${st.v.dbp} mmHg`);
+  }
+
+  function doAction(id) {
+    st.actionSeq++;
+    computeVitals();
+    const L = C.lines;
+    const first = (msg) => { if (st.done[id] != null) return false; st.done[id] = now(); act(msg); return true; };
+    switch (id) {
+      case 'hand_hygiene': st.done[id] = now(); act('손위생 시행'); break;
+
+      // 환자 대화
+      case 'p_name':
+        st.openQ = true; act('“성함이 어떻게 되세요?” (개방형 질문)');
+        if (st.done.p_name != null) say('환자', L.repeatId);
+        else { st.done.p_name = now(); say('환자', L.name); }
+        break;
+      case 'p_regno': st.regno = true; if (st.done.p_regno == null) st.done.p_regno = now();
+        act('등록번호 확인 요청'); say('환자', L.regno); break;
+      case 'p_nrs': st.nrsAskedAt = now(); act('“0~10점 중 지금 통증은 몇 점이세요?”');
+        say('환자', `${st.v.nrs}점이요… ${st.v.nrs >= 7 ? L.stage1 : L.chief}`); break;
+      case 'p_pca': act('“진통제 버튼 눌러보셨어요?”'); say('환자', res('E5') ? L.pcaGood : L.pcaBad); break;
+      case 'edu_pca': if (first('PCA bolus 버튼 사용법 교육 (통증 시 길게 눌러 1회 추가 주입)') && res('E5')) say('환자', L.pcaGood); break;
+      case 'edu_fall': if (first('낙상 위험 설명, 필요 시 call bell 사용 안내')) say('환자', L.fall); break;
+      case 'calm_patient': if (first('일어나려는 환자 제지 · 침상 안정')) { st.calmed = true; st.standing = false; say('환자', L.calm); } break;
+      case 'g_explain': first('보호자에게 현재 상황과 조치 설명'); st.guardianCalm = true; say('보호자', L.guardianCalm); break;
+
+      // 손목밴드
+      case 'wb_reprint': if (first('손목밴드 재출력 요청 · 인계 간호사 확인 후 재부착')) { say('환자', L.nameConfirm); checkResolved(); } break;
+
+      // 혈압 측정·상지
+      case 'bp_cuff':   // 모니터: 현재 감긴 cuff로 측정
+        if (st.ltCuff) {
+          st.ltBP = true; measureBP('Lt');
+          say('환자', L.ltArmBP); addLog('fp', '', 'Lt. arm save 위반 — Lt. arm cuff로 혈압 측정(C2 미충족)');
+        } else if (st.done.rt_cuff != null) measureBP('Rt');
+        else toast('먼저 혈압을 잴 상지에 cuff를 감으세요.');
+        break;
+      case 'lt_cuff_off': if (first('Lt. arm BP cuff 제거 (Lt. arm save)')) { st.ltCuff = false; say('환자', L.ltCuff); checkResolved(); } break;
+      case 'rt_cuff': if (st.done.rt_cuff == null) st.done.rt_cuff = now(); measureBP('Rt'); break;
+      case 'rt_iv_change': addFP('E6-rtiv', '정상 Rt. arm 말초정맥관 제거·교체 시도', L.fpRtArm); break;
+      case 'rt_avoid': addFP('E6-rt', 'Rt. arm(정상 상지)까지 측정 금지 대상으로 오인', L.fpRtArm); break;
+
+      // PCA
+      case 'pca_open': if (first('PCA line을 환자까지 추적 → clamp 개방, 꺾임·연결 확인')) { checkResolved(); say('환자', L.pcaGood); } break;
+      case 'pca_press': act('PCA bolus 버튼을 눌러 배출관 확인');
+        sys(res('E5') ? '배출관 내 약물 이동이 확인됨' : '배출관 내 약물 이동 없음'); break;
+      case 'pca_replace': addFP('E5-replace', 'PCA line 분리·교체 시도(잔량·연결부 정상)', L.fpPca); break;
+
+      // 수술부위·JP
+      case 'jp_measure': st.done.jp_measure = now();
+        act(`JP drain 배액 측정 → ${st.drain} mL, 선홍색 혈성 (1시간 전 도착 시 20 mL)`); say('환자', L.drainCheck); break;
+      case 'jp_compress':
+        if (first('bulb 비운 뒤 완전 압축 · 캡 잠금 → 음압 형성')) {
+          sys('bulb 압축 후 배액이 다시 모이며 선홍색 배액이 계속 관찰됨 — 출혈 판단 근거 강화');
+          checkResolved();
+        } break;
+      case 'jp_fix': if (first('line 정리 · 피부 고정핀 고정')) checkResolved(); break;
+      case 'jp_reconnect': addFP('E3-reconnect', '정상 JP drain–bulb 연결부를 분리·재연결 시도', L.fpJp); break;
+      case 'dress_change': addFP('E2-dress', '하복부 clean dressing 교체 시도', L.fpDressing); break;
+
+      // 수액
+      case 'fluid_change': addFP('E4-fluid', '정상 수액 종류(Plasma 1 L) 교체 시도'); break;
+      case 'readback':
+        if (st.orderAt == null) { toast('아직 담당의 구두처방이 없습니다.'); return; }
+        if (first('구두처방 재확인(read-back): “현재 수액 Plasma로 500 mL bolus 주입 후 80 mL/hr 유지 — 맞으십니까?”')) {
+          st.readbackAt = now(); say('담당의', L.drReadback);
+        } break;
+      case 'bolus':
+        if (st.readbackAt == null) { toast('구두처방을 재확인(read-back)한 뒤 시행하세요.'); return; }
+        if (first('Plasma 500 mL bolus 주입 시작')) {
+          st.bolusAt = now(); st.bleedStopped = true;
+          sys('출혈 트랙 추가 악화 중단 — 1분 후 회복 반영');
+          checkResolved();
+        } break;
+
+      // 낙상
+      case 'rail_up': if (first('내려간 side rail 올림')) checkResolved(); break;
+      case 'bell_place': if (first('call bell을 환자 손이 닿는 위치에 비치')) checkResolved(); break;
+      case 'restraint': addFP('E8-restraint', '불필요한 신체 억제대 적용 시도', L.fpRestraint); break;
+      case 'rail_other': addFP('E8-other', '정상적으로 올라간 반대편 side rail을 오류로 조작'); break;
+      default: break;
+    }
+    redraw();
+  }
+
+  function setPump(val) {
+    st.actionSeq++;
+    const n = Number(val);
+    if (!Number.isFinite(n) || n <= 0) { toast('속도를 숫자로 입력하세요.'); return; }
+    st.pumpRate = n;
+    act(`수액조절기 속도 설정 → ${n} mL/hr`);
+    if (n !== 80) sys('처방 속도와 다름');
+    checkResolved(); redraw();
+  }
+
+  function setBed(val) {
+    st.actionSeq++;
+    const n = Number(val);
+    const prev = st.bedAngle;
+    st.bedAngle = n;
+    act(`침상머리 각도 조절 → ${n}°`);
+    if (n > 45) addFP('E7-high', '침상머리를 45° 초과로 올림', C.lines.bedTooHigh);
+    else if (n >= 30 && !(prev >= 30 && prev <= 45)) say('환자', C.lines.bed);
+    checkResolved(); redraw();
+  }
+
+  /* ---------------- 이상 보고 + 근거 ---------------- */
+  function flagFinding(f) {
+    if (st.flagged[f.id] != null) return;
+    const errKey = f.error || f.normal;
+    const opts = C.errors[errKey].rationale.map((text, i) => ({ text, ok: i === 0 }));
+    shuffle(opts);
+    openModal(`
+      <h3>이상 보고</h3>
+      <p class="muted">확인한 소견: <b>${esc(f.text)}</b></p>
+      <p>이 소견을 오류로 판단한 근거를 고르세요.</p>
+      <div class="choices">${opts.map((o, i) => `<button class="choice" data-i="${i}">${esc(o.text)}</button>`).join('')}</div>
+      <button class="btn ghost" data-cancel>취소</button>`, (body) => {
+      body.querySelectorAll('.choice').forEach((b) => b.onclick = () => {
+        const o = opts[+b.dataset.i];
+        closeModal();
+        st.actionSeq++;
+        st.flagged[f.id] = now();
+        if (f.normal) { addFP(f.id, `${f.text} — 정상 항목을 이상으로 보고`); redraw(); return; }
+        const e = f.error;
+        if (!st.detected[e]) {
+          st.detected[e] = {
+            at: now(), ok: o.ok,
+            afterCue: (e === 'E5' && st.e5Cue) || (e === 'E4' && st.orderAt != null)
+          };
+          addLog('detect', '', `${e} 이상 보고 — ${f.text} (근거 ${o.ok ? '적절' : '부적절'})`);
+        } else {
+          addLog('detect', '', `추가 소견 보고 — ${f.text}`);
+        }
+        toast('이상 소견을 기록했습니다.');
+        checkResolved(); redraw();
+      });
+      body.querySelector('[data-cancel]').onclick = closeModal;
+    });
+  }
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  /* ---------------- 핫스팟 정의 ---------------- */
+  const A = (id, label, extra) => Object.assign({ id, label }, extra || {});
+  function hotspot(id) {
+    switch (id) {
+      case 'sanitizer': return { title: '손소독제 디스펜서', desc: '병실 입구 벽면', actions: [A('hand_hygiene', '손위생 시행', { repeat: true })] };
+      case 'chart': return { title: '의무기록 차트(태블릿)', desc: 'POST OP Order Sheet, 환자정보·과거력, MAR, 검사결과, 인계 내용을 확인합니다.', custom: '<button class="btn primary" data-emr>차트 열기</button>' };
+      case 'phone': return { title: '병동 전화기', desc: '담당의에게 SBAR로 보고합니다. 전화를 열면 1분 보고 시간이 측정됩니다.', custom: '<button class="btn primary" data-sbar>담당의에게 전화(SBAR)</button>' };
+      case 'patient': {
+        const look = [st.v.nrs >= 7 ? '찡그림이 심해짐, 신음 지속' : '표정 찡그림, 신음(moaning)', '의식 alert'];
+        if (st.bleed === 's8') look.push('어지러움, 피부 창백, 식은땀');
+        if (st.standing) look.push('<b class="danger-t">스스로 침상에서 일어나려 함</b>');
+        return {
+          title: '환자 — 나예민 (60/F)', desc: look.join(' · '),
+          talk: [
+            A('p_name', '“성함이 어떻게 되세요?”', { repeat: true }),
+            A('p_regno', '등록번호 확인 요청', { repeat: true }),
+            A('p_nrs', '통증 점수(NRS) 묻기', { repeat: true }),
+            A('p_pca', '“진통제 버튼 눌러보셨어요?”', { repeat: true }),
+            A('edu_pca', 'PCA bolus 사용법 교육'),
+            A('edu_fall', '낙상 위험·call bell 사용 설명')
+          ].concat(st.standing ? [A('calm_patient', '일어나려는 환자 제지·침상 안정', { urgent: true })] : [])
+        };
+      }
+      case 'guardian':
+        if (!st.guardian) return { title: '보호자 의자', desc: '비어 있음' };
+        return { title: '보호자 (남편, 63세)', desc: st.guardianCalm ? '설명을 듣고 진정됨' : '불안한 표정, 발을 동동 구름', talk: [A('g_explain', '현재 상황과 조치 설명')] };
+      case 'wristband': {
+        const ok = st.done.wb_reprint != null;
+        return {
+          title: '환자 손목밴드 (Lt. wrist)',
+          desc: ok ? '재출력한 손목밴드로 교체됨' : '바코드 손목밴드',
+          findings: ok ? [{ id: 'wb_new', text: `성명 ${C.patient.name} · 등록번호 ${C.patient.regNo} · F/60`, info: true }] : [
+            { id: 'wb_name', text: `성명: ${C.wristWrong.name}`, error: 'E1' },
+            { id: 'wb_regno', text: `등록번호: ${C.wristWrong.regNo}`, error: 'E1' },
+            { id: 'wb_sexage', text: '성별/나이: F / 60', normal: 'E1' }],
+          actions: [A('wb_reprint', '손목밴드 재출력·재부착 요청')]
+        };
+      }
+      case 'monitor': return {
+        title: '환자 감시 모니터',
+        desc: `PR·RR·SpO₂·BT는 실시간, BP는 NIBP 측정 시 갱신됩니다. 현재 cuff 위치: ${st.ltCuff ? 'Lt. arm 상완' : (st.done.rt_cuff != null ? 'Rt. arm' : '없음(제거됨)')}`,
+        custom: monitorHTML(),
+        actions: [A('bp_cuff', '현재 cuff로 NIBP 측정', { repeat: true })]
+      };
+      case 'rt_arm': return {
+        title: 'Rt. arm', desc: '말초정맥관으로 Plasma 주입 중',
+        findings: [{ id: 'rt_iv', text: 'Rt. arm 말초정맥관 — 삽입부위 발적·부종 없음', normal: 'E6' }],
+        actions: [A('rt_cuff', 'Rt. arm에 cuff 감고 NIBP 측정', { repeat: true }), A('rt_iv_change', 'Rt. arm IV 제거·교체'), A('rt_avoid', 'Rt. arm도 측정 금지로 표시')]
+      };
+      case 'lt_arm': return {
+        title: 'Lt. arm (MRM with ALND측)',
+        desc: st.ltCuff ? '상완에 BP cuff가 감겨 있고 tube가 모니터에 연결됨' : 'cuff 제거됨 — 삽입물 없음',
+        findings: st.ltCuff ? [{ id: 'lt_cuff', text: 'Lt. arm 상완에 BP cuff 감김', error: 'E6' }] : [],
+        actions: [A('lt_cuff_off', 'Lt. arm BP cuff 제거')]
+      };
+      case 'bed_remote': return {
+        title: '전동침대 각도조절 리모컨', desc: `현재 침상머리 각도: ${st.bedAngle}°`,
+        findings: st.bedAngle === 0 ? [{ id: 'bed_flat', text: '침상머리 0° (flat)', error: 'E7' }] : [],
+        custom: `<div class="slider"><input type="range" id="bed-range" min="0" max="60" step="5" value="${st.bedAngle}">
+          <span id="bed-val">${st.bedAngle}°</span><button class="btn" data-bed>각도 적용</button></div>`
+      };
+      case 'pca': return {
+        title: '일회용 탄력식 IV PCA', desc: 'IV pole에 걸린 elastomeric 용기 → 환자 측 연결부',
+        findings: [
+          res('E5') ? { id: 'pca_open_info', text: 'clamp 개방 — 기저 유량 주입 중', info: true } : { id: 'pca_clamp', text: 'PCA line clamp: 잠김', error: 'E5' },
+          ...(res('E5') ? [] : [{ id: 'pca_noflow', text: 'bolus를 눌러도 배출관 내 약물 이동 없음', error: 'E5' }]),
+          { id: 'pca_vol', text: '약물 잔량 약 95 mL · 연결부 체결 정상', normal: 'E5' }],
+        actions: [A('pca_press', 'bolus 버튼 눌러 확인', { repeat: true }), A('pca_open', 'clamp 개방'), A('edu_pca', 'bolus 사용법 교육'), A('pca_replace', 'PCA line 분리·교체')]
+      };
+      case 'dressing': return {
+        title: '수술부위 dressing (trocar site 3곳)', desc: '5×5 gauze',
+        findings: [
+          { id: 'dr_ruq', text: `우상복부: bloody oozing ${st.oozingMore ? '(번짐 증가, 약 5×5 cm)' : '(약 3×3 cm)'}`, error: 'E2' },
+          { id: 'dr_ll', text: '하복부 좌: clean', normal: 'E2' },
+          { id: 'dr_lr', text: '하복부 우: clean', normal: 'E2' }],
+        actions: [A('dress_change', '하복부 dressing 교체')]
+      };
+      case 'jp': {
+        const f = [{ id: 'jp_blood', text: `배액: 선홍색 혈성, bulb 눈금 약 ${st.drain} mL`, error: 'E2' }];
+        if (st.done.jp_compress == null) f.push({ id: 'jp_bulb', text: 'bulb 팽창 상태 (음압 소실)', error: 'E3' });
+        if (st.done.jp_fix == null) f.push({ id: 'jp_line', text: '고정 불량 — line이 침상 아래로 늘어짐', error: 'E3' });
+        f.push({ id: 'jp_conn', text: 'JP drain–bulb 연결부 체결 정상', normal: 'E3' });
+        return {
+          title: 'JP drain · bulb · 고정핀 (우상복부)',
+          desc: res('E3') ? 'bulb 압축·line 고정 완료' : 'bulb와 line 상태를 확인하세요.',
+          findings: f,
+          actions: [A('jp_measure', '배액량·색 측정', { repeat: true }), A('jp_compress', 'bulb 비우고 완전 압축 후 캡 잠금'), A('jp_fix', 'line 정리·피부 고정'), A('jp_reconnect', 'drain–bulb 분리 후 재연결')]
+        };
+      }
+      case 'pump': {
+        const acts = [A('fluid_change', '수액 종류 교체')];
+        if (st.orderAt != null) acts.unshift(A('readback', '구두처방 재확인(read-back)'), A('bolus', 'Plasma 500 mL bolus 주입 시작'));
+        return {
+          title: 'IV pole · 수액세트 · 수액조절기 (Rt. arm 측)', desc: `표시 속도: ${st.pumpRate} mL/hr${st.bolusAt != null ? ' · bolus 주입 중' : ''}`,
+          findings: [{ id: 'pump_type', text: '수액: Plasma 1 L', normal: 'E4' },
+            ...(st.pumpRate === 80 ? [] : [{ id: 'pump_rate', text: `주입속도: ${st.pumpRate} mL/hr`, error: 'E4' }])],
+          custom: `<div class="slider"><input type="number" id="pump-in" min="1" max="999" value="${st.pumpRate}"> mL/hr
+            <button class="btn" data-pump>속도 설정</button></div>`,
+          actions: acts
+        };
+      }
+      case 'rail': {
+        const f = [];
+        if (st.done.rail_up == null) f.push({ id: 'rail_down', text: '환자 우측 side rail 내려감', error: 'E8' });
+        if (st.done.bell_place == null) f.push({ id: 'bell_floor', text: 'call bell이 바닥에 떨어져 있음', error: 'E8' });
+        f.push({ id: 'rail_left', text: '환자 좌측 side rail 올라감', normal: 'E8' });
+        return {
+          title: 'Side rail · Call bell', desc: '침대 양쪽 side rail과 호출벨',
+          findings: f,
+          actions: [A('rail_up', '내려간 side rail 올림'), A('bell_place', 'call bell 손 닿는 곳에 비치'), A('edu_fall', '낙상 위험 설명'), A('rail_other', '좌측 side rail 조정'), A('restraint', '신체 억제대 적용')]
+        };
+      }
+      default: return { title: id, desc: '' };
+    }
+  }
+
+  function monitorHTML() {
+    const bp = st.bp.measured ? `${st.bp.sbp}/${st.bp.dbp}` : '---/---';
+    const bpAt = st.bp.measured ? `측정 ${fmt(st.bp.at)} · ${st.bp.arm}` : '미측정';
+    return `<div class="mon ${st.bleed === 's8' ? 'alarm' : ''}">
+      <div><span>HR</span><b class="g">${st.v.pr}</b></div>
+      <div><span>NIBP</span><b class="r">${bp}</b><small>${bpAt}</small></div>
+      <div><span>RR</span><b class="y">${st.v.rr}</b></div>
+      <div><span>SpO₂</span><b class="c">${st.v.spo2}%</b></div>
+      <div><span>BT</span><b>${st.v.bt}℃</b></div></div>`;
+  }
+
+  /* ---------------- 패널 ---------------- */
+  function openHotspot(id) {
+    if (!st.running) return;
+    if (st.lastOpenSeq[id] != null && st.lastOpenSeq[id] === st.actionSeq && st.current !== id) st.repeats++;
+    st.lastOpenSeq[id] = st.actionSeq;
+    st.visits.push({ t: now(), hs: id });
+    st.current = id;
+    renderPanel();
+    renderRoom();
+  }
+
+  function renderPanel() {
+    const p = $('#panel');
+    if (!st.current) return;
+    const h = hotspot(st.current);
+    let html = `<h3>${h.title}</h3><p class="desc">${h.desc || ''}</p>`;
+    if (h.custom) html += `<div class="custom">${h.custom}</div>`;
+    if (h.findings && h.findings.length) {
+      html += '<h4>관찰 소견</h4><ul class="findings">';
+      h.findings.forEach((f) => {
+        const flagged = st.flagged[f.id] != null;
+        html += `<li><span>${esc(f.text)}</span>${f.info ? '' :
+          `<button class="flag ${flagged ? 'on' : ''}" data-flag="${f.id}" ${flagged ? 'disabled' : ''}>${flagged ? '보고함' : '이상 보고'}</button>`}</li>`;
+      });
+      html += '</ul>';
+    }
+    if (h.talk && h.talk.length) html += '<h4>대화·교육</h4><div class="acts">' + h.talk.map(btn).join('') + '</div>';
+    if (h.actions && h.actions.length) html += '<h4>간호 행동</h4><div class="acts">' + h.actions.map(btn).join('') + '</div>';
+    p.innerHTML = html;
+    const findings = h.findings || [];
+
+    p.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => doAction(b.dataset.act));
+    p.querySelectorAll('[data-flag]').forEach((b) => b.onclick = () => flagFinding(findings.find((f) => f.id === b.dataset.flag)));
+    const emr = p.querySelector('[data-emr]'); if (emr) emr.onclick = openEMR;
+    const sb = p.querySelector('[data-sbar]'); if (sb) sb.onclick = openSBAR;
+    const pb = p.querySelector('[data-pump]'); if (pb) pb.onclick = () => setPump($('#pump-in').value);
+    const bb = p.querySelector('[data-bed]'); if (bb) bb.onclick = () => setBed($('#bed-range').value);
+    const br = p.querySelector('#bed-range'); if (br) br.oninput = () => { $('#bed-val').textContent = br.value + '°'; };
+  }
+
+  function btn(a) {
+    const isDone = st.done[a.id] != null && !a.repeat;
+    return `<button class="act ${a.urgent ? 'urgent' : ''} ${isDone ? 'done' : ''}" data-act="${a.id}" ${isDone ? 'disabled' : ''}>${isDone ? '✓ ' : ''}${esc(a.label)}</button>`;
+  }
+
+  function redraw() { computeVitals(); renderRoom(); if (st.current) renderPanel(); }
+
+  /* ---------------- 병실 그림 (SVG, 위에서 본 배치) ----------------
+   * 머리가 위쪽. 환자 우측 = 화면 왼쪽, 환자 좌측 = 화면 오른쪽 */
+  function renderRoom() {
+    const railDown = st.done.rail_up == null;
+    const bellFloor = st.done.bell_place == null;
+    const bulbBad = st.done.jp_compress == null;
+    const lineLoose = st.done.jp_fix == null;
+    const alarm = st.bleed === 's8';
+    const sel = (id) => (st.current === id ? 'sel' : '');
+    const HIT = {
+      sanitizer: [16, 554, 80, 66], chart: [716, 236, 112, 112], phone: [828, 236, 60, 112],
+      rail: bellFloor ? [196, 186, 140, 414] : [296, 186, 40, 238], patient: [400, 82, 100, 104],
+      rt_arm: [352, 186, 42, 200], lt_arm: [506, 186, 52, 150], wristband: [500, 338, 50, 54],
+      dressing: [404, 250, 92, 126], jp: bulbBad ? [262, 290, 76, 300] : [330, 300, 40, 70],
+      pump: [190, 60, 100, 172], pca: [96, 196, 104, 76],
+      monitor: [736, 36, 156, 128], bed_remote: [414, 564, 72, 46], guardian: [736, 420, 128, 152]
+    };
+    const hs = (id, inner, label) => {
+      const h = HIT[id];
+      const hit = h ? `<rect x="${h[0]}" y="${h[1]}" width="${h[2]}" height="${h[3]}" class="hit"/>` : '';
+      return `<g class="hot ${sel(id)}" data-hs="${id}" tabindex="0" role="button" aria-label="${label}">${inner}${hit}<title>${label}</title></g>`;
+    };
+    const tilt = Math.min(1, st.bedAngle / 45);
+
+    const svg = `
+<svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" class="roomsvg">
+  <defs>
+    <pattern id="tile" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="var(--floor)"/><path d="M40 0H0V40" fill="none" stroke="var(--floor-line)" stroke-width="1"/></pattern>
+  </defs>
+  <rect width="900" height="620" fill="url(#tile)"/>
+  <rect x="0" y="0" width="900" height="34" fill="var(--wall)"/>
+  <text x="16" y="23" class="lbl-w">외과계 병동 1인실</text>
+
+  ${hs('sanitizer', `<rect x="20" y="560" width="70" height="44" rx="8" class="obj"/><rect x="45" y="568" width="20" height="28" rx="4" fill="var(--teal)"/><text x="55" y="616" class="lbl" text-anchor="middle">손소독제</text>`, '손소독제')}
+  <rect x="100" y="600" width="120" height="20" fill="var(--wall)"/><text x="160" y="614" class="lbl-w" text-anchor="middle">출입문</text>
+
+  <rect x="40" y="60" width="110" height="100" rx="10" class="obj"/><text x="95" y="150" class="lbl" text-anchor="middle">테이블</text>
+
+  ${hs('chart', `<rect x="720" y="240" width="104" height="104" rx="10" class="obj"/><rect x="734" y="252" width="76" height="54" rx="5" fill="var(--screen)"/><text x="772" y="285" class="lbl-s" text-anchor="middle">EMR</text><text x="772" y="334" class="lbl" text-anchor="middle">차트</text>`, '의무기록 차트')}
+  ${hs('phone', `<rect x="840" y="256" width="34" height="48" rx="6" fill="var(--ink)"/><rect x="846" y="263" width="22" height="26" rx="2" fill="var(--screen)"/><text x="857" y="334" class="lbl" text-anchor="middle">☎</text>`, '전화기')}
+
+  <rect x="330" y="60" width="240" height="500" rx="18" fill="var(--bed)" stroke="var(--bed-edge)" stroke-width="3"/>
+  <rect x="345" y="70" width="210" height="${Math.round(150 + tilt * 20)}" rx="12" fill="var(--bed-head)" opacity="${(0.15 + tilt * 0.7).toFixed(2)}"/>
+  <text x="560" y="88" class="lbl-s" text-anchor="end">${st.bedAngle === 0 ? 'FLAT 0°' : st.bedAngle + '°'}</text>
+
+  ${hs('rail', `
+     ${railDown ? '<rect x="300" y="190" width="14" height="230" rx="6" fill="var(--rail-down)" stroke="var(--rail-down-edge)" stroke-dasharray="6 5" stroke-width="2"/>'
+               : '<rect x="318" y="190" width="14" height="230" rx="6" fill="var(--rail)"/>'}
+     <rect x="568" y="190" width="14" height="230" rx="6" fill="var(--rail)"/>
+     ${bellFloor ? '<g><circle cx="226" cy="560" r="15" fill="var(--amber)"/><path d="M226 545 C 250 500, 290 470, 318 440" fill="none" stroke="var(--ink-soft)" stroke-width="2"/><text x="226" y="596" class="lbl" text-anchor="middle">call bell</text></g>'
+                : '<circle cx="372" cy="420" r="12" fill="var(--amber)"/>'}`, 'Side rail · Call bell')}
+
+  ${hs('patient', `<ellipse cx="450" cy="125" rx="36" ry="40" class="skin ${alarm ? 'pale' : ''}"/>
+     <path d="M436 120 q6 -6 12 0 M454 120 q6 -6 12 0" stroke="var(--ink)" stroke-width="2" fill="none"/>
+     <path d="M440 142 q10 ${st.v.nrs >= 7 ? -6 : -3} 20 0" stroke="var(--ink)" stroke-width="2" fill="none"/>
+     <rect x="395" y="170" width="110" height="250" rx="40" class="gown"/>
+     <rect x="405" y="420" width="90" height="120" rx="30" class="blanket"/>
+     ${st.standing ? '<text x="450" y="78" class="alert-t" text-anchor="middle">⚠ 일어나려 함</text>' : ''}`, '환자')}
+
+  ${hs('rt_arm', `<rect x="360" y="190" width="30" height="190" rx="14" class="skin"/>
+     <rect x="368" y="296" width="14" height="10" fill="#fff" stroke="var(--ink-soft)"/>
+     ${st.done.rt_cuff != null ? '<rect x="356" y="206" width="38" height="30" rx="6" fill="#3d6fa8"/>' : ''}
+     <text x="352" y="232" class="lbl-s" text-anchor="end">Rt</text>`, 'Rt. arm')}
+  ${hs('lt_arm', `<rect x="510" y="190" width="30" height="150" rx="14" class="skin"/>
+     ${st.ltCuff ? '<rect x="506" y="206" width="38" height="34" rx="6" fill="#3d6fa8"/><path d="M544 222 C 620 210, 700 160, 740 140" fill="none" stroke="#3d6fa8" stroke-width="3"/>' : ''}
+     <text x="548" y="268" class="lbl-s">Lt</text>`, 'Lt. arm')}
+  ${hs('wristband', `<rect x="508" y="342" width="34" height="12" rx="3" fill="#fff" stroke="var(--ink-soft)"/><rect x="510" y="355" width="30" height="34" rx="12" class="skin"/>`, '손목밴드')}
+
+  ${hs('dressing', `<rect x="408" y="255" width="26" height="26" rx="3" fill="#fff" stroke="#bbb"/>
+     <circle cx="421" cy="268" r="${st.oozingMore ? 12 : 8}" fill="rgba(200,30,40,.65)"/>
+     <rect x="410" y="350" width="22" height="22" rx="3" fill="#fff" stroke="#bbb"/>
+     <rect x="468" y="350" width="22" height="22" rx="3" fill="#fff" stroke="#bbb"/>`, '수술부위 dressing')}
+
+  ${hs('jp', `<path d="M420 285 C 380 300, 350 300, ${lineLoose ? '300 360 S 285 520, 300 555' : '350 330'}" fill="none" stroke="#c24" stroke-width="4"/>
+     ${bulbBad ? '<ellipse cx="300" cy="560" rx="24" ry="30" fill="rgba(210,40,50,.85)" stroke="#8a1520" stroke-width="2"/>'
+               : '<ellipse cx="352" cy="345" rx="12" ry="16" fill="rgba(210,40,50,.85)" stroke="#8a1520" stroke-width="2"/><circle cx="352" cy="322" r="4" fill="var(--ink)"/>'}
+     <text x="${bulbBad ? 300 : 352}" y="${bulbBad ? 525 : 375}" class="lbl" text-anchor="middle">JP</text>`, 'JP drain')}
+
+  ${hs('pump', `<line x1="240" y1="64" x2="240" y2="300" stroke="var(--ink-soft)" stroke-width="5"/>
+     <rect x="212" y="70" width="56" height="74" rx="10" fill="#e8f4ff" stroke="#7fb3dc" stroke-width="2"/><text x="240" y="112" class="lbl-s" text-anchor="middle">Plasma</text>
+     <rect x="200" y="160" width="80" height="48" rx="6" fill="var(--ink)"/><text x="240" y="191" class="pumpnum" text-anchor="middle">${st.pumpRate}</text>
+     <text x="286" y="190" class="lbl-s">mL/hr</text>
+     <path d="M240 208 C 260 270, 330 300, 375 300" fill="none" stroke="#7fb3dc" stroke-width="3"/>`, '수액조절기')}
+  ${hs('pca', `<circle cx="140" cy="236" r="26" fill="#f3e9ff" stroke="#9b7bd4" stroke-width="3"/><text x="140" y="241" class="lbl-s" text-anchor="middle">PCA</text>
+     <path d="M166 240 C 220 280, 300 296, 372 302" fill="none" stroke="#9b7bd4" stroke-width="3"/>
+     <rect x="176" y="250" width="18" height="12" rx="2" fill="${res('E5') ? 'var(--teal)' : 'var(--red)'}"/>`, 'IV PCA')}
+
+  ${hs('monitor', `<rect x="740" y="40" width="148" height="120" rx="10" fill="var(--ink)"/>
+     <text x="752" y="66" class="mon-s" fill="#7CFC9A">HR ${st.v.pr}</text>
+     <text x="752" y="90" class="mon-s" fill="#ff8a8a">BP ${st.bp.measured ? st.bp.sbp + '/' + st.bp.dbp : '---/---'}</text>
+     <text x="752" y="114" class="mon-s" fill="#ffe27a">RR ${st.v.rr}</text>
+     <text x="752" y="138" class="mon-s" fill="#7ee0ff">SpO₂ ${st.v.spo2}%</text>
+     ${alarm ? '<rect x="740" y="40" width="148" height="120" rx="10" fill="none" stroke="#ff4d4d" stroke-width="5" class="blink"/>' : ''}`, '환자 감시 모니터')}
+
+  ${hs('bed_remote', `<rect x="420" y="568" width="60" height="36" rx="8" fill="var(--ink)"/><text x="450" y="591" class="pumpnum-s" text-anchor="middle">${st.bedAngle}°</text>`, '침상 각도 리모컨')}
+
+  ${hs('guardian', `<rect x="740" y="440" width="120" height="110" rx="14" class="obj"/>
+     ${st.guardian ? `<circle cx="800" cy="470" r="20" class="skin"/><rect x="772" y="490" width="56" height="52" rx="16" fill="${st.guardianCalm ? '#8fb8a8' : '#c98b6b'}"/>${st.guardianCalm ? '' : '<text x="800" y="436" class="alert-t" text-anchor="middle">?!</text>'}` : ''}
+     <text x="800" y="566" class="lbl" text-anchor="middle">보호자</text>`, '보호자')}
+</svg>`;
+    const room = $('#room');
+    room.innerHTML = svg;
+    room.querySelectorAll('.hot').forEach((g) => {
+      g.onclick = () => openHotspot(g.dataset.hs);
+      g.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openHotspot(g.dataset.hs); } };
+    });
+  }
+
+  /* ---------------- 모달 ---------------- */
+  function openModal(html, bind) {
+    $('#modal-body').innerHTML = html;
+    $('#modal').classList.remove('hidden');
+    if (bind) bind($('#modal-body'));
+  }
+  function closeModal() { $('#modal').classList.add('hidden'); $('#modal-body').innerHTML = ''; }
+
+  function openEMR() {
+    st.visits.push({ t: now(), hs: 'chart' });
+    if (st.done.emr == null) { st.done.emr = now(); act('차트 확인 (Order Sheet·과거력)'); }
+    const tabs = [['order', 'Order Sheet'], ['profile', '환자정보·과거력'], ['mar', 'MAR'], ['lab', '검사결과'], ['handover', '인계']];
+    openModal(`<h3>의무기록 — 나예민 (10458231)</h3>
+      <div class="tabs">${tabs.map(([k, n], i) => `<button class="tab ${i ? '' : 'on'}" data-tab="${k}">${n}</button>`).join('')}</div>
+      <div class="tabbody" id="tabbody">${C.emr.order}</div>`, (body) => {
+      body.querySelectorAll('.tab').forEach((t) => t.onclick = () => {
+        body.querySelectorAll('.tab').forEach((x) => x.classList.remove('on'));
+        t.classList.add('on');
+        $('#tabbody').innerHTML = C.emr[t.dataset.tab];
+      });
+    });
+  }
+
+  /* ---------------- SBAR ---------------- */
+  function openSBAR() {
+    if (!st.running) return;
+    if (st.sbar.openAt == null) { st.sbar.openAt = now(); act('담당의에게 전화 연결 (SBAR 보고 시작)'); }
+    const asks = st.sbar.lastAsk.length ? `<div class="drask">${st.sbar.lastAsk.map((q) => `<p>👨‍⚕️ “${esc(q)}”</p>`).join('')}</div>` : '';
+    openModal(`
+      <h3>담당의 SBAR 보고 <span class="muted" id="sbar-clock"></span></h3>
+      ${asks}
+      <form id="sbar" class="sbar">
+        <fieldset><legend>환자 식별</legend>
+          <label>성명 <input name="name" autocomplete="off"></label>
+          <label>등록번호 <input name="regno" autocomplete="off" inputmode="numeric"></label>
+        </fieldset>
+        <label class="full">S 상황 <textarea name="S" rows="2" placeholder="예: 수술 후 JP drain 선홍색 배액이 증가하고 통증이 있어 보고드립니다."></textarea></label>
+        <label class="full">B 배경 <textarea name="B" rows="2" placeholder="진단·수술명, 과거력, 도착 시 배액량 등"></textarea></label>
+        <fieldset><legend>A 사정 — 현재 측정값</legend>
+          <label>BP <input name="sbp" class="n" inputmode="numeric"> / <input name="dbp" class="n" inputmode="numeric"></label>
+          <label>PR <input name="pr" class="n" inputmode="numeric"></label>
+          <label>RR <input name="rr" class="n" inputmode="numeric"></label>
+          <label>SpO₂ <input name="spo2" class="n" inputmode="numeric">%</label>
+          <label>NRS <input name="nrs" class="n" inputmode="numeric"></label>
+          <label>JP 배액 <input name="drain" class="n" inputmode="numeric"> mL</label>
+          <label>색 <select name="color"><option value="">선택</option><option>선홍색 혈성</option><option>암적색 혈성</option><option>장액성</option></select></label>
+        </fieldset>
+        <label class="full">A 사정 요약 <textarea name="A" rows="2" placeholder="예: 출혈 이상징후로 판단됩니다."></textarea></label>
+        <fieldset class="chk"><legend>수행한 중재(해당 항목 선택)</legend>
+          <label><input type="checkbox" name="x_pca"> PCA clamp 개방</label>
+          <label><input type="checkbox" name="x_jp"> bulb 압축·line 고정</label>
+          <label><input type="checkbox" name="x_iv"> 수액 80 mL/hr 교정</label>
+          <label><input type="checkbox" name="x_lt"> Lt. arm cuff 제거·Rt. arm 측정</label>
+        </fieldset>
+        <label class="full">R 요청 <textarea name="R" rows="2" placeholder="예: 병실 방문과 추가 처방 부탁드립니다."></textarea></label>
+        <div class="row"><button type="button" class="btn ghost" data-cancel>잠시 확인(전화 유지)</button><button class="btn primary">보고하기</button></div>
+      </form>`, (body) => {
+      body.querySelector('[data-cancel]').onclick = closeModal;
+      const form = body.querySelector('#sbar');
+      const draft = st.sbar.draft || {};
+      Object.keys(draft).forEach((k) => {
+        const el = form.elements[k];
+        if (!el) return;
+        if (el.type === 'checkbox') el.checked = true; else el.value = draft[k];
+      });
+      form.onsubmit = (ev) => { ev.preventDefault(); submitSBAR(new FormData(ev.target)); };
+      const clk = () => {
+        const c = body.querySelector('#sbar-clock');
+        if (!c || st.sbar.openAt == null) return;
+        c.textContent = `보고 경과 ${Math.floor(st.t - st.sbar.openAt)}초 / 60초`;
+        requestAnimationFrame(clk);
+      };
+      clk();
+    });
+  }
+
+  function submitSBAR(fd) {
+    const g = (k) => String(fd.get(k) || '').trim();
+    const num = (k) => Number(g(k));
+    const L = C.lines;
+    const asks = [];
+    st.sbar.draft = Object.fromEntries(fd.entries());
+    computeVitals();
+    if (g('name') !== C.patient.name || g('regno') !== C.patient.regNo) asks.push(L.drAskId);
+    if (['S', 'B', 'A', 'R'].some((k) => g(k).length < 4)) asks.push(L.drAskSbar);
+    const vsOk = st.bp.measured && st.bp.arm === 'Rt' && st.bp.sbp === st.v.sbp && st.bp.dbp === st.v.dbp &&
+      num('sbp') === st.v.sbp && num('dbp') === st.v.dbp && num('pr') === st.v.pr && num('rr') === st.v.rr;
+    if (!vsOk) asks.push(L.drAskVs);
+    if (!(st.nrsAskedAt != null && num('nrs') === st.v.nrs)) asks.push(L.drAskPain);
+    if (!(st.done.jp_measure != null && Math.abs(num('drain') - st.drain) <= 10 && g('color') === '선홍색 혈성')) asks.push(L.drAskDrain);
+
+    const dur = +(st.t - st.sbar.openAt).toFixed(1);
+    const complete = asks.length === 0;
+    st.sbar.reports.push({ t: now(), duration: dur, complete, missing: asks.slice(), text: { S: g('S'), B: g('B'), A: g('A'), R: g('R') } });
+    act(`SBAR 보고 제출 (경과 ${Math.round(dur)}초)`);
+
+    if (!complete) {
+      st.sbar.lastAsk = asks;
+      asks.forEach((q) => say('담당의', q));
+      closeModal(); openSBAR();
+      return;
+    }
+    st.sbar.complete++;
+    st.sbar.lastAsk = [];
+    if (dur <= C.sbarLimitSec) st.sbar.c10 = true;
+    if (st.sbar.complete === 1) {
+      say('담당의', L.dr1);
+      st.orderAt = now();
+      sys('담당의 구두처방 — Plasma 500 mL bolus, 이후 80 mL/hr 유지 확인 (수액조절기에서 read-back 후 시행)');
+    } else {
+      say('담당의', L.dr2);
+    }
+    st.sbar.openAt = null;
+    closeModal();
+    checkResolved(); redraw();
+  }
+
+  /* ---------------- 채점 (6-1) ---------------- */
+  function compute() {
+    const E = C.errors;
+    const reportedE2 = st.sbar.complete > 0;
+    const rows = Object.keys(E).map((id) => {
+      const d = st.detected[id];
+      let pts = 0;
+      if (d) {
+        let full = d.ok;
+        if (id === 'E2') full = d.ok && reportedE2;   // E2: 근거 설명 + 담당의 보고까지 해야 전점
+        pts = E[id].pts * (full ? 1 : 0.5);
+        if (d.afterCue) pts = Math.min(pts, E[id].pts * 0.5);
+      }
+      return { id, title: E[id].title, sev: E[id].sev, max: E[id].pts, pts, det: d ? d.at : null, ok: d ? d.ok : null, cue: d ? d.afterCue : false, fix: st.resolved[id] ?? null };
+    });
+    const errPts = rows.reduce((s, r) => s + r.pts, 0);
+    const errMax = rows.reduce((s, r) => s + r.max, 0);
+    const nDet = rows.filter((r) => r.det != null).length;
+    const nAll = rows.length;
+
+    const D = st.done;
+    const rtMeasured = D.rt_cuff != null;
+    const cl = {
+      C1: !!(D.hand_hygiene != null && st.openQ && st.regno && D.wb_reprint != null),
+      C2: !!(rtMeasured && st.nrsAskedAt != null && !st.ltBP),
+      C3: !!(st.detected.E2 && D.jp_measure != null && st.visits.some((v) => v.hs === 'dressing')),
+      C4: !!(D.jp_compress != null && D.jp_fix != null),
+      C5: st.bedAngle >= 30 && st.bedAngle <= 45,
+      C6: st.pumpRate === 80,
+      C7: !!(!st.ltCuff && rtMeasured),
+      C8: !!(D.pca_open != null && D.edu_pca != null),
+      C9: !!(D.rail_up != null && D.bell_place != null),
+      C10: st.sbar.c10
+    };
+    const nCl = Object.values(cl).filter(Boolean).length;
+    const clMax = 100 - errMax;   // 35
+    const clPts = +(nCl / Object.keys(cl).length * clMax).toFixed(1);
+    const lo2 = C.lo2Items.filter((k) => cl[k]).length;
+
+    // 가산점: 5분 이내 E2(탐지+보고), E3·E5(탐지+교정)
+    const e2Report = st.sbar.reports.find((r) => r.complete);
+    const bonusList = ['E2', 'E3', 'E5'].filter((e) => {
+      const d = st.detected[e];
+      if (!d || d.at > C.bonusSec) return false;
+      if (e === 'E2') return !!(e2Report && e2Report.t <= C.bonusSec);
+      return res(e) && st.resolved[e] <= C.bonusSec;
+    });
+    const bonus = bonusList.length * 2;
+    const penalty = Math.min(10, st.fp.length * 2);
+    const total = Math.max(0, Math.min(100, +(errPts + clPts + bonus - penalty).toFixed(1)));
+    const idRate = +(nDet / nAll * 100).toFixed(1);
+    const mustHave = C.mustDetect.every((e) => st.detected[e]);
+    const pass = total >= 80 && nDet >= 7 && mustHave;
+
+    const firstDet = Object.values(st.detected).reduce((m, d) => Math.min(m, d.at), Infinity);
+    const seq = [];
+    st.visits.forEach((v) => {
+      const hs = v.hs === 'lt_arm' || v.hs === 'rt_arm' ? 'monitor' : v.hs;
+      if (C.route.includes(hs) && !seq.includes(hs)) seq.push(hs);
+    });
+    const lcs = lcsLen(C.route, seq);
+    return {
+      learner: st.learner, role: st.role, attempt: st.attempt + 1, endReason: st.endReason, elapsed: now(),
+      rows, errPts, errMax, weightedRate: Math.round(errPts / errMax * 100), nDet, nAll, idRate,
+      cl, nCl, clPts, clMax, lo2, bonus, bonusList, penalty, fp: st.fp, total, pass, mustHave,
+      sbar: st.sbar.reports, ltBP: st.ltBP,
+      bleeding: { orderAt: st.orderAt, readbackAt: st.readbackAt, bolusAt: st.bolusAt, recoveryAt: st.recoveryAt, finalTrack: st.bleed },
+      finalVitals: Object.assign({}, st.v),
+      metrics: {
+        firstDetection: Number.isFinite(firstDet) ? firstDet : null,
+        highRisk: ['E2', 'E3', 'E5'].map((e) => ({ id: e, at: st.detected[e] ? st.detected[e].at : null })),
+        routeMatch: Math.round(lcs / C.route.length * 100),
+        repeats: st.repeats
+      },
+      log: st.log, visits: st.visits
+    };
+  }
+
+  function lcsLen(a, b) {
+    const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    return dp[a.length][b.length];
+  }
+
+  /* ---------------- 시작·종료 ---------------- */
+  function startSim() {
+    st = freshState();
+    st.learner = $('#learner').value.trim() || '익명';
+    st.role = $('#role').value;
+    computeVitals();
+    $('#log').innerHTML = '';
+    banner('', 'hidden');
+    $('#panel').innerHTML = '<div class="panel-empty"><h3>확인할 대상을 선택하세요</h3><p>차트에서 Order Sheet와 과거력을 먼저 확인하면 병실 세팅과 대조하기 쉽습니다.</p></div>';
+    show('#screen-sim');
+    st.running = true;
+    startPerf = performance.now();
+    say('인계 간호사', C.handover);
+    say('환자', C.lines.chief);
+    sys(`병실 진입 (병동 도착 1시간 후) — 제한시간 10분 00초${SPEED > 1 ? ` (테스트 배속 ×${SPEED})` : ''}`);
+    renderRoom();
+    clearInterval(tickId);
+    tickId = setInterval(tick, 200);
+    tick();
+  }
+
+  function endSim(reason) {
+    if (!st || st.ended) return;
+    st.ended = true; st.running = false; st.endReason = reason;
+    clearInterval(tickId);
+    closeModal();
+    const label = { timeout: 'Time-out (10분 00초)', complete: '전수 탐지·조치 및 SBAR 완료', finish: '학습자 수행 종료', stop: '중단 요청' }[reason];
+    sys(`시나리오 종료 — ${label}`);
+    showResult(compute(), label);
+  }
+
+  function show(id) {
+    document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+    $(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------------- 결과 화면 ---------------- */
+  function showResult(r, label) {
+    window.__lastResult = r;
+    const yes = (b) => (b ? '<span class="ok">✓</span>' : '<span class="no">—</span>');
+    const t = (x) => (x == null ? '—' : fmt(x));
+    const canRetry = !r.pass && attempt === 0 && r.endReason !== 'stop';
+    const b = r.bleeding;
+    $('#result').innerHTML = `
+      <p class="eyebrow">결과 요약 · ${esc(r.learner)} (${esc(r.role)}) · ${r.attempt}회차</p>
+      <h1>${r.pass ? '통과' : '통과 기준 미충족'}</h1>
+      <p class="muted">종료: ${label} · 수행시간 ${fmt(r.elapsed)} · 최종 V/S BP ${r.finalVitals.sbp}/${r.finalVitals.dbp}, PR ${r.finalVitals.pr}, RR ${r.finalVitals.rr}, SpO₂ ${r.finalVitals.spo2}%, NRS ${r.finalVitals.nrs}</p>
+
+      <div class="kpis">
+        <div class="kpi"><span>총점</span><b>${r.total}</b><small>/100 · 기준 80</small></div>
+        <div class="kpi"><span>오류 식별률</span><b>${r.idRate}%</b><small>${r.nDet}/${r.nAll} · 기준 7/8</small></div>
+        <div class="kpi"><span>오류 탐지 점수</span><b>${r.errPts}</b><small>/${r.errMax} · 가중 식별률 ${r.weightedRate}%</small></div>
+        <div class="kpi"><span>체크리스트</span><b>${r.nCl}/10</b><small>${r.clPts}/${r.clMax}점</small></div>
+        <div class="kpi"><span>가산 / 감점</span><b>+${r.bonus} / −${r.penalty}</b><small>위양성 ${r.fp.length}건</small></div>
+        <div class="kpi"><span>고위험 E2·E3·E4·E5·E8</span><b>${r.mustHave ? '모두 탐지' : '누락'}</b><small>통과 필수 조건</small></div>
+      </div>
+
+      <h2>오류별 결과</h2>
+      <table class="tbl"><thead><tr><th>ID</th><th>오류</th><th>위해도</th><th>탐지 시각</th><th>근거</th><th>조치 시각</th><th>점수</th></tr></thead><tbody>
+      ${r.rows.map((x) => `<tr><td>${x.id}</td><td>${esc(x.title)}</td><td>${x.sev}</td><td>${t(x.det)}${x.cue ? ' <small>(단서·지시 후)</small>' : ''}</td>
+        <td>${x.ok == null ? '—' : x.ok ? '적절' : '부적절'}</td><td>${t(x.fix)}</td><td>${x.pts}/${x.max}</td></tr>`).join('')}
+      </tbody></table>
+      <p class="muted">E2는 근거 설명과 담당의 보고까지 해야 전점입니다. 단서 제공 이후 탐지(5분 보호자 단서 후 E5, 담당의 수액 지시 후 처음 확인한 E4)는 50%입니다.</p>
+
+      <h2>필수 중재 체크리스트</h2>
+      <table class="tbl"><tbody>
+      ${Object.keys(C.checklist).map((k) => `<tr><td>${k}</td><td>${C.checklist[k]}</td><td>${yes(r.cl[k])}</td></tr>`).join('')}
+      </tbody></table>
+      <p class="muted">LO2 즉시 교정 7개 항목 중 ${r.lo2}개 수행 (기준 5개) · ${r.ltBP ? 'Lt. arm cuff로 혈압 측정 있음(C2 미충족)' : 'Lt. arm 혈압 측정 없음'}</p>
+
+      <h2>출혈 트랙 · SBAR</h2>
+      <p>담당의 구두처방 ${t(b.orderAt)} · read-back ${t(b.readbackAt)} · bolus 시작 ${t(b.bolusAt)} · 회복 반영 ${t(b.recoveryAt)}</p>
+      ${r.sbar.length ? `<table class="tbl"><thead><tr><th>시각</th><th>소요</th><th>결과</th><th>담당의 재질문</th></tr></thead><tbody>
+        ${r.sbar.map((s) => `<tr><td>${fmt(s.t)}</td><td>${Math.round(s.duration)}초</td><td>${s.complete ? '완료' : '누락'}</td><td>${s.missing.map(esc).join(' / ') || '—'}</td></tr>`).join('')}
+        </tbody></table>` : '<p class="muted">보고하지 않음</p>'}
+
+      <h2>위양성</h2>
+      ${r.fp.length ? `<ul>${r.fp.map((f) => `<li>${fmt(f.t)} — ${esc(f.desc)}</li>`).join('')}</ul>` : '<p class="muted">없음</p>'}
+
+      <h2>탐색 로그 지표 <small class="muted">(점수 미반영 · 성찰 자료)</small></h2>
+      <ul>
+        <li>최초 오류 탐지 소요시간: ${t(r.metrics.firstDetection)} (기준 동선 00:50, 허용 01:30)</li>
+        <li>핵심 고위험 오류 탐지: ${r.metrics.highRisk.map((h) => `${h.id} ${t(h.at)}`).join(' · ')} (가산 기준 05:00)</li>
+        <li>권장 동선 일치도: ${r.metrics.routeMatch}% (9단계 기준, 60% 이상)</li>
+        <li>불필요 탐색 반복: ${r.metrics.repeats}회 (기준 3회 이하)</li>
+      </ul>
+
+      <div class="row">
+        <button class="btn" id="dl-csv">탐색 로그 CSV</button>
+        <button class="btn" id="dl-json">결과 JSON</button>
+        ${canRetry ? '<button class="btn primary" id="retry">재시행 (1회, 10분)</button>' : ''}
+        <button class="btn ghost" id="home">처음으로</button>
+      </div>`;
+    show('#screen-result');
+    $('#dl-csv').onclick = () => download(`roomoferror_log_${r.learner}_${r.attempt}.csv`, toCSV(r), 'text/csv');
+    $('#dl-json').onclick = () => download(`roomoferror_result_${r.learner}_${r.attempt}.json`, JSON.stringify(r, null, 2), 'application/json');
+    if (canRetry) $('#retry').onclick = () => { attempt = 1; startSim(); };
+    $('#home').onclick = () => { attempt = 0; show('#screen-intro'); };
+  }
+
+  function toCSV(r) {
+    const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = ['time_sec,time,category,who,message'];
+    r.log.forEach((l) => lines.push([l.t, fmt(l.t), l.cat, q(l.who || ''), q(l.msg)].join(',')));
+    lines.push('', 'visit_time_sec,hotspot');
+    r.visits.forEach((v) => lines.push(`${v.t},${v.hs}`));
+    return '﻿' + lines.join('\n');
+  }
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type + ';charset=utf-8' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  /* ---------------- 바인딩 ---------------- */
+  function init() {
+    $('#intro-handover').textContent = '“' + C.handover + '”';
+    $('#btn-start').onclick = () => { attempt = 0; startSim(); };
+    $('#btn-emr').onclick = () => st && st.running && openEMR();
+    $('#btn-phone').onclick = () => st && st.running && openSBAR();
+    $('#btn-finish').onclick = () => { if (confirm('수행을 종료하고 결과를 볼까요?')) endSim('finish'); };
+    $('#btn-stop').onclick = () => endSim('stop');
+    $('#modal-x').onclick = closeModal;
+    $('#modal').onclick = (e) => { if (e.target.id === 'modal') closeModal(); };
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+  // 검증·디버깅용 (콘솔에서 RoE.state 확인)
+  window.RoE = { get state() { return st; }, doAction, setPump, setBed, compute };
+})();
+
+</script>
+</body>
+</html>
