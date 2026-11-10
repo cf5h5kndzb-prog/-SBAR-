@@ -785,7 +785,7 @@ function rebuildTubes() {
   const pcaPts = [V(0.95, 0.88, -1.0), V(0.8, 0.8, -1.02), V(0.62, 0.78, -1.06), site];
   setTube(pcaTube, pcaPts);
   clamp.position.copy(new THREE.CatmullRomCurve3(pcaPts).getPoint(0.45));
-  const A = dressG.localToWorld(V(-0.1, 0.015, -0.27));
+  const A = patientRig ? dressG.localToWorld(V(0, 0.01, 0)) : dressG.localToWorld(V(-0.1, 0.015, -0.27));
   const top = BULB_POS.clone().add(V(0, 0.07, 0));
   if (jpSlack) setTube(jpTube, [A, V(-0.36, 0.64, -0.98), V(-0.6, 0.3, -1.02), V(-0.74, 0.05, -0.9), V(-0.55, 0.03, -0.7), V(-0.5, 0.3, -0.72), top]);
   else setTube(jpTube, [A, V(-0.3, 0.7, -0.98), top]);
@@ -816,7 +816,7 @@ function setupPatient(gltf) {
     if (o.isBone) bones[o.name.replace(/^mixamorig:?/, '')] = o;
     if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
   });
-  const need = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftShoulder', 'RightShoulder',
+  const need = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'HeadTop_End', 'LeftShoulder', 'RightShoulder',
                 'LeftArm', 'LeftForeArm', 'LeftHand', 'RightArm', 'RightForeArm', 'RightHand'];
   for (const n of need) if (!bones[n]) throw new Error('patient.glb: 뼈 없음 ' + n);
 
@@ -830,7 +830,7 @@ function setupPatient(gltf) {
   bed.add(root);
   tag(root, '환자 (나예민)', () => `나예민 (F/60) · 통증 NRS ${vit.pain}/10 · HR ${Math.round(vit.hr)} · BP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`);
 
-  const rig = { root, bones, spineBase: bones.Spine.quaternion.clone(), breath: 0, angle: NaN };
+  const rig = { root, bones, spineBase: bones.Spine.quaternion.clone(), breath: 0, angle: NaN, offset: 0 };
   root.updateMatrixWorld(true);
   rig.hipsQ = bones.Hips.getWorldQuaternion(new THREE.Quaternion());
   rig.hipsQi = rig.hipsQ.clone().invert();
@@ -843,6 +843,33 @@ function setupPatient(gltf) {
   const sp = bed.worldToLocal(J('Spine')), hp = bed.worldToLocal(J('Hips'));
   root.position.z += HINGE.z - sp.z;
   root.position.y += HINGE.y + 0.1 - hp.y;
+  root.updateMatrixWorld(true);
+  // 등·엉덩이가 매트리스에 닿도록 높이 맞춤 (몸 아래에서 위로 레이캐스트해 가장 낮은 점을 찾음)
+  const rcUp = new THREE.Raycaster();
+  const underside = p => {
+    rcUp.set(V(p.x, p.y - 0.6, p.z), V(0, 1, 0)); rcUp.far = 1.2;
+    const h = rcUp.intersectObject(root, true)[0];
+    return h ? h.point.y : Infinity;
+  };
+  // 원본 자세는 등이 휘어 있어 그냥 펴면 어깨가 들뜬다 → 어깨 밑이 엉덩이 밑 높이가 되도록 각도 보정
+  for (let it = 0; it < 4; it++) {
+    const dy = underside(J('Spine2')) - underside(J('Hips'));
+    const dist = J('Spine2').distanceTo(J('Spine'));
+    if (!isFinite(dy) || Math.abs(dy) < 0.005) break;
+    rig.offset -= Math.atan2(dy, dist);
+    rig.angle = NaN; setUpper(0); root.updateMatrixWorld(true);
+  }
+  const bottoms = ['Hips', 'Spine', 'Spine1', 'Spine2'].map(n => underside(J(n)));
+  const low = Math.min(...bottoms);
+  if (isFinite(low)) { root.position.y -= low - (HINGE.y + 0.005); root.updateMatrixWorld(true); }
+  // 베개: 뒤통수에 닿도록 위치와 높이 맞춤
+  {
+    const hp2 = J('Head').lerp(J('HeadTop_End'), 0.45);
+    const hb = underside(hp2);
+    const local = headGroup.worldToLocal(V(hp2.x, isFinite(hb) ? hb : HINGE.y + 0.1, hp2.z));
+    const top = Math.max(0.04, local.y);
+    pillow.scale.y = top / 0.1; pillow.position.y = top / 2; pillow.position.z = local.z;
+  }
   setUpper(headGroup.rotation.x);
   root.updateMatrixWorld(true);
   bed.updateMatrixWorld(true);
@@ -898,17 +925,48 @@ function setupPatient(gltf) {
   }
   // E2 복부 dressing: 우상복부(RUQ). 원래 headGroup 기준 (-0.1, 0, -0.27)에 있던 패드를 몸에 붙인다
   {
-    // 우상복부 지점 위에서 몸 표면을 찾아(레이캐스트) 그 위에 붙인다
-    const c = lerp(J('Spine'), J('Spine1'), 0.7).add(V(-0.06, 0, 0));
-    const rc = new THREE.Raycaster(c.clone().addScaledVector(bodyUp, 0.6), bodyUp.clone().negate(), 0, 1.2);
-    const hit = rc.intersectObject(root, true)[0];
-    c.copy(hit ? hit.point : c.addScaledVector(bodyUp, 0.13)).addScaledVector(bodyUp, 0.004);
-    const a = anchor('Spine1', c, frameQ(spineDir.clone().negate(), bodyUp));
+    // 수술 부위 dressing 3곳은 환자복 안에 있으므로 보이지 않게 하고,
+    // 우상복부(JP 부위)에서 옷 밖으로 배어 나온 혈액(oozing)만 붉게 표시한다.
+    // 몸 표면은 레이캐스트로 찾고, 주변 4점으로 표면 기울기를 맞춘다.
+    const rc = new THREE.Raycaster();
+    const lat = V(1, 0, 0);
+    const surf = p => {
+      rc.set(p.clone().addScaledVector(bodyUp, 0.6), bodyUp.clone().negate()); rc.far = 1.2;
+      const h = rc.intersectObject(root, true)[0];
+      return h ? h.point : p.clone().addScaledVector(bodyUp, 0.13);
+    };
+    const base = lerp(J('Spine'), J('Spine1'), 0.7).add(V(-0.06, 0, 0));
+    const c = surf(base);
+    const px = surf(base.clone().addScaledVector(lat, 0.035)), nx = surf(base.clone().addScaledVector(lat, -0.035));
+    const pz = surf(base.clone().addScaledVector(spineDir, 0.035)), nz = surf(base.clone().addScaledVector(spineDir, -0.035));
+    const normal = new THREE.Vector3().crossVectors(pz.sub(nz), px.sub(nx)).normalize();
+    if (normal.dot(bodyUp) < 0) normal.negate();
+    c.addScaledVector(normal, 0.003);
+    const a = anchor('Spine1', c, frameQ(spineDir.clone().negate(), normal));
     a.attach(dressG);
-    dressG.position.set(0.1, 0, 0.27); dressG.quaternion.identity(); dressG.scale.setScalar(0.85);
+    dressG.position.set(0, 0, 0); dressG.quaternion.identity(); dressG.scale.setScalar(1);
+    for (const o of [...dressG.children]) if (o.isMesh && o.geometry.type === 'BoxGeometry') o.removeFromParent();   // 흰 패드 3장 숨김
+    // 번진 혈흔: 가장자리가 불규칙한 붉은 얼룩
+    const blot = canvasTex(256, 256, g => {
+      const grd = g.createRadialGradient(128, 128, 10, 128, 128, 118);
+      grd.addColorStop(0, 'rgba(150,0,18,0.95)'); grd.addColorStop(0.55, 'rgba(175,10,28,0.85)'); grd.addColorStop(1, 'rgba(190,20,35,0)');
+      g.fillStyle = grd;
+      g.beginPath();
+      for (let k = 0; k <= 24; k++) {
+        const t = k / 24 * Math.PI * 2, r = 92 + 18 * Math.sin(t * 3 + 1) + 12 * Math.sin(t * 5 + 2);
+        g[k ? 'lineTo' : 'moveTo'](128 + r * Math.cos(t), 128 + r * Math.sin(t) * 0.85);
+      }
+      g.fill();
+    });
+    stain.geometry.dispose();
+    stain.geometry = new THREE.PlaneGeometry(0.1, 0.1);
+    stain.position.set(0, 0.002, 0);
+    stainMat.map = blot; stainMat.color.set(0xffffff); stainMat.transparent = true; stainMat.depthWrite = false;
+    stainMat.polygonOffset = true; stainMat.polygonOffsetFactor = -4; stainMat.needsUpdate = true;
+    stain.renderOrder = 2;
+    for (const o of dressG.children) if (o.userData.err === 'E2') o.position.set(0, 0.01, 0);   // 클릭 범위도 얼룩 위치로
   }
   // 베개를 머리 밑으로, 이불을 다리가 덮이도록
-  pillow.position.z = headGroup.worldToLocal(J('Head')).z + 0.02;
   blanket.scale.y = 1.7; blanket.position.y = 0.72;
 
   // 기본 도형 환자 숨기기
@@ -924,7 +982,7 @@ function setUpper(angle) {
   const r = patientRig;
   if (!r || r.angle === angle) return;
   r.angle = angle;
-  const d = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), angle - THREE.MathUtils.degToRad(POSE_DEG));
+  const d = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), angle - THREE.MathUtils.degToRad(POSE_DEG) + r.offset);
   r.bones.Spine.quaternion.copy(r.hipsQi).multiply(d).multiply(r.hipsQ).multiply(r.spineBase);
 }
 
@@ -942,7 +1000,7 @@ function updatePatient(dt) {
 {
   const draco = new DRACOLoader().setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/gltf/');
   new GLTFLoader().setDRACOLoader(draco).load(PATIENT_URL,
-    gltf => { try { setupPatient(gltf); } catch (e) { console.warn('환자 모델 적용 실패 → 기본 도형 사용', e); } },
+    gltf => { try { setupPatient(gltf); } catch (e) { gltf.scene.removeFromParent(); patientRig = null; console.warn('환자 모델 적용 실패 → 기본 도형 사용', e); } },
     undefined,
     e => console.warn('patient.glb 불러오기 실패 → 기본 도형 사용', e));
 }
@@ -1009,6 +1067,10 @@ const FIX = {
   E1() { bandName = '나예민'; paint(bandTex); },
   E2() {
     stain.userData.fixed = true;
+    if (stainMat.map) {   // 3D 환자: 번진 혈흔이 줄어들고 옅어짐 (지혈·dressing 교체)
+      tween(1, p => { const e = ease(p); stain.scale.setScalar(1 - 0.45 * e); stainMat.opacity = 1 - 0.6 * e; });
+      return;
+    }
     tween(1, p => { const s = 1 - 0.65 * ease(p); stain.scale.setScalar(s); stainMat.color.setRGB(0.7 + 0.2 * p, 0.2 + 0.4 * p, 0.25 + 0.4 * p); });
   },
   E3() {
