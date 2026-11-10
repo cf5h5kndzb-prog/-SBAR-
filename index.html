@@ -786,7 +786,7 @@ function rebuildTubes() {
   setTube(pcaTube, pcaPts);
   clamp.position.copy(new THREE.CatmullRomCurve3(pcaPts).getPoint(0.45));
   const A = patientRig ? dressG.localToWorld(V(0, 0.01, 0)) : dressG.localToWorld(V(-0.1, 0.015, -0.27));
-  const top = BULB_POS.clone().add(V(0, 0.07, 0));
+  const top = BULB_POS.clone().add(V(0, jpModels ? JP_H / 2 - 0.01 : 0.07, 0));
   if (jpSlack) setTube(jpTube, [A, V(-0.36, 0.64, -0.98), V(-0.6, 0.3, -1.02), V(-0.74, 0.05, -0.9), V(-0.55, 0.03, -0.7), V(-0.5, 0.3, -0.72), top]);
   else setTube(jpTube, [A, V(-0.3, 0.7, -0.98), top]);
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
@@ -997,9 +997,9 @@ function updatePatient(dt) {
   for (const n of ['Neck', 'LeftShoulder', 'RightShoulder']) r.bones[n].scale.setScalar(1 / k);
 }
 
+const gltfLoader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/gltf/'));
 {
-  const draco = new DRACOLoader().setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/gltf/');
-  new GLTFLoader().setDRACOLoader(draco).load(PATIENT_URL,
+  gltfLoader.load(PATIENT_URL,
     gltf => { try { setupPatient(gltf); } catch (e) { gltf.scene.removeFromParent(); patientRig = null; console.warn('환자 모델 적용 실패 → 기본 도형 사용', e); } },
     undefined,
     e => console.warn('patient.glb 불러오기 실패 → 기본 도형 사용', e));
@@ -1013,9 +1013,9 @@ guardian.visible = false;
   add(guardian, CYL(0.12, 0.5, 14), mat(0x44525a), 0, 0.25, 0);
   add(guardian, SPH(0.12), skinMat, 0, 1.2, 0);
   const h = add(guardian, SPH(0.125), mat(0x2b2b2b), 0, 1.24, -0.02); h.scale.set(1, 0.8, 1);
-  tag(guardian, '보호자', () => '환자의 가족');
+  tag(guardian, '보호자 (남편)', () => '환자의 남편');
 }
-const bubbleText = '간호사님, 어머니가 얼굴이 하얗고 식은땀을 흘리세요. 배가 많이 아프시대요.';
+const bubbleText = '간호사님, 아내가 얼굴이 하얗고 식은땀을 흘려요. 배가 많이 아프대요.';
 const bubbleTex = canvasTex(640, 220, (g, w, h) => {
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
   g.strokeStyle = '#1f6f8b'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
@@ -1030,6 +1030,59 @@ bubble.raycast = () => {};
 guardian.add(bubble);
 let bubbleTTL = 0;
 let guardianWalk = -1;
+
+/* ---------- 3D 소품 모델 (카트 · JP bulb · 보호자) ----------
+   각 모델은 높이가 1.9 단위로 맞춰져 있어 실제 크기로 줄여 배치한다. 불러오지 못하면 기존 도형을 쓴다. */
+function fitModel(scene, height) {
+  const box = new THREE.Box3().setFromObject(scene);
+  const s = height / (box.max.y - box.min.y);
+  scene.scale.setScalar(s);
+  scene.userData.s = s;
+  const c = box.getCenter(new THREE.Vector3());
+  scene.position.set(-c.x * s, -box.min.y * s, -c.z * s);   // 바닥 가운데가 원점
+  scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  const g = new THREE.Group(); g.add(scene);
+  return g;
+}
+function loadModel(url, fn) {
+  gltfLoader.load(url, gltf => { try { fn(gltf.scene); } catch (e) { console.warn(url + ' 적용 실패', e); } },
+    undefined, e => console.warn(url + ' 불러오기 실패 → 기본 도형 사용', e));
+}
+
+// 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
+loadModel('cart.glb', sc => {
+  const g = fitModel(sc, 1.65);
+  g.position.set(-2.5, 0, 1.75);
+  g.rotation.y = Math.PI / 2;
+  world.add(tag(g, '처치 카트', () => '정리되어 있음'));
+});
+
+// JP bulb (E3): 처음에는 혈액이 가득 차 부풀어 있음 → 교정 시 압축된 bulb
+const JP_H = 0.2;   // 연결부 포함 높이 (m)
+let jpModels = null;
+let jpWait = 2;
+const jpLoaded = {};
+function jpReady() {
+  if (--jpWait > 0) return;
+  const full = jpLoaded.full, comp = jpLoaded.comp;
+  for (const o of bulb.children) if (o.material && o.material.visible !== false) o.visible = false;   // 기본 도형 숨김
+  for (const m of [full, comp]) { m.position.y = -JP_H / 2; bulb.add(m); }
+  for (const m of [full, comp]) m.userData.s = m.scale.x;
+  const fixed = bulb.userData.fixed;
+  full.visible = !fixed; comp.visible = !!fixed;
+  bulb.scale.set(1, 1, 1);
+  jpModels = { full, comp };
+  tubesDirty = true;
+}
+loadModel('jp_full.glb', sc => { jpLoaded.full = fitModel(sc, JP_H); jpReady(); });
+loadModel('jp_compressed.glb', sc => { jpLoaded.comp = fitModel(sc, JP_H); jpReady(); });
+
+// 보호자(남편): 기존 도형 대신 3D 모델. 걸어 들어와 침대 옆에 선다
+loadModel('guardian.glb', sc => {
+  const g = fitModel(sc, 1.72);
+  for (const o of [...guardian.children]) if (o !== bubble) o.removeFromParent();
+  guardian.add(g);
+});
 
 /* ============================================================
    마커 (찾음 / 힌트)
@@ -1075,6 +1128,12 @@ const FIX = {
   },
   E3() {
     bulb.userData.fixed = true; jpSlack = false;
+    if (jpModels) {   // 3D 모델: 혈액이 찬 bulb를 눌러 압축된 bulb로 바꿈
+      const { full, comp } = jpModels;
+      tween(0.6, p => { const e = ease(p); full.scale.set(full.userData.s * (1 - 0.25 * e), full.userData.s * (1 - 0.15 * e), full.userData.s * (1 - 0.25 * e)); tubesDirty = true; },
+        () => { full.visible = false; comp.visible = true; tubesDirty = true; });
+      return;
+    }
     tween(0.9, p => { const e = ease(p); bulb.scale.set(1 - 0.28 * e, 1 - 0.5 * e, 1 - 0.28 * e); tubesDirty = true; }, () => { tubesDirty = true; });
   },
   E4() { ivRate = 80; paint(ivTex); },
