@@ -519,7 +519,8 @@ function drawMonitor(g, w, h) {
   tag(g, '침상 옆 탁자', () => '물컵, 휴지');
 }
 {
-  const g = group(world, -2.1, 0, 0.5);
+  const g = group(world, 1.05, 0, -0.35);   // 환자 왼쪽 침대 옆, 침대를 보게
+  g.rotation.y = -Math.PI / 2;
   add(g, B(0.45, 0.06, 0.45), mat(0x5b7a8a), 0, 0.45, 0);
   add(g, B(0.45, 0.45, 0.06), mat(0x5b7a8a), 0, 0.7, -0.2);
   for (const [x, z] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) add(g, B(0.04, 0.45, 0.04), mat(0x44525a), x, 0.22, z);
