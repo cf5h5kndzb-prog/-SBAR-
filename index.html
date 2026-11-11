@@ -1343,8 +1343,11 @@ loadModel('bed.glb', sc => {
 });
 loadModel('rail.glb', sc => {
   // 머리 쪽: 길이 약 0.86 m / 다리 쪽: 약 0.72 m (발판에 닿지 않게)
+  // 4개 모두 손대지 않은 원본에서 복제해야 크기·높이가 똑같이 나옴
+  // (이미 크기를 바꾼 모델을 복제하면 높이가 어긋나 3개가 19 cm 낮게 붙었음)
+  const base = sc.clone();
   for (const [rail, side, k] of [[railL, 1, 0.45], [railR, -1, 0.45], [railFL, 1, 0.38], [railFR, -1, 0.38]]) {
-    const m = rail === railL ? sc : sc.clone();
+    const m = base.clone();
     // 4개 모두 같은 높이: 머리 쪽 크기로 맞춘 뒤 높이만 1.3배(윗면이 매트리스 위 약 31 cm),
     // 다리 쪽은 길이만 줄임(높이·두께는 같음)
     const h = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y * 0.45;
