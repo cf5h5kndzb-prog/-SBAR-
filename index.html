@@ -1663,6 +1663,22 @@ loadModel('monitor.glb', sc => {
 // 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
 // 처치 카트: 환자 오른쪽 다리 옆, 침대를 향하게. 위에 고막 체온계와 병동 전화기
 let phoneG = null, phoneMats = [];
+// 비운 JP 배액 계량컵 (E3 교정 후 카트 위에 나타남)
+let drainCupSpot = null, drainCup = null;
+const DRAIN_READ = () => 'JP 배액(비움): 선홍색 혈성 약 110 mL · 병동 도착 시 20 mL → 증가 · 담당의 보고 필요';
+function placeDrainCup() {
+  if (!drainCup || !drainCupSpot) return;
+  drainCup.position.copy(drainCupSpot);
+  drainCup.visible = !!bulb.userData.fixed;
+}
+loadModel('drain_cup.glb', sc => {
+  const g = fitModel(sc, 0.07);                    // 뚜껑 포함 높이 약 7 cm (120 mL 눈금 컵)
+  g.rotation.y = -Math.PI / 2;                     // 눈금이 침대 쪽(+x)을 보게
+  g.visible = false;
+  world.add(tag(g, 'JP 배액 계량컵', DRAIN_READ));
+  drainCup = g;
+  placeDrainCup();
+});
 loadModel('cart.glb', sc => {
   const g = fitModel(sc, 1.4);                     // IV 걸이 포함 높이 (윗판 약 1 m)
   g.position.set(-1.75, 0, 0.75);                  // 오른쪽 다리 쪽, 침대에서 조금 떨어지게 (JP·난간이 가리지 않게)
@@ -1720,6 +1736,12 @@ loadModel('cart.glb', sc => {
     hb.position.set(x, topAt(x, z), z);
     hb.userData.action = () => handHygiene('카트 위 손소독제');
     world.add(tag(hb, '손소독제 (CHG 0.5%)', () => '펌프형 · 500 mL'));
+  }
+  // 비운 JP 배액(계량컵): E3 교정 때 bulb에서 비운 혈성 배액을 카트 앞쪽 빈자리에 둠 → 배액량 노티 근거
+  {
+    const x = CX + 0.09, z = CZ - 0.15;
+    drainCupSpot = V(x, topAt(x, z), z);
+    placeDrainCup();
   }
   // 병동 전화기: SBAR 보고용. 출혈 악화 시점부터 깜빡이고, 누르면 멈춤 (감점 없음)
   loadModel('phone.glb', ps => {
@@ -1852,6 +1874,13 @@ const FIX = {
   },
   E3() {
     bulb.userData.fixed = true; jpSlack = false;
+    // 비운 배액을 계량컵에 담아 카트 위에 둠 (살짝 내려놓는 동작)
+    if (drainCup && drainCupSpot) {
+      drainCup.visible = true;
+      tween(0.7, p => { drainCup.position.copy(drainCupSpot); drainCup.position.y += 0.1 * (1 - ease(p)); },
+        () => drainCup.position.copy(drainCupSpot));
+    }
+    feed('🩸 JP 배액 비움: 선홍색 약 110 mL (도착 시 20 mL) → 처치 카트 위 계량컵');
     // 1) bulb를 비우고 눌러 압축(혈성 배액 줄어듦) → 2) 환자 옆 매트리스 위로 옮겨 환의에 클립 고정
     const moveToPatient = () => {
       const a = bulb.position.clone();
