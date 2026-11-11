@@ -434,60 +434,78 @@ const boardTex = canvasTex(1024, 760, (g, w, h) => {
 
 // 활력징후 모니터 (뒷벽 오른쪽)
 const monTex = canvasTex(800, 480, (g, w, h) => drawMonitor(g, w, h));
-const monitorGroup = group(world, 1.95, 1.7, -2.47);
-add(monitorGroup, B(1.14, 0.7, 0.05), mat(0x20282d));
-screenMesh(monitorGroup, monTex, 1.06, 0.636, 0, 0, 0.03);
-tag(monitorGroup, '활력징후 모니터', () =>
-  `HR ${Math.round(vit.hr)} · BP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)} · SpO₂ ${Math.round(vit.spo2)}% · RR ${Math.round(vit.rr)} · BT ${vit.temp.toFixed(1)}℃\n통증 NRS ${vit.pain}/10`);
-
-function ecg(p) {
-  if (p < 0.08) return 0.12 * Math.sin(p / 0.08 * Math.PI);
-  if (p < 0.16) return 0;
-  if (p < 0.18) return -0.15;
-  if (p < 0.22) return 1 - Math.abs(p - 0.20) / 0.02;
-  if (p < 0.25) return -0.25;
-  if (p < 0.32) return 0;
-  if (p < 0.50) return 0.28 * Math.sin((p - 0.32) / 0.18 * Math.PI);
-  return 0;
+// 포터블 활력징후 모니터 (환자 왼쪽 머리 쪽, 바퀴 달린 스탠드): NIBP + SpO₂/PR + 체온
+// 심전도 전극이 없으므로 ECG 파형·HR 대신 SpO₂ 맥파와 PR(맥박수)을 표시. RR은 환자를 보고 직접 측정
+const monitorGroup = group(world, 0.95, 0, -1.6);
+monitorGroup.rotation.y = -0.55;                     // 화면이 침대 발치 쪽을 보게
+const monPort = new THREE.Object3D();
+{
+  const grey = mat(0xd5dadd, { roughness:0.5 }), dark = mat(0x2a3136, { roughness:0.6 }), metal = mat(0x9aa4aa, { metalness:0.4, roughness:0.4 });
+  // 스탠드: 5발 받침 + 바퀴 + 기둥 + 바구니
+  for (let k = 0; k < 5; k++) {
+    const a = k / 5 * Math.PI * 2;
+    const leg = add(monitorGroup, B(0.3, 0.025, 0.04), dark, Math.cos(a) * 0.15, 0.06, Math.sin(a) * 0.15);
+    leg.rotation.y = -a;
+    const wh = add(monitorGroup, CYL(0.025, 0.02, 12), mat(0x1c2226), Math.cos(a) * 0.29, 0.025, Math.sin(a) * 0.29);
+    wh.rotation.z = Math.PI / 2;
+  }
+  add(monitorGroup, CYL(0.02, 1.1, 12), metal, 0, 0.62, 0);
+  add(monitorGroup, B(0.22, 0.08, 0.14), grey, 0, 0.92, 0.04);          // 소모품 바구니
+  // 모니터 본체
+  const head = group(monitorGroup, 0, 1.33, 0.02);
+  head.rotation.x = -0.12;                            // 살짝 아래로 기울임
+  add(head, B(0.4, 0.3, 0.13), grey);
+  add(head, B(0.37, 0.235, 0.01), dark, 0, 0.02, 0.066);                // 베젤
+  screenMesh(head, monTex, 0.34, 0.204, 0, 0.02, 0.072);
+  add(head, B(0.3, 0.03, 0.04), grey, 0, 0.17, -0.02);                  // 손잡이
+  add(head, B(0.01, 0.01, 0.004), mat(0x3dff7a), 0.175, -0.13, 0.068);   // 전원 표시등
+  // 왼쪽 옆면 측정 포트 (커프 호스·SpO₂ 케이블 연결)
+  add(head, B(0.012, 0.06, 0.05), mat(0x5ec8ff), -0.205, -0.07, 0.02);
+  add(head, B(0.012, 0.05, 0.05), mat(0x24485a), -0.205, -0.07, -0.04);
+  monPort.position.set(-0.21, -0.07, 0); head.add(monPort);
 }
+tag(monitorGroup, '활력징후 모니터 (포터블)', () =>
+  `NIBP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)} · PR ${Math.round(vit.hr)} · SpO₂ ${Math.round(vit.spo2)}% · BT ${vit.temp.toFixed(1)}℃`);
+
 function drawMonitor(g, w, h) {
   g.fillStyle = '#050a0d'; g.fillRect(0, 0, w, h);
   const alarm = vit.sbp < 90 || vit.hr > 120 || vit.spo2 < 92;
-  if (alarm && Math.floor(performance.now() / 500) % 2 === 0) { g.fillStyle = '#c0392b'; g.fillRect(0, 0, w, 36); g.fillStyle = '#fff'; g.font = `bold 24px ${FONT}`; g.fillText('ALARM  활력징후 이상', 16, 27); }
-  // ECG
-  g.strokeStyle = '#3dff7a'; g.lineWidth = 3; g.beginPath();
-  const now = performance.now() / 1000, base = 130, amp = 70, span = 3.2, pw = 520;
-  for (let x = 0; x <= pw; x += 3) {
-    const tt = now - (pw - x) / pw * span;
-    const p = ((tt * vit.hr / 60) % 1 + 1) % 1;
-    const y = base - ecg(p) * amp;
-    if (x === 0) g.moveTo(x + 16, y); else g.lineTo(x + 16, y);
-  }
-  g.stroke();
-  g.fillStyle = '#3dff7a'; g.font = `22px ${FONT}`; g.fillText('II', 16, 66);
-  g.fillStyle = '#5ec8ff'; g.fillText('SpO₂ pleth', 16, 262);
-  g.strokeStyle = '#5ec8ff'; g.lineWidth = 3; g.beginPath();
-  for (let x = 0; x <= pw; x += 3) {
-    const tt = now - (pw - x) / pw * span;
-    const p = ((tt * vit.hr / 60) % 1 + 1) % 1;
-    const y = 340 - Math.max(0, Math.sin(p * Math.PI * 1.6)) * 50;
-    if (x === 0) g.moveTo(x + 16, y); else g.lineTo(x + 16, y);
-  }
-  g.stroke();
-  // 수치
-  const hrCol = vit.hr > 120 ? '#ff5252' : '#3dff7a';
-  g.fillStyle = hrCol; g.font = `bold 26px ${FONT}`; g.fillText('HR', 566, 60);
-  g.font = `bold 72px ${FONT}`; g.fillText(String(Math.round(vit.hr)), 640, 70);
+  g.fillStyle = '#0f1a20'; g.fillRect(0, 0, w, 40);
+  g.fillStyle = '#8fa3ad'; g.font = `20px ${FONT}`; g.fillText('나예민 (F/60) · 성인', 16, 28);
+  if (alarm && Math.floor(performance.now() / 500) % 2 === 0) { g.fillStyle = '#c0392b'; g.fillRect(w / 2, 0, w / 2, 40); g.fillStyle = '#fff'; g.font = `bold 24px ${FONT}`; g.fillText('ALARM  활력징후 이상', w / 2 + 16, 29); }
+  // NIBP (왼쪽 위, 크게)
   const bpCol = vit.sbp < 90 ? '#ff5252' : '#ffffff';
-  g.fillStyle = bpCol; g.font = `bold 24px ${FONT}`; g.fillText('NIBP', 566, 128);
-  g.font = `bold 50px ${FONT}`; g.fillText(`${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`, 566, 184);
-  g.fillStyle = vit.spo2 < 92 ? '#ff5252' : '#5ec8ff'; g.font = `bold 24px ${FONT}`; g.fillText('SpO₂', 566, 246);
-  g.font = `bold 56px ${FONT}`; g.fillText(`${Math.round(vit.spo2)}%`, 566, 304);
-  g.fillStyle = '#ffd166'; g.font = `bold 24px ${FONT}`; g.fillText('RR', 566, 360);
-  g.font = `bold 40px ${FONT}`; g.fillText(String(Math.round(vit.rr)), 626, 362);
-  g.fillStyle = '#c8d3d9'; g.font = `22px ${FONT}`;
-  g.fillText(`BT ${vit.temp.toFixed(1)} ℃`, 566, 412);
-  g.fillText(`통증 NRS ${vit.pain}/10`, 16, 450);
+  const map = Math.round((vit.sbp + 2 * vit.dbp) / 3);
+  g.fillStyle = bpCol; g.font = `bold 26px ${FONT}`; g.fillText('NIBP', 22, 82);
+  g.fillStyle = '#8fa3ad'; g.font = `18px ${FONT}`; g.fillText('mmHg · 자동 15분', 96, 82);
+  g.fillStyle = bpCol; g.font = `bold 96px ${FONT}`; g.fillText(`${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`, 22, 178);
+  g.font = `bold 34px ${FONT}`; g.fillText(`(${map})`, 22, 222);
+  // PR (오른쪽 위)
+  const prCol = vit.hr > 120 ? '#ff5252' : '#3dff7a';
+  g.fillStyle = prCol; g.font = `bold 26px ${FONT}`; g.fillText('PR', 560, 82);
+  g.fillStyle = '#8fa3ad'; g.font = `18px ${FONT}`; g.fillText('bpm', 606, 82);
+  g.fillStyle = prCol; g.font = `bold 92px ${FONT}`; g.fillText(String(Math.round(vit.hr)), 560, 178);
+  // SpO₂ (오른쪽 가운데)
+  const spCol = vit.spo2 < 92 ? '#ff5252' : '#5ec8ff';
+  g.fillStyle = spCol; g.font = `bold 26px ${FONT}`; g.fillText('SpO₂', 560, 240);
+  g.font = `bold 80px ${FONT}`; g.fillText(`${Math.round(vit.spo2)}`, 560, 322);
+  g.font = `bold 34px ${FONT}`; g.fillText('%', 668, 322);
+  // SpO₂ 맥파 (왼쪽 아래)
+  g.fillStyle = '#5ec8ff'; g.font = `20px ${FONT}`; g.fillText('Pleth', 22, 268);
+  g.strokeStyle = '#5ec8ff'; g.lineWidth = 3; g.beginPath();
+  const now = performance.now() / 1000, span = 3.2, pw = 500;
+  for (let x = 0; x <= pw; x += 3) {
+    const tt = now - (pw - x) / pw * span;
+    const p = ((tt * vit.hr / 60) % 1 + 1) % 1;
+    const wave = p < 0.25 ? Math.sin(p / 0.25 * Math.PI / 2) : Math.max(0, Math.cos((p - 0.25) / 0.75 * Math.PI / 2)) * 0.85 + 0.12 * Math.sin((p - 0.25) / 0.75 * Math.PI * 2) * (p < 0.6 ? 1 : 0);
+    const y = 380 - wave * 80;
+    if (x === 0) g.moveTo(x + 22, y); else g.lineTo(x + 22, y);
+  }
+  g.stroke();
+  // 체온 · 통증
+  g.fillStyle = '#ffd166'; g.font = `bold 24px ${FONT}`; g.fillText('TEMP', 560, 388);
+  g.font = `bold 40px ${FONT}`; g.fillText(`${vit.temp.toFixed(1)} ℃`, 560, 434);
+  g.fillStyle = '#c8d3d9'; g.font = `22px ${FONT}`; g.fillText(`통증 NRS ${vit.pain}/10`, 22, 456);
 }
 
 // 손소독제, 손상성 폐기물 용기, 쓰레기통, 탁자, 의자 (정상 물품)
@@ -914,6 +932,7 @@ const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'P
 const jpTube = makeTube(0xf2dede, 0.007, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: 바닥으로 늘어져 있음' : 'JP 라인: 고정됨');
 const cuffTube = makeTube(0x24485a, 0.007, '혈압 커프 호스', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
 const cordTube = makeTube(0x444444, 0.004, 'Call bell 줄', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
+const spo2Tube = makeTube(0xf4f4f2, 0.003, 'SpO₂ 케이블', null, () => 'Lt. 검지 SpO₂ 센서 → 모니터');
 for (const t of [ivTube, pcaTube, jpTube, cuffTube, cordTube]) t.castShadow = false;
 
 const _v = new THREE.Vector3();
@@ -932,8 +951,16 @@ function rebuildTubes() {
   if (jpSlack) setTube(jpTube, [A, V(-0.36, 0.64 + BED_LIFT, -0.98), V(-0.6, 0.3, -1.02), V(-0.74, 0.05, -0.9), V(-0.55, 0.03, -0.7), V(-0.5, 0.3, -0.72), top]);
   else setTube(jpTube, [A, V(-0.3, 0.7 + BED_LIFT, -0.98), top]);
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
-  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, V(0.4, 0.95 + BED_LIFT, -1.7), V(1.0, 1.05, -2.2), V(1.8, 1.36, -2.44)]);
-  else setTube(cuffTube, [cp, V(-0.25, 0.9 + BED_LIFT, -1.9), V(0.5, 1.05, -2.3), V(1.8, 1.36, -2.44)]);
+  const port = monPort.getWorldPosition(new THREE.Vector3());
+  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, V(0.6, 0.85 + BED_LIFT, -1.25), V(0.75, 0.95, -1.5), port]);
+  else setTube(cuffTube, [cp, V(-0.25, 1.0 + BED_LIFT, -1.75), V(0.4, 1.05 + BED_LIFT, -1.8), V(0.7, 1.15, -1.7), port]);
+  // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
+  if (patientRig && patientRig.spo2) {
+    const r = patientRig;
+    spo2Tube.visible = true;
+    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3()),
+      V(0.52, 0.7 + BED_LIFT, -1.05), V(0.68, 0.85, -1.4), port]);
+  } else spo2Tube.visible = false;
   const clip = V(-0.5, 0.64 + BED_LIFT, -1.2);
   const bp = new THREE.Vector3(); bell.getWorldPosition(bp);
   setTube(cordTube, bell.userData.fixed ? [clip, V(-0.46, 0.66 + BED_LIFT, -1.0), bp.clone().add(V(0, 0.02, 0))] : [clip, V(-0.6, 0.3, -1.25), bp.clone().add(V(0, 0.02, 0))]);
@@ -970,7 +997,7 @@ function setupPatient(gltf) {
     mixer.setTime(Math.min(1, clip.duration / 2));
   }
   bed.add(root);
-  tag(root, '환자 (나예민)', () => `나예민 (F/60) · 통증 NRS ${vit.pain}/10 · HR ${Math.round(vit.hr)} · BP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`);
+  tag(root, '환자 (나예민)', () => `나예민 (F/60) · 통증 NRS ${vit.pain}/10 · 호흡 ${Math.round(vit.rr)}회/분 (관찰)`);
 
   const rig = { root, bones, spineBase: bones.Spine.quaternion.clone(), breath: 0, angle: NaN, offset: 0 };
   root.updateMatrixWorld(true);
@@ -1050,6 +1077,21 @@ function setupPatient(gltf) {
     a.attach(bandG);
     tag(bandG, '환자 손목밴드', () => `손목밴드: ${bandName} · 60/F`, 'E1');
     bandG.position.set(0, 0, 0); bandG.quaternion.identity(); bandG.scale.setScalar(0.8);
+  }
+  // SpO₂ 센서: Lt. 검지 끝을 감싼 살구색 테이프형 센서 + 손등·손목 고정 테이프
+  if (bones.LeftHandIndex3 && bones.LeftHandIndex4) {
+    const tapeM = mat(0xe8b79c, { roughness: 0.9 });
+    const a = J('LeftHandIndex3'), b = J('LeftHandIndex4');
+    const dir = b.clone().sub(a).normalize();
+    rig.spo2 = anchor('LeftHandIndex3', a.clone().lerp(b, 0.45), frameQ(dir, up));
+    const wrap = add(rig.spo2, CYL(0.0115, 0.03, 16), tapeM); wrap.rotation.x = Math.PI / 2;
+    add(rig.spo2, B(0.014, 0.005, 0.018), mat(0xf6f6f4), 0, 0.012, 0);   // 센서 머리
+    tag(rig.spo2, 'SpO₂ 센서 (Lt. 검지)', () => `SpO₂ ${Math.round(vit.spo2)}% · PR ${Math.round(vit.hr)}`);
+    const h = J('LeftHand'), f = J('LeftForeArm');
+    const d2 = h.clone().sub(f).normalize();
+    rig.spo2Back = anchor('LeftHand', h.clone().addScaledVector(d2, 0.055).addScaledVector(up, 0.026), frameQ(d2, up));
+    add(rig.spo2Back, B(0.04, 0.002, 0.014), tapeM);                       // 손등 고정 테이프
+    rig.spo2Wrist = anchor('LeftHand', h.clone().addScaledVector(d2, -0.06).addScaledVector(up, 0.03), frameQ(d2, up));
   }
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
   function upperArm(side) {
