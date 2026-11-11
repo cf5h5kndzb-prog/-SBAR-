@@ -1352,8 +1352,12 @@ loadModel('rail.glb', sc => {
     const RAIL_TALL = 1.3, lenK = k / 0.45;
     m.scale.y *= RAIL_TALL; m.position.y *= RAIL_TALL;
     m.scale.x *= lenK; m.position.x *= lenK;
-    g.rotation.y = side * Math.PI / 2;            // 버튼 패널이 바깥쪽을 보게
-    if (k < 0.45) m.scale.x *= -1;                 // 다리 쪽은 좌우 뒤집어 둥근 끝이 발 쪽으로
+    const flip = k < 0.45;
+    if (flip) m.scale.x *= -1;                     // 다리 쪽은 좌우 뒤집어 둥근 끝이 발 쪽으로
+    // 수평 맞춤: 모델 자체가 한쪽으로 약 2.5° 기울어 있어(아랫변 기울기 0.0446) 반대로 돌려 바로잡음.
+    // 높이 1.3배·길이 lenK배로 늘렸으므로 기울기도 그만큼 바뀌고, 뒤집은 다리 쪽은 방향이 반대
+    const tilt = Math.atan(0.0446 * RAIL_TALL / lenK);
+    g.rotation.set(0, side * Math.PI / 2, flip ? tilt : -tilt);   // 버튼 패널이 바깥쪽을 보게
     // 난간 아랫면을 침대 옆 프레임 윗면(침대 기준 0.455 m)에 붙임
     const RAIL_BASE = 0.455;
     g.position.set(0, RAIL_BASE, 0);
@@ -1366,6 +1370,13 @@ loadModel('rail.glb', sc => {
     rail.add(g);
   }
   if (!railR.userData.up) railR.position.y = -0.36;   // 내린 난간: 윗면이 매트리스 아래
+  // 난간 고정 바: 침대 양옆 프레임 위에 일자로 (머리 쪽 난간 앞끝 ~ 다리 쪽 난간 뒤끝)
+  const barM = mat(0x8e9aa2, { metalness:0.3, roughness:0.5 });
+  const Z0 = -1.0 - 1.903 * 0.45 / 2 - 0.03, Z1 = -0.1 + 1.903 * 0.38 / 2 + 0.03;
+  for (const side of [1, -1]) {
+    const bar = add(bed, B(0.03, 0.035, Z1 - Z0), barM, side * 0.475, 0.455, (Z0 + Z1) / 2);
+    bar.castShadow = false;
+  }
 });
 
 // 포터블 활력징후 모니터: 바퀴 달린 스탠드 + 모니터 본체 (3D 모델). 화면 숫자는 drawMonitor()가 코드로 그림
