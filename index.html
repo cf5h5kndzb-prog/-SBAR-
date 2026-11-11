@@ -1122,6 +1122,8 @@ const ivTube = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '수액 
 const ivTube2 = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '3-way → Rt. 손목 IV');
 const ivSetTube = makeTube(IV_TUBE_COLOR, 0.0045, '수액 세트 (백 → 펌프)', null, () => '0.9% NS 1 L → 수액 펌프');
 const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
+const jpTubeTop = makeTube(0xa3121f, 0.004, 'JP 배액관 (삽입 부위)', null, () => 'RUQ JP 삽입 부위 → 환의 안 → Rt. 옆구리');
+jpTubeTop.visible = false;
 const jpTube = makeTube(0xa3121f, 0.006, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: bulb가 침대 옆에 매달려 당겨짐' : 'JP 라인: 환의에 클립으로 고정됨');
 const cuffTube = makeTube(0x24485a, 0.007, '혈압 커프 호스', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
 const cordTube = makeTube(0x444444, 0.004, 'Call bell 줄', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
@@ -1164,7 +1166,16 @@ function rebuildTubes() {
   if (pcaClampPt) setTube(pcaTube, [pcaClampPt.clone(), ...pcaPts]);
   else setTube(pcaTube, pcaPts);
   clamp.position.copy(pcaClampPt || new THREE.CatmullRomCurve3(pcaPts).getPoint(0.3));
-  const A = patientRig ? dressG.localToWorld(V(0, 0.01, 0)) : dressG.localToWorld(V(-0.1, 0.015, -0.27));
+  // 배액관 보이는 부분은 옆구리 출구부터 (환의 안 구간은 숨김). 환의를 걷으면(E2) 삽입 부위 쪽 구간도 보임
+  const A = patientRig && patientRig.jpExit ? patientRig.jpExit.getWorldPosition(new THREE.Vector3())
+    : patientRig ? dressG.localToWorld(V(0, 0.01, 0)) : dressG.localToWorld(V(-0.1, 0.015, -0.27));
+  const Aout = patientRig && patientRig.jpExit ? A.clone().add(V(-0.025, -0.02, 0.01)) : A.clone().add(V(-0.05, 0.035, 0.03));
+  const gl = patientRig && patientRig.gownLift;
+  if (gl && gl.group.visible) {
+    dressG.updateMatrixWorld(true);
+    jpTubeTop.visible = true;
+    setTube(jpTubeTop, gl.pts.map(p => dressG.localToWorld(p.clone())));
+  } else jpTubeTop.visible = false;
   // bulb 마개 입구(모델에서 꺾인 관을 지운 자리)와 그 바로 위(관이 곧게 들어가는 방향)
   bulb.updateMatrixWorld(true);
   const inl = jpModels ? (jpModels.comp.visible ? jpModels.compIn : jpModels.fullIn) : null;
@@ -1172,7 +1183,7 @@ function rebuildTubes() {
   const topLead = inl ? inl[1].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.1, 0));
   if (jpSlack) {
     // 오류: 짧게 매트리스 가장자리를 넘어 침대 옆 bulb로
-    setTube(jpTube, [A, V(-0.4, 0.8, -0.86), V(-0.53, 0.77, -0.8), topLead, top]);
+    setTube(jpTube, [A, Aout, V(-0.4, 0.8, -0.86), V(-0.53, 0.77, -0.8), topLead, top]);
     jpClip.visible = false;
   } else {
     // 교정: 옆구리 환의에 클립으로 고정 → 환자 옆 bulb
@@ -1191,8 +1202,8 @@ function rebuildTubes() {
     jpClip.visible = near;
     const mid = jpClipPt.clone().add(V(-0.012, 0, 0));
     // 배액 부위 → 환의 위를 지나 옆구리로 내려와 클립 → bulb
-    if (near) setTube(jpTube, [A, A.clone().add(V(-0.05, 0.035, 0.03)), V(jpClipPt.x - 0.01, jpClipPt.y + 0.1, (A.z + jpClipPt.z) / 2), V(jpClipPt.x - 0.016, jpClipPt.y + 0.04, jpClipPt.z), mid, topLead, top]);
-    else setTube(jpTube, [A, A.clone().lerp(top, 0.5).add(V(0, 0.05, 0)), topLead, top]);
+    if (near) setTube(jpTube, [A, Aout, V(jpClipPt.x - 0.016, jpClipPt.y + 0.03, (Aout.z + jpClipPt.z) / 2), mid, topLead, top]);
+    else setTube(jpTube, [A, Aout, Aout.clone().lerp(top, 0.5).add(V(0, 0.05, 0)), topLead, top]);
   }
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
   const port = monPort.getWorldPosition(new THREE.Vector3());
@@ -1481,6 +1492,58 @@ function setupPatient(gltf) {
     stainMat.polygonOffset = true; stainMat.polygonOffsetFactor = -4; stainMat.needsUpdate = true;
     stain.renderOrder = 2;
     for (const o of dressG.children) if (o.userData.err === 'E2') o.position.set(0, 0.01, 0);   // 클릭 범위도 얼룩 위치로
+
+    // JP 배액관은 환의 안에 있다가 Rt. 옆구리에서 옷 밖으로 나온다 → 옆구리 출구 표시점
+    // (스킨 메시 레이캐스트가 지금 자세를 쓰도록 뼈 행렬을 먼저 갱신)
+    root.updateMatrixWorld(true);
+    root.traverse(o => { if (o.isSkinnedMesh) o.skeleton.update(); });
+    {
+      const A0 = dressG.localToWorld(V(0, 0, 0));
+      const rcx = new THREE.Raycaster(V(-0.8, A0.y - 0.09, A0.z), V(1, 0, 0));
+      const h = rcx.intersectObject(root, true)[0];
+      const ex = h ? h.point.clone().add(V(-0.004, 0, 0)) : A0.clone().add(V(-0.12, -0.09, 0));
+      rig.jpExit = anchor('Spine1', ex, new THREE.Quaternion());
+    }
+    // E2 교정: 환의를 살짝 걷어 올림 → 피부, 거즈 dressing, 배액관이 보임 (dressG 안, 처음엔 숨김)
+    {
+      dressG.updateMatrixWorld(true);
+      const nW = V(0, 1, 0).transformDirection(dressG.matrixWorld);
+      const xW = V(1, 0, 0).transformDirection(dressG.matrixWorld);
+      const rs = xW.x < 0 ? 1 : -1;                   // 로컬 x에서 환자 Rt.(world −x) 쪽 부호
+      const rcs = new THREE.Raycaster();
+      const onSkin = (u, v, off) => {                  // u: Rt. 쪽(+), v: 발 쪽(+)
+        // 몸 안쪽에서 바깥으로 쏴서 처음 만나는 면 = 피부·환의 표면 (배 위에 올린 손에 걸리지 않게)
+        const q = dressG.localToWorld(V(u * rs, -0.04, v));
+        rcs.set(q, nW); rcs.far = 0.08;
+        const h = rcs.intersectObject(root, true)[0];
+        const w = h ? h.point.addScaledVector(nW, off) : dressG.localToWorld(V(u * rs, off, v));
+        return dressG.worldToLocal(w);
+      };
+      const U0 = -0.055, U1 = 0.075, V0 = -0.06, V1 = 0.055, NU = 12, NV = 10;
+      const patchGeo = (off, u0 = U0, u1 = U1, v0 = V0, v1 = V1) => {
+        const g = new THREE.PlaneGeometry(1, 1, NU, NV), pos = g.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const u = u0 + (pos.getX(i) + 0.5) * (u1 - u0), v = v0 + (0.5 - pos.getY(i)) * (v1 - v0);
+          const p = onSkin(u, v, off); pos.setXYZ(i, p.x, p.y, p.z);
+        }
+        g.computeVertexNormals(); return g;
+      };
+      const lift = new THREE.Group(); lift.visible = false; dressG.add(lift);
+      const skin = new THREE.Mesh(patchGeo(0.004), new THREE.MeshStandardMaterial({ color:0xd8a48a, roughness:0.75, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-2 }));
+      skin.renderOrder = 1; lift.add(skin);
+      const gauze = new THREE.Mesh(patchGeo(0.0055, -0.035, 0.035, -0.035, 0.035), new THREE.MeshStandardMaterial({ color:0xf7f5f0, roughness:0.9, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-3 }));
+      gauze.renderOrder = 1; lift.add(gauze);
+      // 걷어 올린 환의 자락: 머리 쪽 가장자리를 축으로 접혀 올라감
+      const hinge = new THREE.Group(); lift.add(hinge);
+      const hp = onSkin(0, V0, 0.004); hinge.position.copy(hp);
+      const flapG = patchGeo(0.005); flapG.translate(-hp.x, -hp.y, -hp.z);
+      const flap = new THREE.Mesh(flapG, new THREE.MeshStandardMaterial({ color:0x9cb8de, roughness:0.85, side:THREE.DoubleSide }));
+      hinge.add(flap);
+      // 배액관: 거즈 가운데 → 피부 위로 Rt. 쪽 → 환의 가장자리 아래로 들어감
+      const pts = [];
+      for (let i = 0; i <= 6; i++) { const u = 0.075 * i / 6 + (i === 6 ? 0.004 : 0); pts.push(onSkin(u, 0.012 * Math.sin(i / 6 * Math.PI), i === 6 ? 0.001 : 0.0085)); }
+      rig.gownLift = { group: lift, hinge, pts };
+    }
   }
 
   // 기본 도형 환자 숨기기
@@ -1670,7 +1733,14 @@ world.add(pourStream);
 // 비운 JP 배액 계량컵 (E3 교정 후 카트 위에 나타남)
 let drainCupSpot = null, drainCup = null;
 const DRAIN_READ = () => 'JP 배액(비움): 선홍색 혈성 약 110 mL · 병동 도착 시 20 mL → 증가 · 담당의 보고 필요';
-let drainCupBusy = false;                         // 차오르는 중·옮기는 중
+let drainCupBusy = false, drainDisc = null;
+function updateCupDisc() {
+  if (!drainDisc) return;
+  const f = 0.71 * drainFill.value;               // 바닥(0) ~ 약 110 mL(높이의 71 %)
+  drainDisc.mesh.visible = drainFill.value > 0.02;
+  drainDisc.mesh.position.y = drainDisc.y(f);
+  drainDisc.mesh.scale.setScalar(drainDisc.r(f));
+}                         // 차오르는 중·옮기는 중
 // 컵 안 배액 높이 (0 = 빈 컵, 1 = 약 110 mL). 모델에 칠해진 빨간 배액 중 이 높이보다 위는 빈 컵 색으로 바꿔 그림
 const drainFill = { value: 1 };
 function placeDrainCup() {
@@ -1679,15 +1749,33 @@ function placeDrainCup() {
   drainCup.rotation.y = -Math.PI / 2;
   drainCup.visible = !!bulb.userData.fixed;
   drainFill.value = 1;
+  updateCupDisc();
 }
 loadModel('drain_cup.glb', sc => {
-  const g = fitModel(sc, 0.07);                    // 뚜껑 포함 높이 약 7 cm (120 mL 눈금 컵)
+  const g = fitModel(sc, 0.085);                   // 원본(뚜껑 포함) 높이 8.5 cm → 뚜껑을 지우면 컵 높이 약 7 cm
   g.rotation.y = -Math.PI / 2;                     // 눈금이 침대 쪽(+x)을 보게
   g.visible = false;
-  sc.traverse(o => {
-    if (!o.isMesh) return;
+  const cupMeshes = [];
+  sc.traverse(o => { if (o.isMesh) cupMeshes.push(o); });   // 배액 원판을 자식으로 붙이므로 먼저 모아 둠
+  cupMeshes.forEach(o => {
     o.geometry.computeBoundingBox();
     const bb = o.geometry.boundingBox;
+    const H = bb.max.y - bb.min.y, k = H / 1.903, at = f => bb.min.y + H * f;
+    // 뚜껑 지우기: 컵 몸통 윗단(높이의 81.5 %)보다 위의 삼각형을 없앰 → 배액 줄기가 열린 컵 안으로 들어감
+    {
+      const pos = o.geometry.attributes.position, idx = o.geometry.index.array, keep = [], cut = at(0.815);
+      for (let i = 0; i < idx.length; i += 3) {
+        const cy = (pos.getY(idx[i]) + pos.getY(idx[i + 1]) + pos.getY(idx[i + 2])) / 3;
+        if (cy < cut) keep.push(idx[i], idx[i + 1], idx[i + 2]);
+      }
+      o.geometry.setIndex(keep);
+      o.material.side = THREE.DoubleSide;
+    }
+    // 배액 윗면(원판): 높이에 따라 컵 안쪽 반지름(아래로 갈수록 좁아짐)에 맞춤
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshStandardMaterial({ color:0x8a0014, roughness:0.25 }));
+    disc.rotation.x = -Math.PI / 2;
+    o.add(disc);
+    drainDisc = { mesh: disc, y: f => at(f), r: f => (0.713 + 0.1 * (f * 1.903 - 0.952)) * k * 0.965 };
     // 모델에서 배액 윗면은 높이의 약 71 % (바닥 -0.95 ~ 배액 윗면 0.40, 높이 1.9 기준)
     const y0 = bb.min.y, y1 = bb.min.y + (bb.max.y - bb.min.y) * 0.71;
     o.material = o.material.clone();
@@ -1897,6 +1985,14 @@ const FIX = {
   E1() { bandName = '나예민'; paint(bandTex); },
   E2() {
     stain.userData.fixed = true;
+    // 환의를 살짝 걷어 올려 삽입 부위·배액관을 보여 줌 (혈흔은 거즈 위에서 줄어듦)
+    if (patientRig && patientRig.gownLift) {
+      const gl = patientRig.gownLift;
+      gl.group.visible = true; gl.hinge.rotation.x = 0;
+      stain.position.y = 0.0075;
+      tween(0.8, p => { gl.hinge.rotation.x = -1.9 * ease(p); });
+      tubesDirty = true;
+    }
     if (stainMat.map) {   // 3D 환자: 번진 혈흔이 줄어들고 옅어짐 (지혈·dressing 교체)
       tween(1, p => { const e = ease(p); stain.scale.setScalar(1 - 0.45 * e); stainMat.opacity = 1 - 0.6 * e; });
       return;
@@ -1925,17 +2021,20 @@ const FIX = {
       drainCupBusy = true;
       drainCup.visible = true; drainCup.scale.multiplyScalar(CUP_BIG); drainCup.position.copy(HOLD); drainCup.rotation.y = -Math.PI / 2 - 0.6;   // 눈금이 보는 쪽으로
       drainFill.value = 0;
+      updateCupDisc();
       tween(POUR, p => {
         drainFill.value = Math.min(1, Math.max(0, (p - 0.08) / 0.9));
+        updateCupDisc();
         // 배액 줄기: 배출구 → 살짝 위로 → 컵 입구
         const port = jpModels && jpModels.full.visible ? jpModels.fullPort[0].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.08, 0));
-        const mouth = HOLD.clone().add(V(0, 0.065 * CUP_BIG, 0));
-        const surf = HOLD.clone().add(V(0, (0.012 + 0.045 * drainFill.value) * CUP_BIG, 0));
+        const mouth = HOLD.clone().add(V(0, 0.072 * CUP_BIG, 0));
+        drainCup.updateMatrixWorld(true);
+        const surf = drainDisc ? drainDisc.mesh.getWorldPosition(new THREE.Vector3()) : HOLD.clone().add(V(0, 0.012 * CUP_BIG, 0));
         const k = p < 0.92 ? 1 : (1 - p) / 0.08;           // 끝에는 줄기가 가늘어지며 끊김
         pourStream.geometry.dispose();
         pourStream.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([port, port.clone().lerp(mouth, 0.4).add(V(0, 0.04, 0)), mouth, surf]), 24, 0.0028 * Math.max(0.15, k), 6, false);
         pourStream.visible = true;
-      }, () => { pourStream.visible = false; drainFill.value = 1; });
+      }, () => { pourStream.visible = false; drainFill.value = 1; updateCupDisc(); });
     }
     // 1) bulb를 비우고 눌러 압축(혈성 배액 줄어듦) → 2) 환자 옆 매트리스 위로 옮겨 환의에 클립 고정
     const moveToPatient = () => {
