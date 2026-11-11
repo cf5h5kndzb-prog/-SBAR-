@@ -651,13 +651,13 @@ const cuff = group(headGroup, 0.33, 0.05, -0.55);
 }
 
 // 난간 (E8: Rt. 난간이 내려가 있음)
-function makeRail(x, down) {
-  const g = group(bed, x, 0, -1.0);
+function makeRail(x, down, z = -1.0, len = 1.0) {
+  const g = group(bed, x, 0, z);
   const m = mat(0x9aa8b0);
-  add(g, B(0.03, 0.04, 1.0), m, 0, 0.98, 0);
-  add(g, B(0.03, 0.03, 1.0), m, 0, 0.82, 0);
-  add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, -0.48);
-  add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, 0.48);
+  add(g, B(0.03, 0.04, len), m, 0, 0.98, 0);
+  add(g, B(0.03, 0.03, len), m, 0, 0.82, 0);
+  add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, -len / 2 + 0.02);
+  add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, len / 2 - 0.02);
   g.position.y = down ? -0.38 : 0;
   g.userData.railBox = g.children.slice();
   return g;
@@ -665,6 +665,11 @@ function makeRail(x, down) {
 const railL = makeRail(0.5, false);
 tag(railL, '침상 난간 (Lt.)', () => '올려져 있음');
 const railR = makeRail(-0.5, true);
+// 다리 쪽 난간 (양쪽 모두 올려져 있음)
+const railFL = makeRail(0.5, false, -0.1, 0.7);
+tag(railFL, '침상 난간 (Lt. 다리 쪽)', () => '올려져 있음');
+const railFR = makeRail(-0.5, false, -0.1, 0.7);
+tag(railFR, '침상 난간 (Rt. 다리 쪽)', () => '올려져 있음');
 tag(railR, '침상 난간 (Rt.)', () => railR.userData.up ? '올려져 있음' : '내려가 있음', 'E8');
 {
   const hb = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.45, 1.0), new THREE.MeshBasicMaterial({ visible:false }));
@@ -1058,11 +1063,13 @@ loadModel('bed.glb', sc => {
   foot.position.set(0, 0.84 - BED_LIFT, 0.355);  // 낙상 표지판을 발판 바깥면에
 });
 loadModel('rail.glb', sc => {
-  for (const [rail, side] of [[railL, 1], [railR, -1]]) {
-    const m = side > 0 ? sc : sc.clone();
-    const h = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y * 0.45;   // 원본 비율 유지, 길이 약 0.86 m
+  // 머리 쪽: 길이 약 0.86 m / 다리 쪽: 약 0.72 m (발판에 닿지 않게)
+  for (const [rail, side, k] of [[railL, 1, 0.45], [railR, -1, 0.45], [railFL, 1, 0.38], [railFR, -1, 0.38]]) {
+    const m = rail === railL ? sc : sc.clone();
+    const h = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y * k;
     const g = fitModel(m, h);
     g.rotation.y = side * Math.PI / 2;            // 버튼 패널이 바깥쪽을 보게
+    if (k < 0.45) m.scale.x *= -1;                 // 다리 쪽은 좌우 뒤집어 둥근 끝이 발 쪽으로
     g.position.set(side * 0.03, 0.92 - h, 0);   // 난간 윗면이 매트리스 위 약 30 cm
     for (const o of rail.userData.railBox) o.removeFromParent();
     rail.position.x = side * 0.5;
