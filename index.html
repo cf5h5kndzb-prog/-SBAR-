@@ -1014,25 +1014,41 @@ const bulb = group(world, BULB_POS.x, BULB_POS.y, BULB_POS.z);
   bulb.userData.read = () => bulb.userData.fixed ? 'JP bulb: 압축(음압 유지), 선홍색 배액' : 'JP bulb: 부풀어 있음(음압 없음), 선홍색 배액';
 }
 
-/* ---------- 3-way stopcock: IV 라인 중간, PCA 라인이 옆 포트로 연결 ---------- */
+/* ---------- 3-way stopcock: IV 라인 중간, PCA 라인이 옆 포트로 연결 ----------
+   threeway.glb(파란 3갈래 손잡이). 침상 Rt. 난간 위쪽에 걸려 잘 보이게 둠.
+   그룹 좌표: +x = 환자 쪽(IV 나감), -x = 펌프 쪽(IV 들어옴), +z = PCA 옆 포트(폴대 쪽), +y = 손잡이 */
 const threeWay = group(world);
+const twIn = new THREE.Object3D(), twOut = new THREE.Object3D(), twSide = new THREE.Object3D();
+twIn.position.set(-0.04, 0, 0); twOut.position.set(0.04, 0, 0); twSide.position.set(0, 0, 0.034);
+threeWay.add(twIn, twOut, twSide);
+const threeWayProc = group(threeWay);
 {
   const clear = new THREE.MeshStandardMaterial({ color:0xeef6fa, roughness:0.15, transparent:true, opacity:0.75 });
   const white = mat(0xf5f5f2, { roughness:0.45 }), blue = mat(0x1f4fd1, { roughness:0.4 });
-  // 몸통(투명)은 로컬 x축 = IV 라인 방향, 옆 포트는 +z, 손잡이는 위(+y)
-  const body = add(threeWay, CYL(0.0075, 0.05, 14), clear); body.rotation.z = Math.PI / 2;
-  const inP = add(threeWay, CYL(0.006, 0.016, 12), white, -0.031, 0, 0); inP.rotation.z = Math.PI / 2;   // 펌프 쪽 (암 루어)
-  const outP = add(threeWay, CYL(0.005, 0.018, 12), white, 0.032, 0, 0); outP.rotation.z = Math.PI / 2;  // 환자 쪽 (수 루어)
-  const side = add(threeWay, CYL(0.0065, 0.022, 12), white, 0, 0, 0.018); side.rotation.x = Math.PI / 2;  // PCA 연결 포트
-  add(threeWay, CYL(0.0085, 0.006, 12), white, 0, 0, 0.031).rotation.x = Math.PI / 2;
-  // 파란 3갈래 손잡이: 세 갈래가 모두 포트 쪽을 향함 = 세 방향 모두 열림
-  add(threeWay, CYL(0.007, 0.006, 14), blue, 0, 0.01, 0);
-  add(threeWay, B(0.044, 0.005, 0.01), blue, 0, 0.0125, 0);
-  add(threeWay, B(0.01, 0.005, 0.022), blue, 0, 0.0125, 0.011);
-  tag(threeWay, '3-way (IV 라인 · PCA 연결)', () => '3-way 열림: 수액 + PCA가 함께 Rt. 손등 IV로 주입');
+  const body = add(threeWayProc, CYL(0.0075, 0.05, 14), clear); body.rotation.z = Math.PI / 2;
+  add(threeWayProc, CYL(0.006, 0.016, 12), white, -0.031, 0, 0).rotation.z = Math.PI / 2;
+  add(threeWayProc, CYL(0.005, 0.018, 12), white, 0.032, 0, 0).rotation.z = Math.PI / 2;
+  add(threeWayProc, CYL(0.0065, 0.022, 12), white, 0, 0, 0.018).rotation.x = Math.PI / 2;
+  add(threeWayProc, CYL(0.007, 0.006, 14), blue, 0, 0.01, 0);
+  add(threeWayProc, B(0.044, 0.005, 0.01), blue, 0, 0.0125, 0);
+  add(threeWayProc, B(0.01, 0.005, 0.022), blue, 0, 0.0125, 0.011);
 }
-const threeWaySide = new THREE.Object3D(); threeWaySide.position.set(0, 0, 0.034); threeWay.add(threeWaySide);
-const threeWayAt = V(-0.4, 0.79, -1.22);   // 매트리스 Rt. 가장자리 위, 환자 어깨 옆
+tag(threeWay, '3-way (IV 라인 · PCA 연결)', () => '3-way 열림: 수액 + PCA가 함께 Rt. 손등 IV로 주입');
+lateLoad('threeway.glb', sc => {
+  // 모델: 길이 방향 x(-x 끝 = 수 루어 → 환자 쪽, +x 끝 = 암 루어 → 펌프 쪽), 옆 포트 -z, 손잡이 +y
+  const g = fitModel(sc, 0.027);                    // 길이 약 8 cm (잘 보이도록 실물보다 살짝 크게)
+  const J = modelPt(sc, 0.33, -0.13, 0.22);         // 옆 포트가 갈라지는 중심
+  g.position.sub(J);
+  const inner = new THREE.Group(); inner.rotation.y = Math.PI;   // 환자 쪽 끝을 +x로
+  inner.add(g);
+  const rel = (x, y, z) => { const p = modelPt(sc, x, y, z).sub(J); return V(-p.x, p.y, -p.z); };
+  twIn.position.copy(rel(0.95, -0.13, 0.225));
+  twOut.position.copy(rel(-0.95, -0.13, 0.21));
+  twSide.position.copy(rel(0.33, -0.13, -0.40));
+  threeWayProc.removeFromParent();
+  threeWay.add(inner);
+  tubesDirty = true;
+});
 
 /* ---------- 튜브 ---------- */
 const tubeMat = new THREE.MeshStandardMaterial({ color:0xcfe9f5, roughness:0.4, transparent:true, opacity:0.9 });
@@ -1046,14 +1062,16 @@ function setTube(m, pts) {
   m.geometry.dispose();
   m.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(10, pts.length * 8), m.userData.r, 6, false);
 }
-const ivTube = makeTube(0xcfe9f5, 0.006, 'IV 라인', null, () => 'Rt. 손등으로 연결');
-const ivSetTube = makeTube(0xcfe9f5, 0.005, '수액 세트 (백 → 펌프)', null, () => '0.9% NS 1 L → 수액 펌프');
+const IV_TUBE_COLOR = 0xe3eaec;   // 수액 세트 모델의 튜브 색(투명한 흰색)에 맞춤
+const ivTube = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '수액 펌프 → 3-way');
+const ivTube2 = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '3-way → Rt. 손등 IV');
+const ivSetTube = makeTube(IV_TUBE_COLOR, 0.0045, '수액 세트 (백 → 펌프)', null, () => '0.9% NS 1 L → 수액 펌프');
 const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
 const jpTube = makeTube(0xf2dede, 0.007, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: 바닥으로 늘어져 있음' : 'JP 라인: 고정됨');
 const cuffTube = makeTube(0x24485a, 0.007, '혈압 커프 호스', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
 const cordTube = makeTube(0x444444, 0.004, 'Call bell 줄', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
 const spo2Tube = makeTube(0xf4f4f2, 0.003, 'SpO₂ 케이블', null, () => 'Lt. 검지 SpO₂ 센서 → 모니터');
-for (const t of [ivTube, ivSetTube, pcaTube, jpTube, cuffTube, cordTube]) t.castShadow = false;
+for (const t of [ivTube, ivTube2, ivSetTube, pcaTube, jpTube, cuffTube, cordTube]) t.castShadow = false;
 
 const _v = new THREE.Vector3();
 function hg(x, y, z) { return headGroup.localToWorld(_v.set(x, y, z).clone()); }
@@ -1068,27 +1086,26 @@ function rebuildTubes() {
   const bt = bagTail.getWorldPosition(new THREE.Vector3()), pin = ivIn.getWorldPosition(new THREE.Vector3());
   setTube(ivSetTube, [bt, bt.clone().add(V(0, -0.07, 0.03)), V(bt.x + 0.05, bt.y - 0.11, bt.z + 0.07),
     V(bt.x + 0.07, pin.y - 0.08, pin.z + 0.14), V(pin.x + 0.05, pin.y + 0.12, pin.z + 0.06), pin.clone().add(V(0, 0.03, 0)), pin]);
-  // IV 라인: 펌프 아래 → 3-way → Rt. 손등 IV
-  const ivA = ivOut.getWorldPosition(new THREE.Vector3());
-  const ivPts = [ivA, ivA.clone().add(V(0.02, -0.12, 0.06)), V(-0.72, 0.95 + BED_LIFT, -1.22), V(-0.5, 1.13, -1.22), threeWayAt, site];
-  setTube(ivTube, ivPts);
-  // 3-way 방향: 몸통은 라인 방향, 옆 포트는 PCA가 들어오는 쪽(폴대 쪽, 수평)
-  const ivCurve = new THREE.CatmullRomCurve3(ivPts);
-  let tBest = 0, dBest = 1e9;
-  for (let i = 0; i <= 200; i++) { const d = ivCurve.getPoint(i / 200).distanceTo(threeWayAt); if (d < dBest) { dBest = d; tBest = i / 200; } }
-  const X = ivCurve.getTangent(tBest).normalize();
-  const toPole = V(POLE.x - threeWayAt.x, 0, POLE.z - threeWayAt.z);
-  let Z = toPole.sub(X.clone().multiplyScalar(toPole.dot(X))).normalize();
-  if (new THREE.Vector3().crossVectors(Z, X).y < 0) X.negate();   // 손잡이가 위를 보게
-  const Y = new THREE.Vector3().crossVectors(Z, X).normalize();
-  threeWay.position.copy(threeWayAt);
+  // 3-way: Rt. 난간 위쪽(난간을 내리면 함께 내려감), 몸통은 환자 손 쪽을 향하고 옆 포트는 폴대 쪽
+  const twAt = V(-0.53, 1.1 + railR.position.y * 0.72, -1.25);
+  const X = V(site.x - twAt.x, 0, site.z - twAt.z).normalize();
+  const Y = V(0, 1, 0);
+  const Z = new THREE.Vector3().crossVectors(X, Y);           // 손잡이를 위로 두면 옆 포트는 폴대 쪽(-x, 발치 쪽)을 향함
+  threeWay.position.copy(twAt);
   threeWay.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
   threeWay.updateMatrixWorld(true);
-  const twSide = threeWaySide.getWorldPosition(new THREE.Vector3());
+  const tIn = twIn.getWorldPosition(new THREE.Vector3()), tOut = twOut.getWorldPosition(new THREE.Vector3());
+  const twSideW = twSide.getWorldPosition(new THREE.Vector3());
+  const Zw = twSideW.clone().sub(threeWay.position).normalize();
+  // IV 라인: 펌프 아래 → (짧게 늘어짐) → 3-way → Rt. 손등 IV
+  const ivA = ivOut.getWorldPosition(new THREE.Vector3());
+  setTube(ivTube, [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.min(ivA.y, tIn.y) - 0.08, (ivA.z + tIn.z) / 2 + 0.03),
+    tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn]);
+  setTube(ivTube2, [tOut, tOut.clone().add(X.clone().multiplyScalar(0.05)), V((tOut.x + site.x) / 2, Math.max(tOut.y, site.y) - 0.02, (tOut.z + site.z) / 2), site]);
+  // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
-  // PCA 라인: 폴대 바깥쪽 고리에서 내려와 펌프 아래로 지나 IV 라인의 3-way 옆 포트로
-  const pcaPts = [pA, V(POLE.x - 0.25, 1.3, POLE.z + 0.16), V(POLE.x - 0.06, 1.0, POLE.z + 0.22), V(-0.8, 0.86 + BED_LIFT, -1.28), V(-0.52, 1.13, -1.3),
-    twSide.clone().add(Z.clone().multiplyScalar(0.06)), twSide];
+  const pcaPts = [pA, V(POLE.x - 0.24, 1.22, POLE.z + 0.18), V(POLE.x - 0.02, 0.98, POLE.z + 0.26),
+    twSideW.clone().add(Zw.clone().multiplyScalar(0.07)).add(V(0, -0.03, 0)), twSideW.clone().add(Zw.clone().multiplyScalar(0.025)), twSideW];
   if (pcaClampPt) setTube(pcaTube, [pcaClampPt.clone(), ...pcaPts]);
   else setTube(pcaTube, pcaPts);
   clamp.position.copy(pcaClampPt || new THREE.CatmullRomCurve3(pcaPts).getPoint(0.3));
@@ -1722,7 +1739,7 @@ const FIX = {
   E8() {
     railR.userData.up = true; bell.userData.fixed = true;
     const y0 = railR.position.y;
-    tween(0.9, p => { railR.position.y = y0 + (0 - y0) * ease(p); });
+    tween(0.9, p => { railR.position.y = y0 + (0 - y0) * ease(p); tubesDirty = true; });
     const a = bell.position.clone(), b = V(-0.42, 0.665 + BED_LIFT, -0.84);
     tween(1.0, p => { const e = ease(p); bell.position.lerpVectors(a, b, e); bell.position.y = a.y + (b.y - a.y) * e + 0.15 * Math.sin(Math.PI * e); tubesDirty = true; }, () => { bell.position.copy(b); tubesDirty = true; });
   }
