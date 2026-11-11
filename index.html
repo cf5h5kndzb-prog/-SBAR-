@@ -1075,6 +1075,68 @@ const PATIENT_SCALE = 0.93;                          // 원본 키 1.69 m → �
 const POSE_DEG = 20.5;                               // 원본 자세(Lie_on_Chair)의 상체 각도
 let patientRig = null;
 
+/* 환자복 무늬: 흰 바탕 병원복처럼 동그란 엠블럼과 글자가 비스듬히 흩어진 프린트 (가상의 병원 이름).
+   모델 텍스처가 잘게 쪼개진 자동 UV라 텍스처에 직접 그리면 조각마다 무늬가 잘림 →
+   옷(파란색) 부분만 골라 몸 표면(뼈 움직이기 전 자세 기준)에 3방향으로 투영해 이어지게 그림. */
+const GOWN_TILE_M = 0.24;   // 무늬 한 칸 크기 (m): 엠블럼 지름 약 7 cm
+const gownPrintTex = (() => {
+  const W = 1024, cv = document.createElement('canvas'); cv.width = cv.height = W;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.strokeStyle = '#fff';
+  const each = (x, y, r, fn) => {            // 이음매 없이 반복되도록 가장자리 넘어가는 부분은 반대편에도 그림
+    for (const dx of [-W, 0, W]) for (const dy of [-W, 0, W]) { g.save(); g.translate(x + dx, y + dy); g.rotate(r); fn(); g.restore(); }
+  };
+  const arcText = (txt, rad, a0, a1, size, inner) => {
+    g.font = `bold ${size}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const n = txt.length;
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (a1 - a0) * (i + 0.5) / n;
+      g.save(); g.rotate(a); g.translate(0, -rad); if (inner) g.rotate(Math.PI); g.fillText(txt[i], 0, 0); g.restore();
+    }
+  };
+  const emblem = () => {
+    g.lineWidth = 7; g.beginPath(); g.arc(0, 0, 140, 0, Math.PI * 2); g.stroke();
+    g.lineWidth = 4; g.beginPath(); g.arc(0, 0, 92, 0, Math.PI * 2); g.stroke();
+    arcText('SIM MEDICAL CENTER', 116, -Math.PI * 0.62, Math.PI * 0.62, 26, false);
+    g.save(); g.rotate(Math.PI); arcText('시뮬레이션병원', 116, -Math.PI * 0.32, Math.PI * 0.32, 24, true); g.restore();
+    g.fillRect(-14, -58, 28, 116); g.fillRect(-58, -14, 116, 28);          // 십자
+    g.lineWidth = 6; g.beginPath();                                        // 심전도 선
+    g.moveTo(-80, 40); g.lineTo(-30, 40); g.lineTo(-15, 10); g.lineTo(0, 70); g.lineTo(15, 25); g.lineTo(30, 40); g.lineTo(80, 40); g.stroke();
+  };
+  const word = () => { g.font = `bold 64px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SIMC', 0, 0); };
+  each(250, 260, -0.5, emblem);
+  each(770, 720, 2.6, emblem);
+  each(720, 230, 0.35, word);
+  each(260, 760, -2.2, word);
+  each(520, 500, 1.4, word);
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+  return t;
+})();
+function applyGownPrint(mesh) {
+  const geo = mesh.geometry;
+  geo.computeBoundingBox();
+  const unitsPerM = (geo.boundingBox.max.y - geo.boundingBox.min.y) / 1.69;   // 원본 키 1.69 m
+  const mtl = mesh.material;
+  mtl.onBeforeCompile = sh => {
+    sh.uniforms.gownPrint = { value: gownPrintTex };
+    sh.uniforms.gownScale = { value: 1 / (GOWN_TILE_M * unitsPerM) };
+    sh.vertexShader = 'varying vec3 vGownP;\nvarying vec3 vGownN;\n' + sh.vertexShader
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGownP = position;\nvGownN = normal;');
+    sh.fragmentShader = 'uniform sampler2D gownPrint;\nuniform float gownScale;\nvarying vec3 vGownP;\nvarying vec3 vGownN;\n' + sh.fragmentShader
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      {
+        // 파란 옷 부분만 (피부·머리카락 제외)
+        float gm = smoothstep(0.10, 0.28, diffuseColor.b - diffuseColor.r) * step(0.2, diffuseColor.b);
+        vec3 w = pow(abs(normalize(vGownN)), vec3(4.0)); w /= (w.x + w.y + w.z);
+        vec3 p = vGownP * gownScale;
+        float a = texture2D(gownPrint, p.zy).a * w.x + texture2D(gownPrint, p.xz).a * w.y + texture2D(gownPrint, p.xy).a * w.z;
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.42, 0.5, 0.66), a * gm * 0.8);
+      }`);
+  };
+  mtl.needsUpdate = true;
+}
+
 function setupPatient(gltf) {
   const root = gltf.scene;
   root.scale.setScalar(PATIENT_SCALE);
@@ -1082,6 +1144,7 @@ function setupPatient(gltf) {
   root.traverse(o => {
     if (o.isBone) bones[o.name.replace(/^mixamorig:?/, '')] = o;
     if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
+    if (o.isMesh && o.material && o.material.map) applyGownPrint(o);
   });
   const need = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'HeadTop_End', 'LeftShoulder', 'RightShoulder',
                 'LeftArm', 'LeftForeArm', 'LeftHand', 'RightArm', 'RightForeArm', 'RightHand'];
