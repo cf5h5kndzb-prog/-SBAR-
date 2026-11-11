@@ -530,17 +530,19 @@ function drawMonitor(g, w, h) {
 /* ============================================================
    침상 (머리 쪽 = -z, 환자의 오른쪽(Rt.) = -x, 왼쪽(Lt.) = +x)
    ============================================================ */
-const bed = group(world, 0, 0, 0);
+const BED_LIFT = 0.13;   // 3D 침대 모델의 매트리스 받침 높이에 맞춰 매트리스·환자를 올림
+const bed = group(world, 0, BED_LIFT, 0);
+const bedFrameParts = [];
 const frameMat = mat(0x8a9ba5);
 const mattressMat = mat(0xe8f0f5);
 const HINGE = V(0, 0.62, -0.75);
 
-add(bed, B(0.95, 0.1, 2.1), frameMat, 0, 0.43, -0.8);
-add(bed, B(0.95, 0.5, 0.05), frameMat, 0, 0.7, -1.88);     // 머리판
+bedFrameParts.push(add(bed, B(0.95, 0.1, 2.1), frameMat, 0, 0.43, -0.8));
+bedFrameParts.push(add(bed, B(0.95, 0.5, 0.05), frameMat, 0, 0.7, -1.88));     // 머리판
 for (const x of [-0.4, 0.4]) for (const z of [-1.7, 0.1]) {
-  const w = add(bed, CYL(0.07, 0.06, 16), mat(0x3a444a), x, 0.07, z);
+  const w = add(bed, CYL(0.07, 0.06, 16), mat(0x3a444a), x, 0.07 - BED_LIFT, z);
   w.rotation.z = Math.PI / 2;
-  add(bed, CYL(0.012, 0.3), frameMat, x, 0.22, z);
+  bedFrameParts.push(w, add(bed, CYL(0.012, 0.3), frameMat, x, 0.22 - BED_LIFT, z));
 }
 // 발판(풋보드) + 안내판
 const hobTex = canvasTex(512, 256, (g, w, h) => {
@@ -551,16 +553,13 @@ const hobTex = canvasTex(512, 256, (g, w, h) => {
   g.font = `bold 62px ${FONT}`; g.fillStyle = '#1f6f8b'; g.fillText(`HOB ${hobDeg}°`, 24, 218);
 });
 const foot = group(bed, 0, 0.64, 0.27);
-add(foot, B(0.95, 0.4, 0.04), frameMat);
+bedFrameParts.push(add(foot, B(0.95, 0.4, 0.04), frameMat));
 const hobPlate = group(foot, 0, 0, 0);
 screenMesh(hobPlate, hobTex, 0.4, 0.2, 0, 0, 0.025);
 hitSphere(hobPlate, 0, 0, 0.03, 0.17, 'HOB 표시판', 'E7', () => `침상 머리 각도 ${hobDeg}°`);
 
-// 고정 매트리스 + 이불
+// 고정 매트리스 (이불은 덮지 않음: 복부 oozing이 보여야 함)
 add(bed, B(0.9, 0.14, 1.0), mattressMat, 0, 0.55, -0.25);
-const blanket = add(bed, B(0.84, 0.12, 0.88), mat(0x7fb3d5), 0, 0.69, -0.3);
-tag(blanket, '이불', '');
-{ blanket.position.z = -0.31; }
 
 // 머리쪽 접히는 부분
 const headGroup = new THREE.Group();
@@ -653,13 +652,14 @@ const cuff = group(headGroup, 0.33, 0.05, -0.55);
 
 // 난간 (E8: Rt. 난간이 내려가 있음)
 function makeRail(x, down) {
-  const g = group(world, x, 0, -1.0);
+  const g = group(bed, x, 0, -1.0);
   const m = mat(0x9aa8b0);
   add(g, B(0.03, 0.04, 1.0), m, 0, 0.98, 0);
   add(g, B(0.03, 0.03, 1.0), m, 0, 0.82, 0);
   add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, -0.48);
   add(g, B(0.03, 0.4, 0.04), m, 0, 0.8, 0.48);
   g.position.y = down ? -0.38 : 0;
+  g.userData.railBox = g.children.slice();
   return g;
 }
 const railL = makeRail(0.5, false);
@@ -744,7 +744,7 @@ clamp.userData.err = 'E5'; clamp.userData.label = 'PCA 라인 클램프';
 clamp.userData.read = () => pcaOpen ? '클램프 열림' : '클램프 잠김';
 
 /* ---------- JP bulb (E3) ---------- */
-const BULB_POS = V(-0.6, 0.5, -0.78);
+const BULB_POS = V(-0.6, 0.5 + BED_LIFT, -0.78);
 const bulb = group(world, BULB_POS.x, BULB_POS.y, BULB_POS.z);
 {
   const shell = add(bulb, SPH(0.058), mat(0xffffff, { transparent:true, opacity:0.4 }));
@@ -795,7 +795,7 @@ function rebuildTubes() {
   else setTube(cuffTube, [cp, V(-0.25, 0.9, -1.9), V(0.5, 1.05, -2.3), V(1.8, 1.36, -2.44)]);
   const clip = V(-0.5, 0.64, -1.2);
   const bp = new THREE.Vector3(); bell.getWorldPosition(bp);
-  setTube(cordTube, bell.userData.fixed ? [clip, V(-0.46, 0.66, -1.0), bp.clone().add(V(0, 0.02, 0))] : [clip, V(-0.6, 0.3, -1.25), bp.clone().add(V(0, 0.02, 0))]);
+  setTube(cordTube, bell.userData.fixed ? [clip, V(-0.46, 0.66 + BED_LIFT, -1.0), bp.clone().add(V(0, 0.02, 0))] : [clip, V(-0.6, 0.3, -1.25), bp.clone().add(V(0, 0.02, 0))]);
   tubesDirty = false;
 }
 
@@ -862,7 +862,7 @@ function setupPatient(gltf) {
   }
   const bottoms = ['Hips', 'Spine', 'Spine1', 'Spine2'].map(n => underside(J(n)));
   const low = Math.min(...bottoms);
-  if (isFinite(low)) { root.position.y -= low - (HINGE.y + 0.005); root.updateMatrixWorld(true); }
+  if (isFinite(low)) { root.position.y -= low - (HINGE.y + BED_LIFT + 0.005); root.updateMatrixWorld(true); }
   // 베개: 뒤통수에 닿도록 위치와 높이 맞춤
   {
     const hp2 = J('Head').lerp(J('HeadTop_End'), 0.45);
@@ -967,8 +967,6 @@ function setupPatient(gltf) {
     stain.renderOrder = 2;
     for (const o of dressG.children) if (o.userData.err === 'E2') o.position.set(0, 0.01, 0);   // 클릭 범위도 얼룩 위치로
   }
-  // 베개를 머리 밑으로, 이불을 다리가 덮이도록
-  blanket.scale.y = 1.7; blanket.position.y = 0.72;
 
   // 기본 도형 환자 숨기기
   for (const o of [torso, head, hair]) o.removeFromParent();
@@ -1049,6 +1047,29 @@ function loadModel(url, fn) {
   gltfLoader.load(url, gltf => { try { fn(gltf.scene); } catch (e) { console.warn(url + ' 적용 실패', e); } },
     undefined, e => console.warn(url + ' 불러오기 실패 → 기본 도형 사용', e));
 }
+
+// 침대 프레임 (주름 기둥을 눌러 최저 높이로 만든 모델) + 난간
+loadModel('bed.glb', sc => {
+  const g = fitModel(sc, 0.872 * 1.2);           // 모델 높이 0.872 → 실제 약 1.05 m (길이 약 2.3 m)
+  g.rotation.y = -Math.PI / 2;                   // 발판(베이지 패널)이 발 쪽(+z)으로
+  g.position.set(0.036, 0, -0.8);
+  world.add(tag(g, '침대', () => '바퀴 잠금 · 최저 높이'));
+  for (const o of bedFrameParts) o.removeFromParent();
+  foot.position.set(0, 0.84 - BED_LIFT, 0.355);  // 낙상 표지판을 발판 바깥면에
+});
+loadModel('rail.glb', sc => {
+  for (const [rail, side] of [[railL, 1], [railR, -1]]) {
+    const m = side > 0 ? sc : sc.clone();
+    const h = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y * 0.45;   // 원본 비율 유지, 길이 약 0.86 m
+    const g = fitModel(m, h);
+    g.rotation.y = side * Math.PI / 2;            // 버튼 패널이 바깥쪽을 보게
+    g.position.set(side * 0.03, 0.92 - h, 0);   // 난간 윗면이 매트리스 위 약 30 cm
+    for (const o of rail.userData.railBox) o.removeFromParent();
+    rail.position.x = side * 0.5;
+    rail.add(g);
+  }
+  if (!railR.userData.up) railR.position.y = -0.31;   // 내린 난간: 윗면이 매트리스 바로 아래
+});
 
 // 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
 loadModel('cart.glb', sc => {
@@ -1157,7 +1178,7 @@ const FIX = {
     railR.userData.up = true; bell.userData.fixed = true;
     const y0 = railR.position.y;
     tween(0.9, p => { railR.position.y = y0 + (0 - y0) * ease(p); });
-    const a = bell.position.clone(), b = V(-0.42, 0.665, -0.84);
+    const a = bell.position.clone(), b = V(-0.42, 0.665 + BED_LIFT, -0.84);
     tween(1.0, p => { const e = ease(p); bell.position.lerpVectors(a, b, e); bell.position.y = a.y + (b.y - a.y) * e + 0.15 * Math.sin(Math.PI * e); tubesDirty = true; }, () => { bell.position.copy(b); tubesDirty = true; });
   }
 };
