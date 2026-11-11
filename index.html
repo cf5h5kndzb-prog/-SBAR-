@@ -600,14 +600,14 @@ function arm(side) {
 }
 arm(-1); arm(1);
 
-// E1 손목밴드 (Rt. wrist)
+// E1 손목밴드 (Lt. wrist)
 const bandTex = canvasTex(256, 128, (g, w, h) => {
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
   g.strokeStyle = '#1f6f8b'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
   g.fillStyle = '#1d2b33'; g.font = `bold 54px ${FONT}`; g.fillText(bandName, 20, 66);
   g.font = `34px ${FONT}`; g.fillText(bandName === '김서연' ? '60/F · 20250714-1180' : '60/F · 20251031-0427', 20, 108);
 });
-const bandG = group(headGroup, -0.34, 0.045, -0.2);
+const bandG = group(headGroup, 0.34, 0.045, -0.2);
 {
   const ring = add(bandG, CYL(0.04, 0.05, 16), mat(0xffffff));
   ring.rotation.x = Math.PI / 2;
@@ -617,7 +617,25 @@ const bandG = group(headGroup, -0.34, 0.045, -0.2);
   hitSphere(bandG, 0, 0.02, 0, 0.075, '환자 손목밴드', 'E1', () => `손목밴드: ${bandName} · 60/F`);
 }
 
-// IV 카테터 (Lt. 손등)
+// Lt. arm save 팔찌 (빨간색): 유방절제술 쪽 팔 표시. 손목밴드보다 팔꿈치 쪽 (오류 아님)
+const saveTex = canvasTex(256, 128, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#d32f2f'; g.fillRect(0, 0, w, 44);
+  g.fillStyle = '#ffffff'; g.font = `bold 34px ${FONT}`; g.fillText('Lt. ARM SAVE', 14, 34);
+  g.fillStyle = '#d32f2f'; g.font = `bold 28px ${FONT}`; g.fillText('혈압·채혈·IV 금지', 14, 88);
+  g.fillStyle = '#1d2b33'; g.font = `22px ${FONT}`; g.fillText('Lt. 유방절제술', 14, 118);
+});
+const saveBandG = group(headGroup, 0.34, 0.045, -0.3);
+{
+  const ring = add(saveBandG, CYL(0.04, 0.035, 16), mat(0xd32f2f));
+  ring.rotation.x = Math.PI / 2;
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.045), new THREE.MeshBasicMaterial({ map:saveTex }));
+  plate.rotation.x = -Math.PI / 2; plate.position.set(0, 0.043, 0);
+  saveBandG.add(plate);
+  tag(saveBandG, 'Lt. arm save 팔찌', () => 'Lt. 유방절제술 · 혈압·채혈·IV 금지');
+}
+
+// IV 카테터 (Rt. 손등)
 const ivCathG = group(headGroup, -0.35, 0.085, -0.15);
 {
   const cath = add(ivCathG, B(0.03, 0.012, 0.05), mat(0x2f80ed));
@@ -903,11 +921,14 @@ function setupPatient(gltf) {
   const spineDir = J('Spine2').sub(J('Spine')).normalize();             // 머리 쪽
   const bodyUp = new THREE.Vector3(1, 0, 0).cross(spineDir).normalize(); // 배 쪽
 
-  // E1 손목밴드: Rt. wrist
+  // E1 손목밴드: Lt. wrist / 그 위(팔꿈치 쪽)에 빨간 Lt. arm save 팔찌
   {
-    const hand = J('RightHand'), fore = J('RightForeArm');
+    const hand = J('LeftHand'), fore = J('LeftForeArm');
     const dir = hand.clone().sub(fore).normalize();
-    const a = anchor('RightHand', hand.addScaledVector(dir, -0.035), frameQ(dir, up));
+    const a2 = anchor('LeftForeArm', hand.clone().addScaledVector(dir, -0.085), frameQ(dir, up));
+    a2.attach(saveBandG);
+    saveBandG.position.set(0, 0, 0); saveBandG.quaternion.identity(); saveBandG.scale.setScalar(1.0);
+    const a = anchor('LeftHand', hand.addScaledVector(dir, -0.035), frameQ(dir, up));
     a.attach(bandG);
     tag(bandG, '환자 손목밴드', () => `손목밴드: ${bandName} · 60/F`, 'E1');
     bandG.position.set(0, 0, 0); bandG.quaternion.identity(); bandG.scale.setScalar(0.8);
