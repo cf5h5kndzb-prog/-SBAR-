@@ -102,7 +102,7 @@
   <details>
     <summary>인계 내용 (SBAR)</summary>
     <p><b>S</b> 나예민(60세 여), 복강경 담낭절제술 당일. 병실 입실 후 활력징후 안정.</p>
-    <p><b>B</b> 담낭결석, 전신마취 수술. 우상복부 JP 1개, Rt. 손등 IV, PCA 사용. Lt. 유방절제술(액와 림프절 절제) 과거력으로 Lt. arm save. 알레르기 없음.</p>
+    <p><b>B</b> 담낭결석, 전신마취 수술. 우상복부 JP 1개, Rt. 손목 IV, PCA 사용. Lt. 유방절제술(액와 림프절 절제) 과거력으로 Lt. arm save. 알레르기 없음.</p>
     <p><b>A</b> 통증 NRS 4, 낙상 고위험.</p>
     <p><b>R</b> 병실을 둘러보며 안전을 확인하고, 이상이 있으면 바로 조치·보고.</p>
   </details>
@@ -123,7 +123,7 @@
        시간이 지나면 환자 상태가 변하므로(보호자 방문, 통증 상승, 출혈 악화) 서둘러 확인해야 합니다.</p>
     <div class="sbar">
       <b>S</b> 나예민(60세 여), 복강경 담낭절제술 당일. 병실 입실 후 활력징후 안정.<br>
-      <b>B</b> 담낭결석, 전신마취 수술. 우상복부 JP 1개, Rt. 손등 IV, PCA 사용. Lt. 유방절제술(액와 림프절 절제) 과거력으로 Lt. arm save. 알레르기 없음.<br>
+      <b>B</b> 담낭결석, 전신마취 수술. 우상복부 JP 1개, Rt. 손목 IV, PCA 사용. Lt. 유방절제술(액와 림프절 절제) 과거력으로 Lt. arm save. 알레르기 없음.<br>
       <b>A</b> 통증 NRS 4, 낙상 고위험.<br>
       <b>R</b> 병실을 둘러보며 안전을 확인하고, 이상이 있으면 바로 조치·보고.
     </div>
@@ -412,7 +412,7 @@ const boardTex = canvasTex(1024, 760, (g, w, h) => {
     ['수액', '0.9% NS 1 L · 80 mL/hr'],
     ['통증', 'PCA(Fentanyl) 사용 · 클램프 개방 유지'],
     ['JP', '우상복부 · bulb 압축(음압) 유지 · 배액량 기록'],
-    ['혈관', 'Rt. 손등 IV 유지 · Lt. arm save (Lt. 유방절제술: 혈압·채혈·IV 금지)'],
+    ['혈관', 'Rt. 손목 IV 유지 · Lt. arm save (Lt. 유방절제술: 혈압·채혈·IV 금지)'],
     ['활동', '침상 머리 30° 이상 · 낙상 고위험'],
     ['낙상 예방', '난간 up · call bell은 손 닿는 곳에']
   ];
@@ -429,7 +429,7 @@ const boardTex = canvasTex(1024, 760, (g, w, h) => {
   add(g, B(1.56, 1.17, 0.03), mat(0x8a98a0));
   screenMesh(g, boardTex, 1.5, 1.11, 0, 0, 0.02);
   tag(g, '처방·정보 보드', () =>
-    '환자: 나예민 (F/60) · 등록번호 20251031-0427\n진단: 복강경 담낭절제술 당일\n수액: 0.9% NS 1 L · 80 mL/hr\n통증: PCA 사용 · 클램프 개방 유지\nJP: bulb 압축 유지\n혈관: Rt. 손등 IV · Lt. arm save (유방절제술)\n활동: 침상 머리 30° 이상 · 낙상 고위험\n난간 up · call bell 손 닿는 곳');
+    '환자: 나예민 (F/60) · 등록번호 20251031-0427\n진단: 복강경 담낭절제술 당일\n수액: 0.9% NS 1 L · 80 mL/hr\n통증: PCA 사용 · 클램프 개방 유지\nJP: bulb 압축 유지\n혈관: Rt. 손목 IV · Lt. arm save (유방절제술)\n활동: 침상 머리 30° 이상 · 낙상 고위험\n난간 up · call bell 손 닿는 곳');
 }
 
 // 활력징후 모니터 (뒷벽 오른쪽)
@@ -711,8 +711,8 @@ function arm(side) {
   const fore = add(headGroup, CYL(0.034, 0.33, 12), skinMat, x + side * 0.01, 0.045, -0.28);
   fore.rotation.x = Math.PI / 2;
   add(headGroup, SPH(0.045), skinMat, x + side * 0.01, 0.045, -0.09);
-  tag(up, side < 0 ? '환자 오른팔 (Rt. arm)' : '환자 왼팔 (Lt. arm)', side < 0 ? 'Rt. 손등 IV 유지 중' : 'Lt. arm save (유방절제술)');
-  tag(fore, side < 0 ? '환자 오른팔 (Rt. arm)' : '환자 왼팔 (Lt. arm)', side < 0 ? 'Rt. 손등 IV 유지 중' : 'Lt. arm save (유방절제술)');
+  tag(up, side < 0 ? '환자 오른팔 (Rt. arm)' : '환자 왼팔 (Lt. arm)', side < 0 ? 'Rt. 손목 IV 유지 중' : 'Lt. arm save (유방절제술)');
+  tag(fore, side < 0 ? '환자 오른팔 (Rt. arm)' : '환자 왼팔 (Lt. arm)', side < 0 ? 'Rt. 손목 IV 유지 중' : 'Lt. arm save (유방절제술)');
 }
 arm(-1); arm(1);
 
@@ -751,12 +751,57 @@ const saveBandG = group(headGroup, 0.34, 0.045, -0.3);
   tag(saveBandG, 'Lt. arm save 팔찌', () => 'Lt. 유방절제술 · 혈압·채혈·IV 금지');
 }
 
-// IV 카테터 (Rt. 손등)
+// IV 카테터 (Rt. 손목)
+/* IV site: Rt. 손목 등쪽 (손목 위 투명 필름 드레싱 + 카테터 허브 + 고리 모양 연장선 + 파란 커넥터)
+   로컬 좌표: +z = 손가락 쪽, -z = 팔꿈치 쪽, +y = 피부 바깥, 원점 = 삽입 부위 피부 표면.
+   손목 등쪽이 둥글어서 필름·테이프는 반지름 IV_R 곡면으로 감싼다. */
+const IV_R = 0.032;
 const ivCathG = group(headGroup, -0.35, 0.085, -0.15);
+const ivSite = new THREE.Object3D(), ivSiteLead = new THREE.Object3D();   // IV 라인이 이어지는 커넥터 끝 / 그 앞 방향점
+ivSite.position.set(0, 0.004, -0.082); ivSiteLead.position.set(0, 0.02, -0.13);
+ivCathG.add(ivSite, ivSiteLead);
 {
-  const cath = add(ivCathG, B(0.03, 0.012, 0.05), mat(0x2f80ed));
-  add(ivCathG, B(0.05, 0.006, 0.04), mat(0xffffff), 0, -0.003, 0);
-  tag(cath, 'IV 카테터 (Rt. hand)', () => 'Rt. 손등 IV 유지 중');
+  const yS = x => Math.sqrt(IV_R * IV_R - x * x) - IV_R;   // 곡면 높이 (가운데 0)
+  // 곡면 조각: 폭 w(둘레 방향), 길이 l(팔 방향), 가운데 z
+  const curved = (w, l, z, m, lift = 0) => {
+    const r = IV_R + lift, th = w / r;
+    const geo = new THREE.CylinderGeometry(r, r, l, 24, 1, true, -th / 2, th);
+    geo.rotateX(-Math.PI / 2); geo.translate(0, -IV_R, z);
+    const mesh = new THREE.Mesh(geo, m); ivCathG.add(mesh); return mesh;
+  };
+  // 투명 필름 드레싱: 흰 테두리, 가운데 투명 창, 팔꿈치 쪽 가운데에 라인이 나가는 홈
+  const filmTex = canvasTex(256, 320, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = 'rgba(235,245,250,0.22)'; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,255,255,0.97)';
+    const b = 24;
+    g.fillRect(0, 0, w, b); g.fillRect(0, h - b, w, b); g.fillRect(0, 0, b, h); g.fillRect(w - b, 0, b, h);
+    g.clearRect(w / 2 - 34, 0, 68, 64);                                   // 홈 (위쪽 = 팔꿈치 쪽)
+    g.fillStyle = 'rgba(235,245,250,0.22)'; g.fillRect(w / 2 - 34, b, 68, 64 - b);
+    g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 6;            // 필름 광택
+    g.beginPath(); g.moveTo(b + 20, h - b - 30); g.lineTo(w - b - 40, b + 90); g.stroke();
+    g.fillStyle = 'rgba(120,130,140,0.9)'; g.font = `bold 15px ${FONT}`;   // 날짜 기록
+    g.fillText('11/11  20G  RN', 40, h - 9);
+  });
+  const filmM = new THREE.MeshStandardMaterial({ map:filmTex, transparent:true, roughness:0.2, metalness:0, side:THREE.DoubleSide, depthWrite:false });
+  curved(0.046, 0.056, 0.002, filmM, 0.0045);
+  // 카테터: 분홍 허브(20G) + 날개 + 투명 캐뉼라 (팔꿈치 쪽으로 피부에 들어감)
+  const hubM = mat(0xf08bb4, { roughness:0.35 }), clearM = new THREE.MeshStandardMaterial({ color:0xf3f7f8, roughness:0.15, transparent:true, opacity:0.7 });
+  add(ivCathG, CYL(0.0032, 0.013, 14), hubM, 0, 0.0034, 0.006).rotation.x = Math.PI / 2;
+  add(ivCathG, B(0.017, 0.0009, 0.007), new THREE.MeshStandardMaterial({ color:0xfbd6e6, roughness:0.3, transparent:true, opacity:0.85 }), 0, 0.0012, 0.002);
+  const can = add(ivCathG, CYL(0.0008, 0.013, 8), clearM, 0, 0.0012, -0.007); can.rotation.x = Math.PI / 2 + 0.12;
+  add(ivCathG, CYL(0.0028, 0.008, 12), clearM, 0, 0.0034, 0.0165).rotation.x = Math.PI / 2;   // 루어 연결부
+  // 연장선: 허브 뒤에서 손가락 쪽으로 나와 옆으로 고리를 만든 뒤 팔꿈치 쪽 홈으로 나감
+  const P = (x, z, lift) => V(x, yS(x) + lift, z);
+  const loop = new THREE.CatmullRomCurve3([P(0, 0.021, 0.0034), P(0.006, 0.029, 0.003), P(0.017, 0.028, 0.003), P(0.022, 0.012, 0.003),
+    P(0.019, -0.008, 0.003), P(0.009, -0.024, 0.003), P(0.002, -0.036, 0.003), P(0, -0.052, 0.003), P(0, -0.066, 0.0035)]);
+  ivCathG.add(new THREE.Mesh(new THREE.TubeGeometry(loop, 60, 0.0016, 8, false), new THREE.MeshStandardMaterial({ color:0xeef3f5, roughness:0.2, transparent:true, opacity:0.85 })));
+  // 연장선 고정 테이프 (홈 바로 아래)
+  curved(0.028, 0.011, -0.045, mat(0xfafafa, { roughness:0.8 }), 0.0055);
+  // 파란 커넥터 + 흰 클램프
+  add(ivCathG, CYL(0.0036, 0.016, 14), mat(0x1f5fd1, { roughness:0.35 }), 0, 0.004, -0.073).rotation.x = Math.PI / 2;
+  add(ivCathG, B(0.009, 0.004, 0.006), mat(0xf5f5f2), 0, 0.0045, -0.062);
+  tag(ivCathG, 'IV 카테터 (Rt. wrist)', () => 'Rt. 손목 IV 20G 유지 중 · 투명 드레싱 깨끗함');
 }
 
 // 복부 dressing (E2) — JP 삽입 부위 (환자 오른쪽 = -x)
@@ -1033,7 +1078,7 @@ const threeWayProc = group(threeWay);
   add(threeWayProc, B(0.044, 0.005, 0.01), blue, 0, 0.0125, 0);
   add(threeWayProc, B(0.01, 0.005, 0.022), blue, 0, 0.0125, 0.011);
 }
-tag(threeWay, '3-way (IV 라인 · PCA 연결)', () => '3-way 열림: 수액 + PCA가 함께 Rt. 손등 IV로 주입');
+tag(threeWay, '3-way (IV 라인 · PCA 연결)', () => '3-way 열림: 수액 + PCA가 함께 Rt. 손목 IV로 주입');
 lateLoad('threeway.glb', sc => {
   // 모델: 길이 방향 x(-x 끝 = 수 루어 → 환자 쪽, +x 끝 = 암 루어 → 펌프 쪽), 옆 포트 -z, 손잡이 +y
   const g = fitModel(sc, 0.027);                    // 길이 약 8 cm (잘 보이도록 실물보다 살짝 크게)
@@ -1064,7 +1109,7 @@ function setTube(m, pts) {
 }
 const IV_TUBE_COLOR = 0xe3eaec;   // 수액 세트 모델의 튜브 색(투명한 흰색)에 맞춤
 const ivTube = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '수액 펌프 → 3-way');
-const ivTube2 = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '3-way → Rt. 손등 IV');
+const ivTube2 = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '3-way → Rt. 손목 IV');
 const ivSetTube = makeTube(IV_TUBE_COLOR, 0.0045, '수액 세트 (백 → 펌프)', null, () => '0.9% NS 1 L → 수액 펌프');
 const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
 const jpTube = makeTube(0xf2dede, 0.007, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: 바닥으로 늘어져 있음' : 'JP 라인: 고정됨');
@@ -1079,7 +1124,7 @@ function rebuildTubes() {
   headGroup.updateMatrixWorld(true);
   cuff.updateMatrixWorld(true);
   if (patientRig) patientRig.root.updateMatrixWorld(true);
-  const site = ivCathG.localToWorld(V(0, 0.01, 0));
+  const site = ivSite.getWorldPosition(new THREE.Vector3()), siteLead = ivSiteLead.getWorldPosition(new THREE.Vector3());
   ivPump.updateMatrixWorld(true); pcaPump.updateMatrixWorld(true);
   bag.updateMatrixWorld(true);
   // 수액 세트: 백에서 내려온 끝이 아래로 한 번 휘었다가 펌프 위 입구로 들어감
@@ -1097,11 +1142,11 @@ function rebuildTubes() {
   const tIn = twIn.getWorldPosition(new THREE.Vector3()), tOut = twOut.getWorldPosition(new THREE.Vector3());
   const twSideW = twSide.getWorldPosition(new THREE.Vector3());
   const Zw = twSideW.clone().sub(threeWay.position).normalize();
-  // IV 라인: 펌프 아래 → (짧게 늘어짐) → 3-way → Rt. 손등 IV
+  // IV 라인: 펌프 아래 → (짧게 늘어짐) → 3-way → Rt. 손목 IV
   const ivA = ivOut.getWorldPosition(new THREE.Vector3());
   setTube(ivTube, [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.min(ivA.y, tIn.y) - 0.08, (ivA.z + tIn.z) / 2 + 0.03),
     tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn]);
-  setTube(ivTube2, [tOut, tOut.clone().add(X.clone().multiplyScalar(0.05)), V((tOut.x + site.x) / 2, Math.max(tOut.y, site.y) - 0.02, (tOut.z + site.z) / 2), site]);
+  setTube(ivTube2, [tOut, tOut.clone().add(X.clone().multiplyScalar(0.05)), V((tOut.x + siteLead.x) / 2, Math.max(tOut.y, siteLead.y) - 0.01, (tOut.z + siteLead.z) / 2), siteLead, site]);
   // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
   const pcaPts = [pA, V(POLE.x - 0.24, 1.22, POLE.z + 0.18), V(POLE.x - 0.02, 0.98, POLE.z + 0.26),
@@ -1328,13 +1373,35 @@ function setupPatient(gltf) {
   rig.cuffR = upperArm('Right');
   (cuff.userData.side === 'R' ? rig.cuffR : rig.cuffL).attach(cuff);
   cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.setScalar(1.05);
-  // IV 카테터: Rt. 손등 (손목밴드보다 손가락 쪽). Lt. arm은 save(유방절제술)
+  // IV 카테터: Rt. 손목 등쪽 (복부 oozing을 가리지 않게 손등 대신 손목). Lt. arm은 save(유방절제술)
   {
     const hand = J('RightHand'), fore = J('RightForeArm');
     const dir = hand.clone().sub(fore).normalize();
-    const a = anchor('RightHand', hand.addScaledVector(dir, 0.045).addScaledVector(up, 0.028), frameQ(dir, up));
+    const c = hand.clone().addScaledVector(dir, -0.04);           // 손목 관절에서 팔꿈치 쪽 4 cm
+    root.updateMatrixWorld(true);
+    // 피부 표면 찾기: 바깥(n)에서 안쪽으로 레이캐스트, 주변 4점으로 표면 방향(n)을 다시 잡아 두 번 반복
+    const rc = new THREE.Raycaster();
+    const surfAt = (q, n) => {
+      rc.set(q.clone().addScaledVector(n, 0.15), n.clone().negate()); rc.far = 0.3;
+      const h = rc.intersectObject(root, true).find(h => h.object.isMesh && h.point.distanceTo(q) < 0.07);
+      return h ? h.point : null;
+    };
+    let n = up.clone().addScaledVector(dir, -up.dot(dir)).normalize();
+    let p = surfAt(c, n) || c.clone().addScaledVector(n, 0.028);
+    for (let it = 0; it < 2; it++) {
+      const lat = new THREE.Vector3().crossVectors(dir, n).normalize();
+      const pL = surfAt(p.clone().addScaledVector(lat, 0.012), n), pR = surfAt(p.clone().addScaledVector(lat, -0.012), n);
+      const pF = surfAt(p.clone().addScaledVector(dir, 0.012), n), pB = surfAt(p.clone().addScaledVector(dir, -0.012), n);
+      if (pL && pR && pF && pB) {
+        const nn = new THREE.Vector3().crossVectors(pF.clone().sub(pB), pL.clone().sub(pR)).normalize();
+        if (nn.dot(n) < 0) nn.negate();
+        n = nn;
+      }
+      p = surfAt(c, n) || p;
+    }
+    const a = anchor('RightForeArm', p.addScaledVector(n, 0.0008), frameQ(dir, n));
     a.attach(ivCathG);
-    ivCathG.position.set(0, 0, 0); ivCathG.quaternion.identity(); ivCathG.rotation.y = Math.PI;
+    ivCathG.position.set(0, 0, 0); ivCathG.quaternion.identity();
   }
   // E2 복부 dressing: 우상복부(RUQ). 원래 headGroup 기준 (-0.1, 0, -0.27)에 있던 패드를 몸에 붙인다
   {
