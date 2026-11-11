@@ -497,10 +497,34 @@ function drawMonitor(g, w, h) {
   add(g, B(0.1, 0.03, 0.05), mat(0x8a98a0), -0.02, -0.04, 0);
   tag(g, '손소독제', () => '충분히 채워져 있음');
 }
+// 의료폐기물 전용 용기 (병실 입구): 흰 골판지 상자 + 주황 비닐 + 투명 아크릴 뚜껑
 {
-  const g = group(world, 2.9, 1.0, -0.7);
-  add(g, B(0.12, 0.26, 0.18), mat(0xf5c518));
-  tag(g, '손상성 폐기물 용기', () => '노란색 전용 용기');
+  const g = group(world, 2.62, 0, 0.62);
+  g.rotation.y = -Math.PI / 2;                     // 라벨이 방 안쪽(-x)을 보게
+  const side = canvasTex(256, 320, (c, w, h) => {
+    c.fillStyle = '#f7f7f4'; c.fillRect(0, 0, w, h);
+    // 생물학적 위험 표시 (노란색)
+    c.save(); c.translate(w / 2, 120); c.strokeStyle = '#f2c200'; c.fillStyle = '#f2c200'; c.lineWidth = 9;
+    for (let i = 0; i < 3; i++) { c.save(); c.rotate(i * 2 * Math.PI / 3); c.beginPath(); c.arc(0, -26, 26, 0, Math.PI * 2); c.stroke(); c.restore(); }
+    c.beginPath(); c.arc(0, 0, 34, 0, Math.PI * 2); c.lineWidth = 6; c.stroke();
+    c.beginPath(); c.arc(0, 0, 9, 0, Math.PI * 2); c.fillStyle = '#f7f7f4'; c.fill(); c.restore();
+    // 표
+    c.strokeStyle = '#333'; c.lineWidth = 2; c.strokeRect(22, 200, w - 44, 104);
+    c.fillStyle = '#222'; c.font = `bold 24px ${FONT}`; c.textAlign = 'center'; c.fillText('의료 폐기물 전용 용기', w / 2, 230);
+    c.font = `15px ${FONT}`;
+    c.beginPath(); c.moveTo(22, 242); c.lineTo(w - 22, 242); c.moveTo(22, 272); c.lineTo(w - 22, 272); c.moveTo(w / 2, 242); c.lineTo(w / 2, 304); c.stroke();
+    c.fillText('용기 용량 30 L', w / 4 + 11, 262); c.fillText('봉투: 의료폐기물', w * 3 / 4 - 11, 262);
+    c.fillText('사용 개시일', w / 4 + 11, 293); c.fillText('2025. 10. 31.', w * 3 / 4 - 11, 293);
+  });
+  const boxMat = new THREE.MeshStandardMaterial({ map: side, roughness: 0.9 });
+  const plain = mat(0xf2f1ec, { roughness: 0.9 });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.46, 0.36), [plain, plain, plain, plain, boxMat, boxMat]);
+  box.position.y = 0.23; box.castShadow = true; box.receiveShadow = true; g.add(box);
+  const bagMat = new THREE.MeshStandardMaterial({ color: 0xf08a3c, roughness: 0.6, transparent: true, opacity: 0.85 });
+  add(g, B(0.38, 0.1, 0.38), bagMat, 0, 0.43, 0);                       // 상자 밖으로 접힌 주황 비닐
+  const lid = add(g, B(0.44, 0.012, 0.44), new THREE.MeshStandardMaterial({ color: 0xdfeaf0, roughness: 0.1, transparent: true, opacity: 0.45 }), 0, 0.49, 0);
+  add(g, CYL(0.015, 0.03), mat(0xbfc7cc, { metalness: 0.5 }), 0, 0.51, 0);   // 손잡이
+  tag(g, '의료 폐기물 전용 용기', () => '주황 봉투 · 뚜껑 닫힘');
 }
 {
   const g = group(world, 2.5, 0, -1.9);
@@ -1112,7 +1136,8 @@ loadModel('rail.glb', sc => {
 let phoneG = null, phoneMats = [];
 loadModel('cart.glb', sc => {
   const g = fitModel(sc, 1.4);                     // IV 걸이 포함 높이 (윗판 약 1 m)
-  g.position.set(-1.12, 0, 0.15);
+  g.position.set(-1.75, 0, 0.75);                  // 오른쪽 다리 쪽, 침대에서 조금 떨어지게 (JP·난간이 가리지 않게)
+  const CX = g.position.x, CZ = g.position.z;
   g.rotation.y = Math.PI / 2;
   world.add(tag(g, '처치 카트', () => '정리되어 있음'));
   world.updateMatrixWorld(true);
@@ -1123,7 +1148,7 @@ loadModel('cart.glb', sc => {
   loadModel('thermometer.glb', ts => {
     const t = fitModel(ts, 0.15);
     t.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
-    const x = -1.15, z = 0.02;
+    const x = CX - 0.03, z = CZ - 0.13;
     t.position.set(x, topAt(x, z) + 0.025, z);
     t.userData.action = () => toast(`🌡 고막 체온 ${vit.temp.toFixed(1)} ℃`, '', 2200);
     world.add(tag(t, '고막 체온계', () => `BT ${vit.temp.toFixed(1)} ℃`));
@@ -1132,7 +1157,7 @@ loadModel('cart.glb', sc => {
   loadModel('phone.glb', ps => {
     const ph = fitModel(ps, 0.19);
     ph.rotation.y = Math.PI / 2;                   // 화면이 침대 쪽으로
-    const x = -1.12, z = 0.3;
+    const x = CX, z = CZ + 0.15;
     ph.position.set(x, topAt(x, z), z);
     ph.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffc400); o.material.emissiveIntensity = 0; phoneMats.push(o.material); } });
     ph.userData.action = () => {
