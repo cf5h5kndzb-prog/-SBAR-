@@ -1239,26 +1239,11 @@ loadModel('cart.glb', sc => {
   const rc = new THREE.Raycaster();
   const topAt = (x, z) => { rc.set(V(x, 3, z), V(0, -1, 0)); const h = rc.intersectObject(g, true)[0]; return h ? h.point.y : 1.0; };
   // 카트 윗판 정리
-  //  - 트레이(카트 모델에 포함): 카트 중심에서 x +0.095, z +0.235, 약 21 cm 정사각 → 체온계·알콜솜
+  //  - 트레이(카트 모델에 포함, 주황 상자 = 알콜솜): 카트 중심에서 x +0.095, z +0.235 → 체온계를 옆에 눕힘
   //  - 뒤쪽 한 줄(x −0.12): 전화기 · 손소독제 (높이 맞춤)
   const TRAY_Y = topAt(CX + 0.03, CZ + 0.3);
-  {
-    const swabTex = canvasTex(128, 128, (c, w, h) => {
-      c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
-      c.strokeStyle = '#d0d4d8'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, h - 6);
-      c.fillStyle = '#1f5fae'; c.font = `bold 18px ${FONT}`; c.textAlign = 'center';
-      c.fillText('ALCOHOL', w / 2, 52); c.fillText('PREP PAD', w / 2, 76);
-      c.fillStyle = '#c62828'; c.font = `bold 14px ${FONT}`; c.fillText('70% IPA', w / 2, 102);
-    });
-    const swabMat = new THREE.MeshStandardMaterial({ map: swabTex, roughness: 0.8 });
-    const swabs = new THREE.Group();
-    [[0, 0, 0], [0.012, 0.004, 0.3], [-0.01, 0.008, -0.25]].forEach(([dx, dy, r]) => {
-      const pad = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.003, 0.045), swabMat);
-      pad.position.set(dx, dy, dx * 0.6); pad.rotation.y = r; swabs.add(pad);
-    });
-    swabs.position.set(CX + 0.13, TRAY_Y + 0.004, CZ + 0.3);
-    world.add(tag(swabs, '알콜솜', () => '70% 이소프로필 알코올 패드'));
-  }
+  // 트레이 안 주황 상자(카트 모델에 포함)가 알콜솜: 클릭 범위만 덧붙임
+  hitSphere(world, CX + 0.125, TRAY_Y + 0.04, CZ + 0.22, 0.06, '알콜솜', null, () => '알콜솜 통');
   // 고막 체온계: 트레이 안에 눕혀 둠. 클릭하면 현재 체온 (감점 없음)
   loadModel('thermometer.glb', ts => {
     const t = fitModel(ts, 0.13);
