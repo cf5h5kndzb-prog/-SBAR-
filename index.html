@@ -409,7 +409,7 @@ const boardTex = canvasTex(1024, 760, (g, w, h) => {
     ['환자', '나예민 (F/60) · 등록번호 20251031-0427'],
     ['진단', '담낭결석 · 복강경 담낭절제술 당일 (POD#0)'],
     ['알레르기', '없음'],
-    ['수액', 'N/S 1000 mL · 80 mL/hr'],
+    ['수액', '0.9% NS 1 L · 80 mL/hr'],
     ['통증', 'PCA(Fentanyl) 사용 · 클램프 개방 유지'],
     ['JP', '우상복부 · bulb 압축(음압) 유지 · 배액량 기록'],
     ['혈관', 'Rt. 손등 IV 유지 · Lt. arm save (Lt. 유방절제술: 혈압·채혈·IV 금지)'],
@@ -429,7 +429,7 @@ const boardTex = canvasTex(1024, 760, (g, w, h) => {
   add(g, B(1.56, 1.17, 0.03), mat(0x8a98a0));
   screenMesh(g, boardTex, 1.5, 1.11, 0, 0, 0.02);
   tag(g, '처방·정보 보드', () =>
-    '환자: 나예민 (F/60) · 등록번호 20251031-0427\n진단: 복강경 담낭절제술 당일\n수액: N/S 1000 mL · 80 mL/hr\n통증: PCA 사용 · 클램프 개방 유지\nJP: bulb 압축 유지\n혈관: Rt. 손등 IV · Lt. arm save (유방절제술)\n활동: 침상 머리 30° 이상 · 낙상 고위험\n난간 up · call bell 손 닿는 곳');
+    '환자: 나예민 (F/60) · 등록번호 20251031-0427\n진단: 복강경 담낭절제술 당일\n수액: 0.9% NS 1 L · 80 mL/hr\n통증: PCA 사용 · 클램프 개방 유지\nJP: bulb 압축 유지\n혈관: Rt. 손등 IV · Lt. arm save (유방절제술)\n활동: 침상 머리 30° 이상 · 낙상 고위험\n난간 up · call bell 손 닿는 곳');
 }
 
 // 활력징후 모니터 (뒷벽 오른쪽)
@@ -809,15 +809,38 @@ const pole = group(world, POLE.x, 0, POLE.z);
   tag(pole, 'IV 폴대', '');
 }
 {
-  const bag = group(world, POLE.x, 1.74, POLE.z);
-  const b = add(bag, SPH(0.1), mat(0xf5ecb8, { transparent:true, opacity:0.75 }));
-  b.scale.set(0.8, 1.35, 0.4);
-  const lbl = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.fillStyle = '#1d2b33'; g.font = `bold 40px ${FONT}`; g.fillText('N/S 0.9%', 18, 58); g.font = `34px ${FONT}`; g.fillText('1000 mL', 18, 104); });
-  const p = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.05), new THREE.MeshBasicMaterial({ map:lbl }));
-  p.position.set(0, 0, 0.045); bag.add(p);
-  add(bag, CYL(0.006, 0.16), mat(0xdddddd), 0, 0.19, 0);
-  add(world, CYL(0.006, 0.12), mat(0xdfefff), POLE.x, 1.58, POLE.z);
-  tag(bag, '수액 백 (N/S 1000 mL)', () => 'N/S 0.9% 1000 mL');
+  // 수액 백: 0.9% NS 1 L 소프트백 (반투명 납작한 백 + 파란 인쇄 라벨 + 아래 포트 2개)
+  const bag = group(world, POLE.x + 0.12, 1.72, POLE.z);   // 폴대 위 가로대 고리에 걸림
+  const BW = 0.15, BH = 0.3;
+  const body = add(bag, B(BW, BH, 0.032), new THREE.MeshStandardMaterial({ color:0xf4f8fa, roughness:0.35, transparent:true, opacity:0.55 }));
+  body.scale.set(1, 1, 1);
+  const lbl = canvasTex(256, 512, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1f5fae'; g.textAlign = 'center';
+    g.font = `bold 14px ${FONT}`; g.fillText('INTRAVENOUS SOLUTION', w / 2, 46);
+    g.font = `16px ${FONT}`; g.fillText('Sodium Chloride Injection', w / 2, 92);
+    g.font = `bold 58px ${FONT}`; g.fillText('0.9% NS', w / 2, 160);
+    g.font = `bold 40px ${FONT}`; g.fillText('1000 mL', w / 2, 210);
+    g.font = `bold 22px ${FONT}`; g.fillText('생리식염주사액', w / 2, 250);
+    g.font = `13px ${FONT}`; g.textAlign = 'left';
+    ['0.9% Sodium Chloride 9 g/L', 'Na⁺ 154 mEq/L · Cl⁻ 154 mEq/L', '정맥 주사용 · 1회용', 'Lot 25K031 · Exp 2027.10'].forEach((t, i) => g.fillText(t, 28, 300 + i * 22));
+    // 오른쪽 눈금 (100 mL 단위)
+    g.strokeStyle = '#1f5fae'; g.lineWidth = 2; g.font = `bold 11px ${FONT}`; g.textAlign = 'right';
+    for (let i = 1; i <= 9; i++) { const y = 40 + i * 44; g.beginPath(); g.moveTo(w - 8, y); g.lineTo(w - (i % 5 ? 20 : 30), y); g.stroke(); g.fillText(String(i), w - 34, y + 4); }
+  });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(BW * 0.96, BH * 0.96), new THREE.MeshBasicMaterial({ map:lbl, transparent:true }));
+  face.position.set(0, 0, 0.0165); bag.add(face);
+  // 위: 걸이 구멍이 있는 탭
+  add(bag, B(0.05, 0.03, 0.006), mat(0xeef3f5, { transparent:true, opacity:0.8 }), 0, BH / 2 + 0.015, 0);
+  // 아래: 포트 2개 (파란 캡, 노란 캡)
+  add(bag, CYL(0.006, 0.04), mat(0xe6edf0), -0.025, -BH / 2 - 0.02, 0);
+  add(bag, CYL(0.008, 0.02), mat(0x2f6fd6), -0.025, -BH / 2 - 0.045, 0);
+  add(bag, CYL(0.006, 0.03), mat(0xe6edf0), 0.025, -BH / 2 - 0.015, 0);
+  add(bag, CYL(0.007, 0.015), mat(0xf2c200), 0.025, -BH / 2 - 0.035, 0);
+  // 수액 세트 점적통
+  add(world, CYL(0.009, 0.06), mat(0xdfefff, { transparent:true, opacity:0.8 }), POLE.x + 0.095, 1.47, POLE.z);
+  tag(bag, '수액 백 (0.9% NS 1 L)', () => '0.9% NS 1000 mL');
 }
 
 // 수액 펌프 (E4)
@@ -826,7 +849,7 @@ const ivTex = canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = '#8fd3f4'; g.font = `bold 26px ${FONT}`; g.fillText('INFUSION PUMP', 14, 36);
   g.fillStyle = '#ffffff'; g.font = `bold 92px ${FONT}`; g.fillText(String(ivRate), 14, 140);
   g.font = `bold 30px ${FONT}`; g.fillStyle = '#8fd3f4'; g.fillText('mL/hr', 14, 180);
-  g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('N/S 1000 mL', 14, 218);
+  g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('0.9% NS 1 L', 14, 218);
   g.fillStyle = '#3dff7a'; g.fillText('● RUNNING', 130, 244);
 });
 const ivPump = group(world, POLE.x, 1.38, POLE.z + 0.11);
