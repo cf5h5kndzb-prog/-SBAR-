@@ -1244,6 +1244,38 @@ loadModel('cart.glb', sc => {
     t.userData.action = () => toast(`🌡 고막 체온 ${vit.temp.toFixed(1)} ℃`, '', 2200);
     world.add(tag(t, '고막 체온계', () => `BT ${vit.temp.toFixed(1)} ℃`));
   });
+  // 손소독제(펌프형, CHG 0.5%): 분홍 반투명 병 + 흰 펌프 + 라벨. 누르면 손 소독 (감점 없음)
+  {
+    const hb = new THREE.Group();
+    const prof = [[0, 0], [0.036, 0], [0.038, 0.005], [0.038, 0.15], [0.034, 0.175], [0.02, 0.195], [0.016, 0.2], [0, 0.2]].map(([x, y]) => new THREE.Vector2(x, y));
+    const bottle = new THREE.Mesh(new THREE.LatheGeometry(prof, 32), new THREE.MeshStandardMaterial({ color:0xf3a6c8, roughness:0.2, transparent:true, opacity:0.8 }));
+    bottle.castShadow = true; hb.add(bottle);
+    const lbl = canvasTex(512, 160, (c, w, h) => {
+      c.fillStyle = '#fbeef3'; c.fillRect(0, 0, w, h);
+      // 앞면(가운데)만 인쇄: 텍스처 가로 1/2 지점이 정면
+      const x0 = w * 0.33, x1 = w * 0.67, cx = (x0 + x1) / 2;
+      c.fillStyle = '#d0213a'; c.beginPath(); c.moveTo(x0, 0); c.lineTo(x0 + 22, 0); c.lineTo(x0, 40); c.fill();
+      c.beginPath(); c.moveTo(x1, 0); c.lineTo(x1 - 22, 0); c.lineTo(x1, 40); c.fill();
+      c.fillStyle = '#b3122b'; c.textAlign = 'center';
+      c.font = `bold 15px ${FONT}`; c.fillText('Antiseptic Hand Rub', cx, 28);
+      c.font = `11px ${FONT}`; c.fillText('with Chlorhexidine Gluconate', cx, 44);
+      c.fillStyle = '#d0213a'; c.beginPath(); c.ellipse(cx, 92, 36, 28, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#fff'; c.font = `bold 18px ${FONT}`; c.fillText('CHG', cx, 88); c.font = `bold 15px ${FONT}`; c.fillText('0.5%', cx, 106);
+      c.fillStyle = '#b3122b'; c.fillRect(x0, 136, x1 - x0, 24); c.fillStyle = '#fff'; c.font = `bold 12px ${FONT}`; c.fillText('500 mL', cx, 153);
+    });
+    const label = new THREE.Mesh(new THREE.CylinderGeometry(0.0385, 0.0385, 0.07, 32, 1, true), new THREE.MeshStandardMaterial({ map:lbl, roughness:0.5 }));
+    label.position.y = 0.065; hb.add(label);
+    const white = mat(0xf7f7f7, { roughness:0.4 });
+    add(hb, CYL(0.018, 0.02, 16), white, 0, 0.21, 0);          // 뚜껑
+    add(hb, CYL(0.006, 0.05, 12), white, 0, 0.24, 0);          // 펌프 대
+    add(hb, CYL(0.016, 0.012, 16), white, 0, 0.268, 0);        // 누름판
+    add(hb, B(0.06, 0.01, 0.012), white, 0.035, 0.27, 0);      // 토출구
+    hb.rotation.y = Math.PI;                                   // 라벨 정면을 침대 쪽(+x)으로
+    const x = CX + 0.12, z = CZ - 0.02;
+    hb.position.set(x, topAt(x, z), z);
+    hb.userData.action = () => { toast('🧴 손 소독 (CHG 0.5% 손소독제)', 'good', 1800); feed('손 소독 (카트 위 손소독제)'); };
+    world.add(tag(hb, '손소독제 (CHG 0.5%)', () => '펌프형 · 500 mL'));
+  }
   // 병동 전화기: SBAR 보고용. 출혈 악화 시점부터 깜빡이고, 누르면 멈춤 (감점 없음)
   loadModel('phone.glb', ps => {
     const ph = fitModel(ps, 0.19);
