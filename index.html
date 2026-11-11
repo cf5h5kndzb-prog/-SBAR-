@@ -1169,7 +1169,9 @@ function rebuildTubes() {
   // 배액관 보이는 부분은 옆구리 출구부터 (환의 안 구간은 숨김). 환의를 걷으면(E2) 삽입 부위 쪽 구간도 보임
   const A = patientRig && patientRig.jpExit ? patientRig.jpExit.getWorldPosition(new THREE.Vector3())
     : patientRig ? dressG.localToWorld(V(0, 0.01, 0)) : dressG.localToWorld(V(-0.1, 0.015, -0.27));
-  const Aout = patientRig && patientRig.jpExit ? A.clone().add(V(-0.025, -0.02, 0.01)) : A.clone().add(V(-0.05, 0.035, 0.03));
+  const Aout = patientRig && patientRig.jpExit ? patientRig.jpExitOut.clone() : A.clone().add(V(-0.05, 0.035, 0.03));
+  // 아랫단에서 나온 관이 옆구리 곡면을 따라 매트리스로 내려옴
+  const side1 = Aout.clone().add(V(-0.09, -0.08, 0.03)), side2 = Aout.clone().add(V(-0.16, 0, 0.05)); side2.y = 0.8;
   const gl = patientRig && patientRig.gownLift;
   if (gl && gl.group.visible) {
     dressG.updateMatrixWorld(true);
@@ -1183,7 +1185,7 @@ function rebuildTubes() {
   const topLead = inl ? inl[1].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.1, 0));
   if (jpSlack) {
     // 오류: 짧게 매트리스 가장자리를 넘어 침대 옆 bulb로
-    setTube(jpTube, [A, Aout, V(-0.4, 0.8, -0.86), V(-0.53, 0.77, -0.8), topLead, top]);
+    setTube(jpTube, [A, Aout, side1, side2, V(-0.5, 0.79, side2.z * 0.4 + top.z * 0.6), topLead, top]);
     jpClip.visible = false;
   } else {
     // 교정: 옆구리 환의에 클립으로 고정 → 환자 옆 bulb
@@ -1191,7 +1193,11 @@ function rebuildTubes() {
       // 옆구리 환의 표면: 환자 Rt. 옆(-x)에서 몸 쪽으로 레이캐스트
       jpClipPt = V(-0.24, 0.86, -0.72);
       jpClip.rotation.set(0, 0, Math.PI / 2);          // 옆면에 세워 붙임
-      if (patientRig) {
+      if (patientRig && patientRig.jpExitOut) {
+        // 상의 아랫단 바로 바깥(Rt. 쪽 아래)에 클립
+        jpClipPt = patientRig.jpExitOut.clone().add(V(-0.045, -0.025, 0.02));
+        jpClip.rotation.set(0, 0, 0);
+      } else if (patientRig) {
         const rc = new THREE.Raycaster(V(-0.7, 0.86, -0.72), V(1, 0, 0));
         const h = rc.intersectObject(patientRig.root, true)[0];
         if (h) jpClipPt = h.point.clone().add(V(-0.004, 0, 0));
@@ -1202,7 +1208,7 @@ function rebuildTubes() {
     jpClip.visible = near;
     const mid = jpClipPt.clone().add(V(-0.012, 0, 0));
     // 배액 부위 → 환의 위를 지나 옆구리로 내려와 클립 → bulb
-    if (near) setTube(jpTube, [A, Aout, V(jpClipPt.x - 0.016, jpClipPt.y + 0.03, (Aout.z + jpClipPt.z) / 2), mid, topLead, top]);
+    if (near) setTube(jpTube, [A, Aout, jpClipPt.clone().add(V(0, 0.008, 0)), side1, side2, topLead, top]);
     else setTube(jpTube, [A, Aout, Aout.clone().lerp(top, 0.5).add(V(0, 0.05, 0)), topLead, top]);
   }
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
@@ -1498,11 +1504,13 @@ function setupPatient(gltf) {
     root.updateMatrixWorld(true);
     root.traverse(o => { if (o.isSkinnedMesh) o.skeleton.update(); });
     {
-      const A0 = dressG.localToWorld(V(0, 0, 0));
-      const rcx = new THREE.Raycaster(V(-0.8, A0.y - 0.09, A0.z), V(1, 0, 0));
+      // 출구: 상의 아랫단(골반 위) Rt. 앞쪽 — 몸 안에서 배 쪽으로 쏴서 표면을 찾고 살짝 안으로 넣음(옷 아래에서 나오게)
+      const base = J('Hips').addScaledVector(spineDir, 0.02).add(V(-0.12, 0, 0));
+      const rcx = new THREE.Raycaster(base.clone().addScaledVector(bodyUp, -0.05), bodyUp); rcx.far = 0.4;
       const h = rcx.intersectObject(root, true)[0];
-      const ex = h ? h.point.clone().add(V(-0.004, 0, 0)) : A0.clone().add(V(-0.12, -0.09, 0));
-      rig.jpExit = anchor('Spine1', ex, new THREE.Quaternion());
+      const ex = h ? h.point.clone().addScaledVector(bodyUp, -0.002) : base.clone().addScaledVector(bodyUp, 0.1);
+      rig.jpExit = anchor('Hips', ex, new THREE.Quaternion());
+      rig.jpExitOut = ex.clone().addScaledVector(bodyUp, 0.012).addScaledVector(spineDir, -0.03);   // 아랫단 밖으로 나온 직후
     }
     // E2 교정: 환의를 살짝 걷어 올림 → 피부, 거즈 dressing, 배액관이 보임 (dressG 안, 처음엔 숨김)
     {
@@ -1988,10 +1996,15 @@ const FIX = {
     // 환의를 살짝 걷어 올려 삽입 부위·배액관을 보여 줌 (혈흔은 거즈 위에서 줄어듦)
     if (patientRig && patientRig.gownLift) {
       const gl = patientRig.gownLift;
+      // 걷기(0.8초) → 확인(약 3초) → 다시 덮기(0.8초)
       gl.group.visible = true; gl.hinge.rotation.x = 0;
       stain.position.y = 0.0075;
-      tween(0.8, p => { gl.hinge.rotation.x = -1.9 * ease(p); });
       tubesDirty = true;
+      tween(0.8, p => { gl.hinge.rotation.x = -1.9 * ease(p); }, () =>
+        tween(3.0, () => {}, () =>
+          tween(0.8, p => { gl.hinge.rotation.x = -1.9 * (1 - ease(p)); }, () => {
+            gl.group.visible = false; stain.position.y = 0.002; tubesDirty = true;
+          })));
     }
     if (stainMat.map) {   // 3D 환자: 번진 혈흔이 줄어들고 옅어짐 (지혈·dressing 교체)
       tween(1, p => { const e = ease(p); stain.scale.setScalar(1 - 0.45 * e); stainMat.opacity = 1 - 0.6 * e; });
