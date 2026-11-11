@@ -212,7 +212,7 @@ const DEBRIEF = [
    상태
    ============================================================ */
 const state = {
-  phase:'idle', practice:false, t:0, phoneCalled:false,
+  phase:'idle', practice:false, t:0, phoneCalled:false, handHygiene:0,
   found:new Set(), misses:0, hints:0, fell:false,
   done:new Set(), log:[], lastMsg:'', hover:'', inXR:false
 };
@@ -524,6 +524,7 @@ function drawMonitor(g, w, h) {
   const pipe = mat(0x3d4549, { roughness: 0.5 });
   add(g, CYL(0.02, 0.18, 12), pipe, 0, TOP - 0.3, D * 0.56);
   const back = add(g, CYL(0.02, D * 0.56, 12), pipe, 0, TOP - 0.39, D * 0.28); back.rotation.x = Math.PI / 2;
+  g.userData.action = () => handHygiene('세면대 손 씻기');
   tag(g, '세면대', () => '손 씻기 · 물비누·페이퍼타올 사용');
 }
 
@@ -544,6 +545,7 @@ function drawMonitor(g, w, h) {
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.36, 0.12), [white, white, white, white, front, white]);
   body.position.z = 0.06; body.castShadow = true; g.add(body);
   add(g, B(0.22, 0.09, 0.004), mat(0xffffff, { roughness: 0.9 }), 0, -0.22, 0.1);   // 나와 있는 종이타올
+  g.userData.action = () => toast('🧻 페이퍼타올로 손을 닦았습니다.', '', 1600);
   tag(g, '페이퍼타올 디스펜서', () => '충분히 채워져 있음');
 }
 
@@ -567,6 +569,7 @@ function drawMonitor(g, w, h) {
   body.position.z = 0.05; body.castShadow = true; g.add(body);
   const lever = add(g, B(0.09, 0.07, 0.03), mat(0xb9c0c5, { roughness: 0.4 }), 0, -0.13, 0.085);   // 아래 누름판
   lever.rotation.x = -0.25;
+  g.userData.action = () => handHygiene('벽걸이 손소독제');
   tag(g, '손소독제', () => '충분히 채워져 있음');
 }
 // 의료폐기물 전용 용기 (병실 입구): 흰 골판지 상자 + 주황 비닐 + 투명 아크릴 뚜껑
@@ -1235,12 +1238,33 @@ loadModel('cart.glb', sc => {
   // 카트 윗판 높이: 위에서 아래로 레이캐스트
   const rc = new THREE.Raycaster();
   const topAt = (x, z) => { rc.set(V(x, 3, z), V(0, -1, 0)); const h = rc.intersectObject(g, true)[0]; return h ? h.point.y : 1.0; };
-  // 고막 체온계: 화면이 위로 오게 눕혀 둠. 클릭하면 현재 체온 (감점 없음)
+  // 카트 윗판 정리
+  //  - 트레이(카트 모델에 포함): 카트 중심에서 x +0.095, z +0.235, 약 21 cm 정사각 → 체온계·알콜솜
+  //  - 뒤쪽 한 줄(x −0.12): 전화기 · 손소독제 (높이 맞춤)
+  const TRAY_Y = topAt(CX + 0.03, CZ + 0.3);
+  {
+    const swabTex = canvasTex(128, 128, (c, w, h) => {
+      c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
+      c.strokeStyle = '#d0d4d8'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, h - 6);
+      c.fillStyle = '#1f5fae'; c.font = `bold 18px ${FONT}`; c.textAlign = 'center';
+      c.fillText('ALCOHOL', w / 2, 52); c.fillText('PREP PAD', w / 2, 76);
+      c.fillStyle = '#c62828'; c.font = `bold 14px ${FONT}`; c.fillText('70% IPA', w / 2, 102);
+    });
+    const swabMat = new THREE.MeshStandardMaterial({ map: swabTex, roughness: 0.8 });
+    const swabs = new THREE.Group();
+    [[0, 0, 0], [0.012, 0.004, 0.3], [-0.01, 0.008, -0.25]].forEach(([dx, dy, r]) => {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.003, 0.045), swabMat);
+      pad.position.set(dx, dy, dx * 0.6); pad.rotation.y = r; swabs.add(pad);
+    });
+    swabs.position.set(CX + 0.13, TRAY_Y + 0.004, CZ + 0.3);
+    world.add(tag(swabs, '알콜솜', () => '70% 이소프로필 알코올 패드'));
+  }
+  // 고막 체온계: 트레이 안에 눕혀 둠. 클릭하면 현재 체온 (감점 없음)
   loadModel('thermometer.glb', ts => {
-    const t = fitModel(ts, 0.15);
-    t.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
-    const x = CX - 0.03, z = CZ - 0.13;
-    t.position.set(x, topAt(x, z) + 0.025, z);
+    const t = fitModel(ts, 0.13);
+    t.rotation.set(-Math.PI / 2, 0, 0);            // 트레이 안에 길게 눕힘 (화면 위로)
+    const x = CX + 0.03, z = CZ + 0.235;
+    t.position.set(x, TRAY_Y + 0.022, z);
     t.userData.action = () => toast(`🌡 고막 체온 ${vit.temp.toFixed(1)} ℃`, '', 2200);
     world.add(tag(t, '고막 체온계', () => `BT ${vit.temp.toFixed(1)} ℃`));
   });
@@ -1270,17 +1294,18 @@ loadModel('cart.glb', sc => {
     add(hb, CYL(0.006, 0.05, 12), white, 0, 0.24, 0);          // 펌프 대
     add(hb, CYL(0.016, 0.012, 16), white, 0, 0.268, 0);        // 누름판
     add(hb, B(0.06, 0.01, 0.012), white, 0.035, 0.27, 0);      // 토출구
-    hb.rotation.y = Math.PI;                                   // 라벨 정면을 침대 쪽(+x)으로
-    const x = CX + 0.12, z = CZ - 0.02;
+    hb.rotation.y = -Math.PI / 2;                              // 라벨 정면을 침대 쪽(+x)으로
+    hb.scale.setScalar(0.19 / 0.276);                          // 전화기와 같은 높이 (약 19 cm)
+    const x = CX - 0.12, z = CZ - 0.12;
     hb.position.set(x, topAt(x, z), z);
-    hb.userData.action = () => { toast('🧴 손 소독 (CHG 0.5% 손소독제)', 'good', 1800); feed('손 소독 (카트 위 손소독제)'); };
+    hb.userData.action = () => handHygiene('카트 위 손소독제');
     world.add(tag(hb, '손소독제 (CHG 0.5%)', () => '펌프형 · 500 mL'));
   }
   // 병동 전화기: SBAR 보고용. 출혈 악화 시점부터 깜빡이고, 누르면 멈춤 (감점 없음)
   loadModel('phone.glb', ps => {
     const ph = fitModel(ps, 0.19);
     ph.rotation.y = Math.PI / 2;                   // 화면이 침대 쪽으로
-    const x = CX, z = CZ + 0.15;
+    const x = CX - 0.12, z = CZ - 0.27;              // 손소독제와 같은 줄
     ph.position.set(x, topAt(x, z), z);
     ph.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffc400); o.material.emissiveIntensity = 0; phoneMats.push(o.material); } });
     ph.userData.action = () => {
@@ -1482,6 +1507,12 @@ function describe(o) {
   return { label:o.userData.label || '', read:r || '' };
 }
 
+// 손 위생: 감점 없이 횟수만 기록 (디브리핑 요약에 표시)
+function handHygiene(where) {
+  state.handHygiene++;
+  toast(`🧼 손 위생 (${where})`, 'good', 1800);
+  feed(`🧼 손 위생 · ${where}`, 'good');
+}
 function onSelect(o) {
   if (state.phase !== 'running' || !o) return;
   const id = o.userData.err;
@@ -1620,6 +1651,7 @@ function end(reason) {
   $('endTitle').textContent = reason === 'complete' ? '🎉 오류 8개를 모두 찾았습니다!' : reason === 'timeout' ? '⏰ Time-out (10분 종료)' : '결과';
   $('endScore').textContent = score + '점';
   $('endSummary').textContent = `발견 ${state.found.size}/${ERRORS.length} · 오답 ${state.misses} · 힌트 ${state.hints}` +
+    (state.handHygiene ? ` · 손 위생 ${state.handHygiene}회` : ' · 손 위생 안 함') +
     (state.fell ? ' · 낙상 발생(−10)' : '') + (state.practice ? '' : ' · 소요 ' + fmt(Math.min(LIMIT, state.t)));
   const box = $('endList'); box.innerHTML = '';
   const ordered = [...ERRORS].sort((a, b) => state.found.has(b.id) - state.found.has(a.id));
