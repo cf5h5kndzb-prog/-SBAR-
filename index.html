@@ -1048,7 +1048,8 @@ clamp.userData.read = () => pcaOpen ? '클램프 열림' : '클램프 잠김';
 
 /* ---------- JP bulb (E3) ---------- */
 const BULB_POS = V(-0.6, 0.5 + BED_LIFT, -0.78);      // 오류: Rt. 침대 옆에 매달려 있음
-const BULB_FIX_POS = V(-0.37, 0.75 + 0.075, -0.64);      // 교정: 매트리스 위 환자 Rt. 옆구리 옆 (환의에 클립 고정)
+const BULB_FIX_POS = V(-0.37, 0.75 + 0.058, -0.56);      // 교정: 매트리스 위 환자 Rt. 옆구리 옆에 눕힘 (환의에 클립 고정)
+const BULB_FIX_ROT = -Math.PI / 2;                       // 눕힘: 마개가 머리 쪽(클립 쪽), 눈금 면이 위
 let jpClipPt = null;                                    // 환의 클립 위치 (교정 후)
 const bulb = group(world, BULB_POS.x, BULB_POS.y, BULB_POS.z);
 {
@@ -1121,7 +1122,7 @@ const ivTube = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '수액 
 const ivTube2 = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '3-way → Rt. 손목 IV');
 const ivSetTube = makeTube(IV_TUBE_COLOR, 0.0045, '수액 세트 (백 → 펌프)', null, () => '0.9% NS 1 L → 수액 펌프');
 const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
-const jpTube = makeTube(0xf2dede, 0.006, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: bulb가 침대 옆에 매달려 당겨짐' : 'JP 라인: 환의에 클립으로 고정됨');
+const jpTube = makeTube(0xa3121f, 0.006, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: bulb가 침대 옆에 매달려 당겨짐' : 'JP 라인: 환의에 클립으로 고정됨');
 const cuffTube = makeTube(0x24485a, 0.007, '혈압 커프 호스', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
 const cordTube = makeTube(0x444444, 0.004, 'Call bell 줄', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
 const spo2Tube = makeTube(0xf4f4f2, 0.003, 'SpO₂ 케이블', null, () => 'Lt. 검지 SpO₂ 센서 → 모니터');
@@ -1164,10 +1165,14 @@ function rebuildTubes() {
   else setTube(pcaTube, pcaPts);
   clamp.position.copy(pcaClampPt || new THREE.CatmullRomCurve3(pcaPts).getPoint(0.3));
   const A = patientRig ? dressG.localToWorld(V(0, 0.01, 0)) : dressG.localToWorld(V(-0.1, 0.015, -0.27));
-  const top = bulb.position.clone().add(V(0, jpModels ? (JP_H / 2 - 0.01) * bulb.scale.y : 0.07, 0));
+  // bulb 마개 입구(모델에서 꺾인 관을 지운 자리)와 그 바로 위(관이 곧게 들어가는 방향)
+  bulb.updateMatrixWorld(true);
+  const inl = jpModels ? (jpModels.comp.visible ? jpModels.compIn : jpModels.fullIn) : null;
+  const top = inl ? inl[0].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.07, 0));
+  const topLead = inl ? inl[1].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.1, 0));
   if (jpSlack) {
     // 오류: 짧게 매트리스 가장자리를 넘어 침대 옆 bulb로
-    setTube(jpTube, [A, V(-0.4, 0.8, -0.86), V(-0.53, 0.77, -0.8), top.clone().add(V(0, 0.05, 0)), top]);
+    setTube(jpTube, [A, V(-0.4, 0.8, -0.86), V(-0.53, 0.77, -0.8), topLead, top]);
     jpClip.visible = false;
   } else {
     // 교정: 옆구리 환의에 클립으로 고정 → 환자 옆 bulb
@@ -1186,8 +1191,8 @@ function rebuildTubes() {
     jpClip.visible = near;
     const mid = jpClipPt.clone().add(V(-0.012, 0, 0));
     // 배액 부위 → 환의 위를 지나 옆구리로 내려와 클립 → bulb
-    if (near) setTube(jpTube, [A, A.clone().add(V(-0.05, 0.035, 0.03)), V(jpClipPt.x - 0.01, jpClipPt.y + 0.1, (A.z + jpClipPt.z) / 2), V(jpClipPt.x - 0.016, jpClipPt.y + 0.04, jpClipPt.z), mid, V(mid.x - 0.03, mid.y - 0.01, (mid.z + top.z) / 2), top.clone().add(V(0, 0.03, 0)), top]);
-    else setTube(jpTube, [A, A.clone().lerp(top, 0.5).add(V(0, 0.05, 0)), top]);
+    if (near) setTube(jpTube, [A, A.clone().add(V(-0.05, 0.035, 0.03)), V(jpClipPt.x - 0.01, jpClipPt.y + 0.1, (A.z + jpClipPt.z) / 2), V(jpClipPt.x - 0.016, jpClipPt.y + 0.04, jpClipPt.z), mid, topLead, top]);
+    else setTube(jpTube, [A, A.clone().lerp(top, 0.5).add(V(0, 0.05, 0)), topLead, top]);
   }
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
   const port = monPort.getWorldPosition(new THREE.Vector3());
@@ -1748,16 +1753,53 @@ function jpReady() {
   if (--jpWait > 0) return;
   const full = jpLoaded.full, comp = jpLoaded.comp;
   for (const o of bulb.children) if (o.material && o.material.visible !== false) o.visible = false;   // 기본 도형 숨김
-  for (const m of [full, comp]) { m.position.y = -JP_H / 2; bulb.add(m); }
+  for (const m of [full, comp]) { m.position.y = -m.userData.h / 2; bulb.add(m); }
   for (const m of [full, comp]) m.userData.s = m.scale.x;
   const fixed = bulb.userData.fixed;
   full.visible = !fixed; comp.visible = !!fixed;
   bulb.scale.set(1, 1, 1);
-  jpModels = { full, comp };
+  // 마개 입구 표시점: [입구, 입구 위 3 cm(관이 곧게 들어오는 방향)]
+  const inlet = (m, x, y, z) => {
+    const sc = m.children[0], a = new THREE.Object3D(), b = new THREE.Object3D();
+    a.position.copy(modelPt(sc, x, y, z)); b.position.copy(modelPt(sc, x, y + 0.3, z));
+    m.add(a, b); return [a, b];
+  };
+  jpModels = { full, comp, fullIn: inlet(full, -0.5, 0.64, 0), compIn: inlet(comp, -0.025, 0.83, -0.225) };
   tubesDirty = true;
 }
-loadModel('jp_full.glb', sc => { jpLoaded.full = fitModel(sc, JP_H); jpReady(); });
-loadModel('jp_compressed.glb', sc => { jpLoaded.comp = fitModel(sc, JP_H); jpReady(); });
+// 모델에 붙어 있는 옆으로 꺾인 관을 지움 (코드로 그린 배액관이 마개 입구에 바로 이어지게).
+// cut(x, y, z): 모델 좌표(높이 1.9 기준)에서 지울 삼각형이면 true. 크기는 지우기 전 기준을 유지.
+function jpLoad(sc, cut) {
+  sc.updateMatrixWorld(true);
+  const h0 = new THREE.Box3().setFromObject(sc).getSize(new THREE.Vector3()).y;
+  const v = new THREE.Vector3(), c = new THREE.Vector3();
+  sc.traverse(o => {
+    if (!o.isMesh || !o.geometry.index) return;
+    const pos = o.geometry.attributes.position, idx = o.geometry.index.array, keep = [];
+    for (let i = 0; i < idx.length; i += 3) {
+      c.set(0, 0, 0);
+      for (let k = 0; k < 3; k++) c.add(v.fromBufferAttribute(pos, idx[i + k]).applyMatrix4(o.matrixWorld));
+      c.multiplyScalar(1 / 3);
+      if (!cut(c.x, c.y, c.z)) keep.push(idx[i], idx[i + 1], idx[i + 2]);
+    }
+    o.geometry.setIndex(keep);
+    o.geometry.computeBoundingBox(); o.geometry.computeBoundingSphere();
+  });
+  const h1 = new THREE.Box3().setFromObject(sc).getSize(new THREE.Vector3()).y;
+  const g = fitModel(sc, JP_H * h1 / h0);
+  g.userData.h = JP_H * h1 / h0;
+  return g;
+}
+loadModel('jp_full.glb', sc => {
+  // 혈액 찬 bulb: 마개 왼쪽 입구에서 위로 솟아 오른쪽으로 내려오는 관
+  jpLoaded.full = jpLoad(sc, (x, y) => (y > 0.66 && x < -0.38) || y > 0.825 || (x > -0.1 && y > 0.55) || (x > 0.15 && y > -0.05));
+  jpReady();
+});
+loadModel('jp_compressed.glb', sc => {
+  // 압축 bulb: 마개 위로 나와 오른쪽 앞으로 휘는 관
+  jpLoaded.comp = jpLoad(sc, (x, y) => y > 0.85 || (x > 0.03 && y > 0.6));
+  jpReady();
+});
 
 // 보호자(남편): 기존 도형 대신 3D 모델. 걸어 들어와 침대 옆에 선다
 loadModel('guardian.glb', sc => {
@@ -1817,8 +1859,9 @@ const FIX = {
         const e = ease(p);
         bulb.position.lerpVectors(a, BULB_FIX_POS, e);
         bulb.position.y += 0.12 * Math.sin(Math.PI * e);   // 살짝 들어 올려 옮김
+        bulb.rotation.x = BULB_FIX_ROT * e;                 // 옮기면서 옆으로 눕힘
         tubesDirty = true;
-      }, () => { bulb.position.copy(BULB_FIX_POS); tubesDirty = true; });
+      }, () => { bulb.position.copy(BULB_FIX_POS); bulb.rotation.x = BULB_FIX_ROT; tubesDirty = true; });
     };
     if (jpModels) {   // 3D 모델: 혈액이 찬 bulb를 눌러 혈액이 조금 남은 압축 bulb로 바꿈
       const { full, comp } = jpModels;
