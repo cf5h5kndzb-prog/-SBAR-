@@ -491,6 +491,62 @@ function drawMonitor(g, w, h) {
 }
 
 // 손소독제, 손상성 폐기물 용기, 쓰레기통, 탁자, 의자 (정상 물품)
+// 세면대 (출입문 쪽 벽, 의료폐기물 용기 위): 벽걸이 도기 세면대 + 수전 + 배수관
+{
+  const g = group(world, 3, 0, 0.25);
+  g.rotation.y = -Math.PI / 2;                     // 앞(+z)이 방 안쪽(-x)
+  const white = new THREE.MeshStandardMaterial({ color: 0xf7f8f8, roughness: 0.25 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xcfd5d9, metalness: 0.35, roughness: 0.25 });   // 환경맵이 없어 금속도를 낮춰 은색으로 보이게
+  const W = 0.55, D = 0.42, TOP = 0.82;
+  // 윗면 테두리: 사각 판에 타원 구멍
+  const rim = new THREE.Shape();
+  const r = 0.06;
+  rim.moveTo(-W / 2 + r, 0); rim.lineTo(W / 2 - r, 0); rim.quadraticCurveTo(W / 2, 0, W / 2, r);
+  rim.lineTo(W / 2, D - r); rim.quadraticCurveTo(W / 2, D, W / 2 - r, D); rim.lineTo(-W / 2 + r, D);
+  rim.quadraticCurveTo(-W / 2, D, -W / 2, D - r); rim.lineTo(-W / 2, r); rim.quadraticCurveTo(-W / 2, 0, -W / 2 + r, 0);
+  const hole = new THREE.Path(); hole.absellipse(0, D * 0.56, W * 0.38, D * 0.33, 0, Math.PI * 2, true);
+  rim.holes.push(hole);
+  const rimGeo = new THREE.ExtrudeGeometry(rim, { depth: 0.05, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01, bevelSegments: 2 });
+  const rimM = new THREE.Mesh(rimGeo, white);
+  rimM.rotation.x = Math.PI / 2; rimM.position.set(0, TOP, 0); rimM.castShadow = true; g.add(rimM);
+  // 대야: 반구를 납작하게
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xf7f8f8, roughness: 0.25, side: THREE.DoubleSide }));
+  bowl.scale.set(W * 0.38, 0.17, D * 0.33); bowl.position.set(0, TOP - 0.03, D * 0.56); bowl.castShadow = true; g.add(bowl);
+  add(g, CYL(0.022, 0.006, 16), chrome, 0, TOP - 0.2, D * 0.56);                      // 배수구
+  // 수전: 몸통 + 꺾인 토출구 + 레버
+  add(g, CYL(0.025, 0.08, 16), chrome, 0, TOP + 0.04, 0.07);
+  const spout = add(g, CYL(0.012, 0.12, 12), chrome, 0, TOP + 0.085, 0.12); spout.rotation.x = Math.PI / 2;
+  add(g, CYL(0.012, 0.03, 12), chrome, 0, TOP + 0.07, 0.18);
+  const lever = add(g, B(0.015, 0.012, 0.09), chrome, 0, TOP + 0.09, 0.03); lever.rotation.x = 0.35;
+  // 비누 받침 (왼쪽 위)
+  add(g, B(0.12, 0.015, 0.07), chrome, -0.2, TOP + 0.02, 0.06);
+  // 배수관(트랩): 대야 아래에서 벽으로
+  const pipe = mat(0x3d4549, { roughness: 0.5 });
+  add(g, CYL(0.02, 0.18, 12), pipe, 0, TOP - 0.3, D * 0.56);
+  const back = add(g, CYL(0.02, D * 0.56, 12), pipe, 0, TOP - 0.39, D * 0.28); back.rotation.x = Math.PI / 2;
+  tag(g, '세면대', () => '손 씻기 · 물비누·페이퍼타올 사용');
+}
+
+// 페이퍼타올 디스펜서 (손소독제 옆, 세면대 위 벽)
+{
+  const g = group(world, 2.94, 1.42, 0.25);
+  g.rotation.y = -Math.PI / 2;
+  const face = canvasTex(200, 240, (c, w, h) => {
+    const grd = c.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#fbfcfd'); grd.addColorStop(1, '#e9edf0');
+    c.fillStyle = grd; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#7b8a96'; c.font = `bold 12px ${FONT}`; c.textAlign = 'center'; c.fillText('PAPER TOWEL', w / 2, 132);
+    c.fillStyle = '#3b6f95'; c.beginPath(); c.ellipse(w / 2, 162, 62, 12, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#6aa3c8'; c.globalAlpha = 0.6; c.beginPath(); c.ellipse(w / 2 - 6, 160, 50, 7, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+    c.strokeStyle = '#d2d9de'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, h - 18); c.lineTo(w, h - 18); c.stroke();
+  });
+  const front = new THREE.MeshStandardMaterial({ map: face, roughness: 0.35 });
+  const white = mat(0xeef1f3, { roughness: 0.35 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.36, 0.12), [white, white, white, white, front, white]);
+  body.position.z = 0.06; body.castShadow = true; g.add(body);
+  add(g, B(0.22, 0.09, 0.004), mat(0xffffff, { roughness: 0.9 }), 0, -0.22, 0.1);   // 나와 있는 종이타올
+  tag(g, '페이퍼타올 디스펜서', () => '충분히 채워져 있음');
+}
+
 // 벽걸이 손소독제 (출입문 옆): 흰 본체 + "Hand Clean GEL" 라벨 + 회색 창 + 아래 누름판
 {
   const g = group(world, 2.94, 1.3, 0.7);
@@ -515,8 +571,9 @@ function drawMonitor(g, w, h) {
 }
 // 의료폐기물 전용 용기 (병실 입구): 흰 골판지 상자 + 주황 비닐 + 투명 아크릴 뚜껑
 {
-  const g = group(world, 2.62, 0, 0.62);
+  const g = group(world, 2.8, 0, 0.45);
   g.rotation.y = -Math.PI / 2;                     // 라벨이 방 안쪽(-x)을 보게
+  g.scale.setScalar(0.55);                         // 4 L 크기 (약 20 × 20 × 27 cm)
   const side = canvasTex(256, 320, (c, w, h) => {
     c.fillStyle = '#f7f7f4'; c.fillRect(0, 0, w, h);
     // 생물학적 위험 표시 (노란색)
@@ -529,7 +586,7 @@ function drawMonitor(g, w, h) {
     c.fillStyle = '#222'; c.font = `bold 24px ${FONT}`; c.textAlign = 'center'; c.fillText('의료 폐기물 전용 용기', w / 2, 230);
     c.font = `15px ${FONT}`;
     c.beginPath(); c.moveTo(22, 242); c.lineTo(w - 22, 242); c.moveTo(22, 272); c.lineTo(w - 22, 272); c.moveTo(w / 2, 242); c.lineTo(w / 2, 304); c.stroke();
-    c.fillText('용기 용량 30 L', w / 4 + 11, 262); c.fillText('봉투: 의료폐기물', w * 3 / 4 - 11, 262);
+    c.fillText('용기 용량 4 L', w / 4 + 11, 262); c.fillText('봉투: 의료폐기물', w * 3 / 4 - 11, 262);
     c.fillText('사용 개시일', w / 4 + 11, 293); c.fillText('2025. 10. 31.', w * 3 / 4 - 11, 293);
   });
   const boxMat = new THREE.MeshStandardMaterial({ map: side, roughness: 0.9 });
