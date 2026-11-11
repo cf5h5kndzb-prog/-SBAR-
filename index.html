@@ -212,7 +212,7 @@ const DEBRIEF = [
    상태
    ============================================================ */
 const state = {
-  phase:'idle', practice:false, t:0,
+  phase:'idle', practice:false, t:0, phoneCalled:false,
   found:new Set(), misses:0, hints:0, fell:false,
   done:new Set(), log:[], lastMsg:'', hover:'', inXR:false
 };
@@ -1108,12 +1108,48 @@ loadModel('rail.glb', sc => {
 });
 
 // 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
+// 처치 카트: 환자 오른쪽 다리 옆, 침대를 향하게. 위에 고막 체온계와 병동 전화기
+let phoneG = null, phoneMats = [];
 loadModel('cart.glb', sc => {
-  const g = fitModel(sc, 1.65);
-  g.position.set(-2.5, 0, 1.75);
+  const g = fitModel(sc, 1.4);                     // IV 걸이 포함 높이 (윗판 약 1 m)
+  g.position.set(-1.12, 0, 0.15);
   g.rotation.y = Math.PI / 2;
   world.add(tag(g, '처치 카트', () => '정리되어 있음'));
+  world.updateMatrixWorld(true);
+  // 카트 윗판 높이: 위에서 아래로 레이캐스트
+  const rc = new THREE.Raycaster();
+  const topAt = (x, z) => { rc.set(V(x, 3, z), V(0, -1, 0)); const h = rc.intersectObject(g, true)[0]; return h ? h.point.y : 1.0; };
+  // 고막 체온계: 화면이 위로 오게 눕혀 둠. 클릭하면 현재 체온 (감점 없음)
+  loadModel('thermometer.glb', ts => {
+    const t = fitModel(ts, 0.15);
+    t.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+    const x = -1.15, z = 0.02;
+    t.position.set(x, topAt(x, z) + 0.025, z);
+    t.userData.action = () => toast(`🌡 고막 체온 ${vit.temp.toFixed(1)} ℃`, '', 2200);
+    world.add(tag(t, '고막 체온계', () => `BT ${vit.temp.toFixed(1)} ℃`));
+  });
+  // 병동 전화기: SBAR 보고용. 출혈 악화 시점부터 깜빡이고, 누르면 멈춤 (감점 없음)
+  loadModel('phone.glb', ps => {
+    const ph = fitModel(ps, 0.19);
+    ph.rotation.y = Math.PI / 2;                   // 화면이 침대 쪽으로
+    const x = -1.12, z = 0.3;
+    ph.position.set(x, topAt(x, z), z);
+    ph.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffc400); o.material.emissiveIntensity = 0; phoneMats.push(o.material); } });
+    ph.userData.action = () => {
+      state.phoneCalled = true;
+      toast('📞 담당의에게 연결되었습니다. SBAR(상황-배경-사정-제안)로 보고하세요.', 'good', 4200);
+      feed('📞 담당의 보고 전화 (SBAR)', 'good');
+    };
+    world.add(tag(ph, '병동 전화기', () => '담당의 보고 (SBAR)'));
+    phoneG = ph;
+  });
 });
+function updateProps(dt) {
+  if (!phoneMats.length) return;
+  const blink = state.phase === 'running' && !state.phoneCalled && state.t >= 300;   // 출혈 악화(5분) 이후
+  const k = blink ? 0.5 + 0.5 * Math.sin(performance.now() / 1000 * Math.PI * 3) : 0;
+  for (const m of phoneMats) m.emissiveIntensity = k * 0.9;
+}
 
 // JP bulb (E3): 처음에는 혈액이 가득 차 부풀어 있음 → 교정 시 압축된 bulb
 const JP_H = 0.2;   // 연결부 포함 높이 (m)
@@ -1302,6 +1338,7 @@ function onSelect(o) {
   if (state.phase !== 'running' || !o) return;
   const id = o.userData.err;
   if (id) foundError(id);
+  else if (o.userData.action) o.userData.action();   // 체온계·전화기 등 사용하는 물건 (감점 없음)
   else {
     state.misses++; renderList();
     toast(`"${o.userData.label}"은(는) 이상이 없어 보입니다. (−2점)`, '', 1800);
@@ -1589,6 +1626,7 @@ function frame() {
     if (p >= 1) { tweens.splice(i, 1); if (tw.done) tw.done(); }
   }
   updatePatient(dt);
+  updateProps(dt);
   if (tubesDirty) rebuildTubes();
 
   // 힌트 링
