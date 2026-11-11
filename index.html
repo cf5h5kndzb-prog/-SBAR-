@@ -1238,7 +1238,7 @@ function loadModel(url, fn) {
 loadModel('bed.glb', sc => {
   const g = fitModel(sc, 0.872 * 1.2);           // 모델 높이 0.872 → 실제 약 1.05 m (길이 약 2.3 m)
   g.rotation.y = -Math.PI / 2;                   // 발판(베이지 패널)이 발 쪽(+z)으로
-  g.position.set(0.036, 0, -0.8);
+  g.position.set(0.011, 0, -0.8);                // 옆 프레임 가장자리가 좌우 ±0.465 m로 대칭
   world.add(tag(g, '침대', () => '바퀴 잠금 · 최저 높이'));
   for (const o of bedFrameParts) o.removeFromParent();
   foot.position.set(0, 0.84 - BED_LIFT, 0.355);  // 낙상 표지판을 발판 바깥면에
@@ -1251,20 +1251,18 @@ loadModel('rail.glb', sc => {
     const g = fitModel(m, h);
     g.rotation.y = side * Math.PI / 2;            // 버튼 패널이 바깥쪽을 보게
     if (k < 0.45) m.scale.x *= -1;                 // 다리 쪽은 좌우 뒤집어 둥근 끝이 발 쪽으로
-    g.position.set(0, 0.88 - h, 0);               // 난간 윗면이 매트리스 위 약 26 cm, 아랫면이 매트리스 옆
-    // 침대 프레임에 고정된 받침대 2개: 난간 아랫면과 침대 옆 프레임을 이어 줌 (난간이 내려가면 난간 뒤로 가려짐)
-    const len = 1.903 * k, bm = mat(0x8e9aa2, { metalness: 0.3 });
-    for (const dz of [-0.3, 0.3]) {
-      const zc = rail.position.z + dz * len;
-      const arm = add(bed, B(0.035, 0.2, 0.05), bm, side * 0.49, 0.88 - h - 0.07, zc);
-      add(bed, B(0.05, 0.06, 0.12), bm, side * 0.475, 0.4, zc);       // 프레임 쪽 고정판
-      tag(arm, '난간 고정대', '');
-    }
-    for (const o of rail.userData.railBox) o.removeFromParent();
-    rail.position.x = side * 0.5;   // 매트리스 옆에 붙임
+    // 난간 아랫면을 침대 옆 프레임 윗면(침대 기준 0.455 m)에 붙임 → 윗면은 매트리스 위 약 20 cm
+    const RAIL_BASE = 0.455;
+    g.position.set(0, RAIL_BASE, 0);
+    // 프레임과 맞닿는 작은 경첩 블록 2개 (난간과 함께 오르내림)
+    const hm = mat(0x8e9aa2, { metalness: 0.3, roughness: 0.5 });
+    const len = 1.903 * k;
+    for (const dz of [-0.28, 0.28]) add(rail, B(0.03, 0.035, 0.06), hm, -side * 0.005, RAIL_BASE + 0.015, dz * len);
+    for (const o of rail.userData.railBox) o.removeFromParent();   // 기본 도형 난간 제거
+    rail.position.x = side * 0.48;   // 매트리스 옆에 붙임
     rail.add(g);
   }
-  if (!railR.userData.up) railR.position.y = -0.31;   // 내린 난간: 윗면이 매트리스 바로 아래
+  if (!railR.userData.up) railR.position.y = -0.27;   // 내린 난간: 윗면이 매트리스 아래
 });
 
 // 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
