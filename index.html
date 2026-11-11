@@ -439,30 +439,33 @@ const monTex = canvasTex(800, 480, (g, w, h) => drawMonitor(g, w, h));
 const monitorGroup = group(world, 0.95, 0, -1.6);
 monitorGroup.rotation.y = -0.55;                     // 화면이 침대 발치 쪽을 보게
 const monPort = new THREE.Object3D();
+// 기본 도형(3D 모델을 못 불러올 때 사용). monitor_stand.glb / monitor.glb가 불러와지면 교체된다.
+const monStandProc = group(monitorGroup);
+const monHead = group(monitorGroup, 0, 1.33, 0.02);   // 모니터 본체 자리
+monHead.rotation.x = -0.12;                           // 화면이 살짝 위를 보게 기울임
+const monHeadProc = group(monHead);
+const monScreen = screenMesh(monHead, monTex, 0.34, 0.204, 0, 0.02, 0.072);   // 숫자가 그려지는 화면 (코드로 갱신)
 {
   const grey = mat(0xd5dadd, { roughness:0.5 }), dark = mat(0x2a3136, { roughness:0.6 }), metal = mat(0x9aa4aa, { metalness:0.4, roughness:0.4 });
   // 스탠드: 5발 받침 + 바퀴 + 기둥 + 바구니
   for (let k = 0; k < 5; k++) {
     const a = k / 5 * Math.PI * 2;
-    const leg = add(monitorGroup, B(0.3, 0.025, 0.04), dark, Math.cos(a) * 0.15, 0.06, Math.sin(a) * 0.15);
+    const leg = add(monStandProc, B(0.3, 0.025, 0.04), dark, Math.cos(a) * 0.15, 0.06, Math.sin(a) * 0.15);
     leg.rotation.y = -a;
-    const wh = add(monitorGroup, CYL(0.025, 0.02, 12), mat(0x1c2226), Math.cos(a) * 0.29, 0.025, Math.sin(a) * 0.29);
+    const wh = add(monStandProc, CYL(0.025, 0.02, 12), mat(0x1c2226), Math.cos(a) * 0.29, 0.025, Math.sin(a) * 0.29);
     wh.rotation.z = Math.PI / 2;
   }
-  add(monitorGroup, CYL(0.02, 1.1, 12), metal, 0, 0.62, 0);
-  add(monitorGroup, B(0.22, 0.08, 0.14), grey, 0, 0.92, 0.04);          // 소모품 바구니
+  add(monStandProc, CYL(0.02, 1.1, 12), metal, 0, 0.62, 0);
+  add(monStandProc, B(0.22, 0.08, 0.14), grey, 0, 0.92, 0.04);          // 소모품 바구니
   // 모니터 본체
-  const head = group(monitorGroup, 0, 1.33, 0.02);
-  head.rotation.x = -0.12;                            // 살짝 아래로 기울임
-  add(head, B(0.4, 0.3, 0.13), grey);
-  add(head, B(0.37, 0.235, 0.01), dark, 0, 0.02, 0.066);                // 베젤
-  screenMesh(head, monTex, 0.34, 0.204, 0, 0.02, 0.072);
-  add(head, B(0.3, 0.03, 0.04), grey, 0, 0.17, -0.02);                  // 손잡이
-  add(head, B(0.01, 0.01, 0.004), mat(0x3dff7a), 0.175, -0.13, 0.068);   // 전원 표시등
+  add(monHeadProc, B(0.4, 0.3, 0.13), grey);
+  add(monHeadProc, B(0.37, 0.235, 0.01), dark, 0, 0.02, 0.066);                // 베젤
+  add(monHeadProc, B(0.3, 0.03, 0.04), grey, 0, 0.17, -0.02);                  // 손잡이
+  add(monHeadProc, B(0.01, 0.01, 0.004), mat(0x3dff7a), 0.175, -0.13, 0.068);   // 전원 표시등
   // 왼쪽 옆면 측정 포트 (커프 호스·SpO₂ 케이블 연결)
-  add(head, B(0.012, 0.06, 0.05), mat(0x5ec8ff), -0.205, -0.07, 0.02);
-  add(head, B(0.012, 0.05, 0.05), mat(0x24485a), -0.205, -0.07, -0.04);
-  monPort.position.set(-0.21, -0.07, 0); head.add(monPort);
+  add(monHeadProc, B(0.012, 0.06, 0.05), mat(0x5ec8ff), -0.205, -0.07, 0.02);
+  add(monHeadProc, B(0.012, 0.05, 0.05), mat(0x24485a), -0.205, -0.07, -0.04);
+  monPort.position.set(-0.21, -0.07, 0); monHead.add(monPort);
 }
 tag(monitorGroup, '활력징후 모니터 (포터블)', () =>
   `NIBP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)} · PR ${Math.round(vit.hr)} · SpO₂ ${Math.round(vit.spo2)}% · BT ${vit.temp.toFixed(1)}℃`);
@@ -1268,6 +1271,53 @@ loadModel('rail.glb', sc => {
     rail.add(g);
   }
   if (!railR.userData.up) railR.position.y = -0.36;   // 내린 난간: 윗면이 매트리스 아래
+});
+
+// 포터블 활력징후 모니터: 바퀴 달린 스탠드 + 모니터 본체 (3D 모델). 화면 숫자는 drawMonitor()가 코드로 그림
+const MON_STAND_H = 1.08;   // 스탠드 높이 (맨 위 거치판 윗면, m)
+const MON_H = 0.36;         // 모니터 본체 높이 (손잡이 포함, m) → 폭 약 33 cm
+let monHeadModel = null;
+loadModel('monitor_stand.glb', sc => {
+  const g = fitModel(sc, MON_STAND_H);
+  monitorGroup.add(g);
+  monStandProc.removeFromParent();
+  monHead.position.y = MON_STAND_H;                // 본체 바닥을 거치판 위에
+  if (!monHeadModel) monHead.position.y += 0.15;   // 본체 모델이 아직이면 기본 도형 중심 높이
+});
+loadModel('monitor.glb', sc => {
+  const g = fitModel(sc, MON_H);
+  const s = sc.userData.s;
+  // 모델 좌표(높이 1.9 기준)에서 화면 영역: 가운데 (0.02, 0.105), 폭 1.44 × 높이 0.97
+  const SCR = { x:0.02, y:0.105, w:1.44, h:0.97 };
+  const toG = (x, y, z) => V(x * s + sc.position.x, y * s + sc.position.y, z * s + sc.position.z);
+  // 화면 표면 깊이: 화면 영역 여러 점을 앞에서 레이캐스트해 가장 앞쪽 면을 찾음 (유리면이 살짝 휘어 있음)
+  g.updateMatrixWorld(true);
+  const c = toG(SCR.x, SCR.y, 0);
+  const rc = new THREE.Raycaster();
+  let zFront = -Infinity;
+  for (let i = 0; i <= 6; i++) for (let j = 0; j <= 4; j++) {
+    const p = toG(SCR.x + (i / 6 - 0.5) * SCR.w * 0.9, SCR.y + (j / 4 - 0.5) * SCR.h * 0.9, 0);
+    rc.set(V(p.x, p.y, 2), V(0, 0, -1));
+    const hit = rc.intersectObject(g, true)[0];
+    if (hit) zFront = Math.max(zFront, hit.point.z);
+  }
+  if (!isFinite(zFront)) zFront = toG(0, 0, 0.62).z;
+  // 화면 비율 800×480에 맞춰 화면 영역 안에 꽉 차게
+  const asp = 800 / 480;
+  let pw = SCR.w * s * 0.97, ph = pw / asp;
+  if (ph > SCR.h * s * 0.97) { ph = SCR.h * s * 0.97; pw = ph * asp; }
+  monScreen.geometry.dispose();
+  monScreen.geometry = new THREE.PlaneGeometry(pw, ph);
+  monScreen.position.set(c.x, c.y, zFront + 0.002);
+  g.add(monScreen);
+  // 측정 포트: 모델 왼쪽 옆면 (파란 SpO₂ 포트 부근)
+  monPort.position.copy(toG(-0.87, -0.15, -0.05));
+  g.add(monPort);
+  monHeadProc.removeFromParent();
+  monHead.add(g);
+  monHead.rotation.x = -0.05;                      // 거치판 위에 거의 평평하게
+  monHeadModel = g;
+  monHead.position.y = monStandProc.parent ? 1.18 : MON_STAND_H;   // 기본 스탠드면 기둥 위(1.18 m)에
 });
 
 // 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
