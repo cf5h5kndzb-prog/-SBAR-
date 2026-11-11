@@ -893,6 +893,7 @@ const bagLbl = canvasTex(256, 512, (g, w, h) => {
   for (let i = 1; i <= 9; i++) { const y = 40 + i * 44; g.beginPath(); g.moveTo(w - 8, y); g.lineTo(w - (i % 5 ? 20 : 30), y); g.stroke(); g.fillText(String(i), w - 34, y + 4); }
 });
 const bag = group(world, POLE.x + HOOK_BAG.x, HOOK_BAG.y - 0.17, POLE.z + HOOK_BAG.z);   // 가운데가 원점
+const bagTail = new THREE.Object3D(); bagTail.position.set(-0.025, -0.28, 0); bag.add(bagTail);   // 수액 세트 끝 (→ 펌프 위 입구)
 const bagProc = group(bag);
 {
   // 기본 도형: 반투명 납작한 백 + 라벨 + 아래 포트 2개 + 점적통
@@ -916,8 +917,10 @@ lateLoad('ivbag.glb', sc => {
   g.position.set(-hole.x, -mid.y, -hole.z);
   // 모델에 인쇄된 다른 수액 이름을 가리고 처방(0.9% NS 1 L) 라벨을 붙임
   modelFace(g, sc, { x:0, y:0.58, w:0.22, h:0.44 }, bagLbl, 256 / 512);
+  bagTail.position.copy(modelPt(sc, 0, -0.94, 0)).add(g.position);
   bagProc.removeFromParent();
   bag.add(g);
+  tubesDirty = true;
 });
 
 // 수액 펌프 (E4) — 화면 숫자는 코드로 그림
@@ -932,6 +935,7 @@ const ivTex = canvasTex(320, 240, (g, w, h) => {
 });
 const ivPump = group(world, POLE.x + 0.15, 1.3, POLE.z);   // 펌프 본체 가운데
 const ivOut = new THREE.Object3D(); ivOut.position.set(0, -0.15, 0.04); ivPump.add(ivOut);   // 아래로 나가는 IV 라인 시작점
+const ivIn = new THREE.Object3D(); ivIn.position.set(0.06, 0.15, 0); ivPump.add(ivIn);   // 위쪽 수액 세트 입구
 const ivPumpProc = group(ivPump);
 add(ivPumpProc, B(0.26, 0.3, 0.16), mat(0xf0f4f6));
 add(ivPumpProc, B(0.15, 0.03, 0.03), mat(0xb0b8bd), -0.15, 0.05, 0);      // 폴대 고정대
@@ -948,6 +952,8 @@ lateLoad('pump.glb', sc => {
   modelFace(g, sc, { x:0.232, y:0.433, w:0.366, h:0.273 }, ivTex, 320 / 240, 1.0);
   const out = modelPt(sc, 0.239, -0.93, 0);          // 아래 라인 끝
   ivOut.position.set(out.x - body.x, out.y - body.y, out.z - body.z);
+  const inl = modelPt(sc, 0.236, 0.94, -0.085);      // 위 라인 입구
+  ivIn.position.set(inl.x - body.x, inl.y - body.y, inl.z - body.z);
   ivPumpProc.removeFromParent();
   ivPump.add(g);
   tubesDirty = true;
@@ -1008,6 +1014,26 @@ const bulb = group(world, BULB_POS.x, BULB_POS.y, BULB_POS.z);
   bulb.userData.read = () => bulb.userData.fixed ? 'JP bulb: 압축(음압 유지), 선홍색 배액' : 'JP bulb: 부풀어 있음(음압 없음), 선홍색 배액';
 }
 
+/* ---------- 3-way stopcock: IV 라인 중간, PCA 라인이 옆 포트로 연결 ---------- */
+const threeWay = group(world);
+{
+  const clear = new THREE.MeshStandardMaterial({ color:0xeef6fa, roughness:0.15, transparent:true, opacity:0.75 });
+  const white = mat(0xf5f5f2, { roughness:0.45 }), blue = mat(0x1f4fd1, { roughness:0.4 });
+  // 몸통(투명)은 로컬 x축 = IV 라인 방향, 옆 포트는 +z, 손잡이는 위(+y)
+  const body = add(threeWay, CYL(0.0075, 0.05, 14), clear); body.rotation.z = Math.PI / 2;
+  const inP = add(threeWay, CYL(0.006, 0.016, 12), white, -0.031, 0, 0); inP.rotation.z = Math.PI / 2;   // 펌프 쪽 (암 루어)
+  const outP = add(threeWay, CYL(0.005, 0.018, 12), white, 0.032, 0, 0); outP.rotation.z = Math.PI / 2;  // 환자 쪽 (수 루어)
+  const side = add(threeWay, CYL(0.0065, 0.022, 12), white, 0, 0, 0.018); side.rotation.x = Math.PI / 2;  // PCA 연결 포트
+  add(threeWay, CYL(0.0085, 0.006, 12), white, 0, 0, 0.031).rotation.x = Math.PI / 2;
+  // 파란 3갈래 손잡이: 세 갈래가 모두 포트 쪽을 향함 = 세 방향 모두 열림
+  add(threeWay, CYL(0.007, 0.006, 14), blue, 0, 0.01, 0);
+  add(threeWay, B(0.044, 0.005, 0.01), blue, 0, 0.0125, 0);
+  add(threeWay, B(0.01, 0.005, 0.022), blue, 0, 0.0125, 0.011);
+  tag(threeWay, '3-way (IV 라인 · PCA 연결)', () => '3-way 열림: 수액 + PCA가 함께 Rt. 손등 IV로 주입');
+}
+const threeWaySide = new THREE.Object3D(); threeWaySide.position.set(0, 0, 0.034); threeWay.add(threeWaySide);
+const threeWayAt = V(-0.4, 0.79, -1.22);   // 매트리스 Rt. 가장자리 위, 환자 어깨 옆
+
 /* ---------- 튜브 ---------- */
 const tubeMat = new THREE.MeshStandardMaterial({ color:0xcfe9f5, roughness:0.4, transparent:true, opacity:0.9 });
 function makeTube(color, r, label, err, read) {
@@ -1021,12 +1047,13 @@ function setTube(m, pts) {
   m.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(10, pts.length * 8), m.userData.r, 6, false);
 }
 const ivTube = makeTube(0xcfe9f5, 0.006, 'IV 라인', null, () => 'Rt. 손등으로 연결');
+const ivSetTube = makeTube(0xcfe9f5, 0.005, '수액 세트 (백 → 펌프)', null, () => '0.9% NS 1 L → 수액 펌프');
 const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
 const jpTube = makeTube(0xf2dede, 0.007, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: 바닥으로 늘어져 있음' : 'JP 라인: 고정됨');
 const cuffTube = makeTube(0x24485a, 0.007, '혈압 커프 호스', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
 const cordTube = makeTube(0x444444, 0.004, 'Call bell 줄', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
 const spo2Tube = makeTube(0xf4f4f2, 0.003, 'SpO₂ 케이블', null, () => 'Lt. 검지 SpO₂ 센서 → 모니터');
-for (const t of [ivTube, pcaTube, jpTube, cuffTube, cordTube]) t.castShadow = false;
+for (const t of [ivTube, ivSetTube, pcaTube, jpTube, cuffTube, cordTube]) t.castShadow = false;
 
 const _v = new THREE.Vector3();
 function hg(x, y, z) { return headGroup.localToWorld(_v.set(x, y, z).clone()); }
@@ -1036,11 +1063,32 @@ function rebuildTubes() {
   if (patientRig) patientRig.root.updateMatrixWorld(true);
   const site = ivCathG.localToWorld(V(0, 0.01, 0));
   ivPump.updateMatrixWorld(true); pcaPump.updateMatrixWorld(true);
+  bag.updateMatrixWorld(true);
+  // 수액 세트: 백에서 내려온 끝이 아래로 한 번 휘었다가 펌프 위 입구로 들어감
+  const bt = bagTail.getWorldPosition(new THREE.Vector3()), pin = ivIn.getWorldPosition(new THREE.Vector3());
+  setTube(ivSetTube, [bt, bt.clone().add(V(0, -0.07, 0.03)), V(bt.x + 0.05, bt.y - 0.11, bt.z + 0.07),
+    V(bt.x + 0.07, pin.y - 0.08, pin.z + 0.14), V(pin.x + 0.05, pin.y + 0.12, pin.z + 0.06), pin.clone().add(V(0, 0.03, 0)), pin]);
+  // IV 라인: 펌프 아래 → 3-way → Rt. 손등 IV
   const ivA = ivOut.getWorldPosition(new THREE.Vector3());
-  setTube(ivTube, [ivA, ivA.clone().add(V(0.02, -0.12, 0.06)), V(-0.6, 0.95 + BED_LIFT, -1.15), site]);
-  // PCA 라인: 폴대 바깥쪽(-x) 고리에서 내려와 펌프 아래로 지나 침대로
+  const ivPts = [ivA, ivA.clone().add(V(0.02, -0.12, 0.06)), V(-0.72, 0.95 + BED_LIFT, -1.22), V(-0.5, 1.13, -1.22), threeWayAt, site];
+  setTube(ivTube, ivPts);
+  // 3-way 방향: 몸통은 라인 방향, 옆 포트는 PCA가 들어오는 쪽(폴대 쪽, 수평)
+  const ivCurve = new THREE.CatmullRomCurve3(ivPts);
+  let tBest = 0, dBest = 1e9;
+  for (let i = 0; i <= 200; i++) { const d = ivCurve.getPoint(i / 200).distanceTo(threeWayAt); if (d < dBest) { dBest = d; tBest = i / 200; } }
+  const X = ivCurve.getTangent(tBest).normalize();
+  const toPole = V(POLE.x - threeWayAt.x, 0, POLE.z - threeWayAt.z);
+  let Z = toPole.sub(X.clone().multiplyScalar(toPole.dot(X))).normalize();
+  if (new THREE.Vector3().crossVectors(Z, X).y < 0) X.negate();   // 손잡이가 위를 보게
+  const Y = new THREE.Vector3().crossVectors(Z, X).normalize();
+  threeWay.position.copy(threeWayAt);
+  threeWay.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
+  threeWay.updateMatrixWorld(true);
+  const twSide = threeWaySide.getWorldPosition(new THREE.Vector3());
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
-  const pcaPts = [pA, V(POLE.x - 0.25, 1.3, POLE.z + 0.16), V(POLE.x - 0.06, 1.0, POLE.z + 0.22), V(-0.8, 0.82 + BED_LIFT, -1.3), V(-0.6, 0.82 + BED_LIFT, -1.15), site];
+  // PCA 라인: 폴대 바깥쪽 고리에서 내려와 펌프 아래로 지나 IV 라인의 3-way 옆 포트로
+  const pcaPts = [pA, V(POLE.x - 0.25, 1.3, POLE.z + 0.16), V(POLE.x - 0.06, 1.0, POLE.z + 0.22), V(-0.8, 0.86 + BED_LIFT, -1.28), V(-0.52, 1.13, -1.3),
+    twSide.clone().add(Z.clone().multiplyScalar(0.06)), twSide];
   if (pcaClampPt) setTube(pcaTube, [pcaClampPt.clone(), ...pcaPts]);
   else setTube(pcaTube, pcaPts);
   clamp.position.copy(pcaClampPt || new THREE.CatmullRomCurve3(pcaPts).getPoint(0.3));
