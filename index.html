@@ -1663,18 +1663,49 @@ loadModel('monitor.glb', sc => {
 // 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
 // 처치 카트: 환자 오른쪽 다리 옆, 침대를 향하게. 위에 고막 체온계와 병동 전화기
 let phoneG = null, phoneMats = [];
+// bulb 파란 배출구에서 컵으로 흐르는 배액 줄기 (차오르는 동안만 보임)
+const pourStream = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color:0xb3001b, roughness:0.3, transparent:true, opacity:0.9 }));
+pourStream.visible = false;
+world.add(pourStream);
 // 비운 JP 배액 계량컵 (E3 교정 후 카트 위에 나타남)
 let drainCupSpot = null, drainCup = null;
 const DRAIN_READ = () => 'JP 배액(비움): 선홍색 혈성 약 110 mL · 병동 도착 시 20 mL → 증가 · 담당의 보고 필요';
+let drainCupBusy = false;                         // 차오르는 중·옮기는 중
+// 컵 안 배액 높이 (0 = 빈 컵, 1 = 약 110 mL). 모델에 칠해진 빨간 배액 중 이 높이보다 위는 빈 컵 색으로 바꿔 그림
+const drainFill = { value: 1 };
 function placeDrainCup() {
-  if (!drainCup || !drainCupSpot) return;
+  if (!drainCup || !drainCupSpot || drainCupBusy) return;
   drainCup.position.copy(drainCupSpot);
+  drainCup.rotation.y = -Math.PI / 2;
   drainCup.visible = !!bulb.userData.fixed;
+  drainFill.value = 1;
 }
 loadModel('drain_cup.glb', sc => {
   const g = fitModel(sc, 0.07);                    // 뚜껑 포함 높이 약 7 cm (120 mL 눈금 컵)
   g.rotation.y = -Math.PI / 2;                     // 눈금이 침대 쪽(+x)을 보게
   g.visible = false;
+  sc.traverse(o => {
+    if (!o.isMesh) return;
+    o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox;
+    // 모델에서 배액 윗면은 높이의 약 71 % (바닥 -0.95 ~ 배액 윗면 0.40, 높이 1.9 기준)
+    const y0 = bb.min.y, y1 = bb.min.y + (bb.max.y - bb.min.y) * 0.71;
+    o.material = o.material.clone();
+    o.material.onBeforeCompile = sh => {
+      sh.uniforms.fillK = drainFill;
+      sh.uniforms.fillY0 = { value: y0 }; sh.uniforms.fillY1 = { value: y1 };
+      sh.vertexShader = 'varying float vCupY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvCupY = position.y;');
+      sh.fragmentShader = 'uniform float fillK; uniform float fillY0; uniform float fillY1; varying float vCupY;\n' + sh.fragmentShader
+        .replace('#include <map_fragment>', `#include <map_fragment>
+        {
+          float red = smoothstep(0.12, 0.3, diffuseColor.r - max(diffuseColor.g, diffuseColor.b));   // 빨간 배액 부분
+          float lvl = mix(fillY0, fillY1, fillK);
+          float empty = max(smoothstep(lvl - 0.004, lvl + 0.004, vCupY), step(vCupY, fillY1 + 1.0) * step(fillY1 - 0.001, vCupY) * step(fillK, 0.99)) * red;   // 윗면의 배액도 다 차기 전엔 비움
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.88, 0.92), empty);                  // 빈 부분: 반투명 흰 컵
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, red * (1.0 - smoothstep(0.0, 0.012, abs(vCupY - lvl))) * step(0.02, fillK) * step(fillK, 0.99));   // 배액 윗면 선
+        }`);
+    };
+  });
   world.add(tag(g, 'JP 배액 계량컵', DRAIN_READ));
   drainCup = g;
   placeDrainCup();
@@ -1786,7 +1817,7 @@ function jpReady() {
     a.position.copy(modelPt(sc, x, y, z)); b.position.copy(modelPt(sc, x, y + 0.3, z));
     m.add(a, b); return [a, b];
   };
-  jpModels = { full, comp, fullIn: inlet(full, -0.5, 0.64, 0), compIn: inlet(comp, -0.025, 0.83, -0.225) };
+  jpModels = { full, comp, fullIn: inlet(full, -0.5, 0.64, 0), compIn: inlet(comp, -0.025, 0.83, -0.225), fullPort: inlet(full, -0.23, 0.8, 0) };
   tubesDirty = true;
 }
 // 모델에 붙어 있는 옆으로 꺾인 관을 지움 (코드로 그린 배액관이 마개 입구에 바로 이어지게).
@@ -1874,13 +1905,38 @@ const FIX = {
   },
   E3() {
     bulb.userData.fixed = true; jpSlack = false;
-    // 비운 배액을 계량컵에 담아 카트 위에 둠 (살짝 내려놓는 동작)
-    if (drainCup && drainCupSpot) {
-      drainCup.visible = true;
-      tween(0.7, p => { drainCup.position.copy(drainCupSpot); drainCup.position.y += 0.1 * (1 - ease(p)); },
-        () => drainCup.position.copy(drainCupSpot));
-    }
     feed('🩸 JP 배액 비움: 선홍색 약 110 mL (도착 시 20 mL) → 처치 카트 위 계량컵');
+    // 계량컵: bulb 바로 옆(발 쪽, 조금 아래)에 빈 컵이 나타나 → 배출구에서 흘러나온 배액으로 약 110 mL까지 차오름
+    //        → bulb가 환자 옆으로 옮겨질 때 컵은 처치 카트 위로
+    const POUR = 2.2;                                   // 차오르는 시간 (초)
+    const HOLD = BULB_POS.clone().add(V(0.03, -0.08, 0.14));
+    const CUP_BIG = 1.5;                                 // 차오르는 동안은 잘 보이게 크게, 카트로 옮기며 원래 크기로
+    const cupToCart = () => {
+      if (!drainCup || !drainCupSpot) { drainCupBusy = false; return; }
+      const a = drainCup.position.clone(), s0 = drainCup.scale.x, s1 = s0 / CUP_BIG;
+      tween(1.4, p => {
+        const e = ease(p);
+        drainCup.scale.setScalar(s0 + (s1 - s0) * e);
+        drainCup.position.lerpVectors(a, drainCupSpot, e);
+        drainCup.position.y += 0.3 * Math.sin(Math.PI * e);
+      }, () => { drainCupBusy = false; placeDrainCup(); });
+    };
+    if (drainCup) {
+      drainCupBusy = true;
+      drainCup.visible = true; drainCup.scale.multiplyScalar(CUP_BIG); drainCup.position.copy(HOLD); drainCup.rotation.y = -Math.PI / 2 - 0.6;   // 눈금이 보는 쪽으로
+      drainFill.value = 0;
+      tween(POUR, p => {
+        drainFill.value = Math.min(1, Math.max(0, (p - 0.08) / 0.9));
+        // 배액 줄기: 배출구 → 살짝 위로 → 컵 입구
+        const port = jpModels && jpModels.full.visible ? jpModels.fullPort[0].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.08, 0));
+        const mouth = HOLD.clone().add(V(0, 0.065 * CUP_BIG, 0));
+        const surf = HOLD.clone().add(V(0, (0.012 + 0.045 * drainFill.value) * CUP_BIG, 0));
+        const k = p < 0.92 ? 1 : (1 - p) / 0.08;           // 끝에는 줄기가 가늘어지며 끊김
+        pourStream.geometry.dispose();
+        pourStream.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([port, port.clone().lerp(mouth, 0.4).add(V(0, 0.04, 0)), mouth, surf]), 24, 0.0028 * Math.max(0.15, k), 6, false);
+        pourStream.visible = true;
+      }, () => { pourStream.visible = false; drainFill.value = 1; });
+    }
     // 1) bulb를 비우고 눌러 압축(혈성 배액 줄어듦) → 2) 환자 옆 매트리스 위로 옮겨 환의에 클립 고정
     const moveToPatient = () => {
       const a = bulb.position.clone();
@@ -1894,11 +1950,12 @@ const FIX = {
     };
     if (jpModels) {   // 3D 모델: 혈액이 찬 bulb를 눌러 혈액이 조금 남은 압축 bulb로 바꿈
       const { full, comp } = jpModels;
-      tween(0.6, p => { const e = ease(p); full.scale.set(full.userData.s * (1 - 0.25 * e), full.userData.s * (1 - 0.15 * e), full.userData.s * (1 - 0.25 * e)); tubesDirty = true; },
-        () => { full.visible = false; comp.visible = true; tubesDirty = true; moveToPatient(); });
+      // 배액이 빠지는 동안(POUR) 천천히 눌림 → 압축 bulb로 바뀐 뒤 bulb는 환자 옆으로, 컵은 카트로
+      tween(POUR, p => { const e = ease(p); full.scale.set(full.userData.s * (1 - 0.25 * e), full.userData.s * (1 - 0.15 * e), full.userData.s * (1 - 0.25 * e)); tubesDirty = true; },
+        () => { full.visible = false; comp.visible = true; tubesDirty = true; moveToPatient(); cupToCart(); });
       return;
     }
-    tween(0.9, p => { const e = ease(p); bulb.scale.set(1 - 0.28 * e, 1 - 0.5 * e, 1 - 0.28 * e); tubesDirty = true; }, () => { tubesDirty = true; moveToPatient(); });
+    tween(POUR, p => { const e = ease(p); bulb.scale.set(1 - 0.28 * e, 1 - 0.5 * e, 1 - 0.28 * e); tubesDirty = true; }, () => { tubesDirty = true; moveToPatient(); cupToCart(); });
   },
   E4() { ivRate = 80; paint(ivTex); },
   E5() { pcaOpen = true; clampMat.color.set(0x2ecc71); clamp.rotation.z = Math.PI / 2; paint(pcaTex); },
