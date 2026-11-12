@@ -661,18 +661,78 @@ for (const x of [-0.4, 0.4]) for (const z of [-1.7, 0.1]) {
   bedFrameParts.push(w, add(bed, CYL(0.012, 0.3), frameMat, x, 0.22 - BED_LIFT, z));
 }
 // 발판(풋보드) + 안내판
-const hobTex = canvasTex(512, 256, (g, w, h) => {
-  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
-  g.fillStyle = '#d63031'; g.fillRect(0, 0, w, 78);
-  g.fillStyle = '#fff'; g.font = `bold 46px ${FONT}`; g.fillText('낙상 고위험', 24, 58);
-  g.fillStyle = '#1d2b33'; g.font = `bold 40px ${FONT}`; g.fillText('나예민 (F/60)', 24, 132);
-  g.font = `bold 62px ${FONT}`; g.fillStyle = '#1f6f8b'; g.fillText(`HOB ${hobDeg}°`, 24, 218);
+// 침상 카드(환자 정보판): 병동 전자 명패 형식. 주의사항 두 번째 줄의 HOB 각도는 E7 단서(교정 시 30°로 다시 그림)
+const hobTex = canvasTex(1024, 700, (g, w, h) => {
+  const ink = '#1b1d1f', line = '#8d9296', soft = '#5d6368';
+  g.fillStyle = '#e9ebec'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = line; g.lineWidth = 3;
+  const hl = y => { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); };
+  const vl = (x, y0, y1) => { g.beginPath(); g.moveTo(x, y0); g.lineTo(x, y1); g.stroke(); };
+  g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+  // 1단: 이름 · 등록번호 / 성별·나이 · 병실 / 화재 대피 표시(불 1개)
+  g.fillStyle = ink; g.font = `bold 92px ${FONT}`; g.fillText('나예민', 70, 100);
+  g.font = `bold 46px ${FONT}`; g.fillText('(20251031-0427)', 60, 168);
+  g.font = `bold 44px ${FONT}`; g.fillText('F / 60세', 470, 78);
+  g.fillText('302호 (1)', 470, 162);
+  { // 불꽃 1개 (화재 시 대피 보조 등급)
+    const fx = 940, fy = 120;
+    g.fillStyle = '#c0392b';
+    g.beginPath(); g.moveTo(fx, fy + 52);
+    g.bezierCurveTo(fx - 48, fy + 50, fx - 52, fy, fx - 20, fy - 30);
+    g.bezierCurveTo(fx - 22, fy - 6, fx - 8, fy, fx - 4, fy - 12);
+    g.bezierCurveTo(fx - 10, fy - 40, fx + 6, fy - 62, fx + 12, fy - 70);
+    g.bezierCurveTo(fx + 14, fy - 40, fx + 50, fy - 20, fx + 44, fy + 14);
+    g.bezierCurveTo(fx + 40, fy + 44, fx + 20, fy + 52, fx, fy + 52); g.fill();
+    g.fillStyle = '#f39c12'; g.beginPath(); g.ellipse(fx + 2, fy + 28, 16, 22, 0, 0, Math.PI * 2); g.fill();
+  }
+  hl(200);
+  // 2단: 진료과 · 의료진 / 입원일 · 수술일
+  g.fillStyle = ink; g.textAlign = 'center'; g.font = `bold 52px ${FONT}`; g.fillText('간담췌외과', 330, 262);
+  g.textAlign = 'left'; g.fillStyle = soft; g.font = `30px ${FONT}`; g.fillText('주 치 의', 30, 330);
+  g.fillStyle = ink; g.font = `bold 48px ${FONT}`; g.fillText('오중앙', 150, 334);
+  g.fillStyle = soft; g.font = `30px ${FONT}`; g.fillText('담당교수', 340, 330);
+  g.fillStyle = ink; g.font = `bold 48px ${FONT}`; g.fillText('황중앙', 470, 334);
+  vl(690, 200, 360);
+  g.fillStyle = soft; g.font = `30px ${FONT}`; g.fillText('입원일', 710, 262); g.fillText('수술일', 710, 330);
+  g.fillStyle = ink; g.font = `bold 38px ${FONT}`; g.fillText('2026-11-12', 815, 264); g.fillText('2026-11-12', 815, 332);
+  hl(360);
+  // 3단: 주의사항 3줄 / 이동 시 도움 요청 그림
+  g.fillStyle = ink; g.font = `bold 36px ${FONT}`; g.textAlign = 'center';
+  g.fillText('주의', 60, 450); g.fillText('사항', 60, 494);
+  vl(120, 360, 600);
+  g.textAlign = 'left'; g.font = `bold 48px ${FONT}`;
+  g.fillStyle = '#b03a2e'; g.fillText('Lt. arm save', 150, 418);
+  g.fillStyle = '#1f5f8b'; g.fillText(`HOB ${hobDeg}°`, 150, 498);
+  g.fillStyle = '#b03a2e'; g.fillText('낙상 고주의', 150, 578);
+  g.strokeStyle = '#c3c7ca'; g.lineWidth = 2; for (const y of [440, 520]) { g.beginPath(); g.moveTo(130, y); g.lineTo(735, y); g.stroke(); }
+  { // 이동 시 도움 요청: 지팡이 짚은 사람을 부축하는 그림
+    const bx = 750, by = 375, bw = 255, bh = 210;
+    g.strokeStyle = ink; g.lineWidth = 3; g.strokeRect(bx, by, bw, bh);
+    g.fillStyle = ink; g.strokeStyle = ink; g.lineCap = 'round';
+    const person = (x, y, lean) => {
+      g.beginPath(); g.arc(x + lean * 0.6, y, 15, 0, Math.PI * 2); g.fill();
+      g.lineWidth = 22; g.beginPath(); g.moveTo(x + lean * 0.4, y + 22); g.lineTo(x, y + 80); g.stroke();
+      g.lineWidth = 15; g.beginPath(); g.moveTo(x, y + 80); g.lineTo(x - 12, y + 130); g.moveTo(x, y + 80); g.lineTo(x + 14, y + 130); g.stroke();
+    };
+    person(bx + 95, by + 30, 18);
+    g.lineWidth = 6; g.beginPath(); g.moveTo(bx + 68, by + 70); g.lineTo(bx + 60, by + 160); g.stroke();      // 지팡이
+    g.lineWidth = 12; g.beginPath(); g.moveTo(bx + 95, by + 60); g.lineTo(bx + 68, by + 72); g.stroke();
+    person(bx + 160, by + 26, -6);
+    g.lineWidth = 12; g.beginPath(); g.moveTo(bx + 158, by + 60); g.lineTo(bx + 108, by + 70); g.stroke();   // 부축하는 팔
+    g.lineCap = 'butt';
+    g.font = `bold 30px ${FONT}`; g.textAlign = 'center'; g.fillText('이동시 도움요청', bx + bw / 2, by + bh - 14);
+  }
+  g.strokeStyle = line; g.lineWidth = 3; hl(600);
+  // 4단: 표시 칸 — 낙상 고주의만 켜짐
+  g.fillStyle = '#c0392b'; g.fillRect(0, 603, w, h - 603);
+  g.fillStyle = '#ffffff'; g.font = `bold 50px ${FONT}`; g.textAlign = 'center'; g.fillText('낙상 고주의', w / 2, 668);
+  g.textAlign = 'left';
 });
 const foot = group(bed, 0, 0.64, 0.27);
 bedFrameParts.push(add(foot, B(0.95, 0.4, 0.04), frameMat));
 const hobPlate = group(foot, 0, 0, 0);
-screenMesh(hobPlate, hobTex, 0.4, 0.2, 0, 0, 0.025);
-hitSphere(hobPlate, 0, 0, 0.03, 0.17, 'HOB 표시판', 'E7', () => `침상 머리 각도 ${hobDeg}°`);
+screenMesh(hobPlate, hobTex, 0.36, 0.246, 0, 0, 0.025);
+hitSphere(hobPlate, 0, 0, 0.03, 0.17, '침상 카드', 'E7', () => `침상 머리 각도 ${hobDeg}°`);
 
 // 고정 매트리스 (이불은 덮지 않음: 복부 oozing이 보여야 함)
 add(bed, B(0.9, 0.14, 1.0), mattressMat, 0, 0.55, -0.25);
