@@ -786,8 +786,9 @@ const bandTex = canvasTex(256, 128, (g, w, h) => {
 const bandG = group(headGroup, 0.34, 0.045, -0.2);
 {
   const ring = add(bandG, CYL(0.04, 0.05, 16), mat(0xffffff));
-  ring.rotation.x = Math.PI / 2;
+  ring.rotation.x = Math.PI / 2; bandG.userData.ring = ring;
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.045), new THREE.MeshBasicMaterial({ map:bandTex }));
+  bandG.userData.plate = plate;
   plate.rotation.x = -Math.PI / 2; plate.position.set(0, 0.043, 0);
   bandG.add(plate);
   hitSphere(bandG, 0, 0.02, 0, 0.075, '환자 손목밴드', 'E1', () => `손목밴드: ${bandName} · 60/F`);
@@ -804,8 +805,9 @@ const saveTex = canvasTex(256, 128, (g, w, h) => {
 const saveBandG = group(headGroup, 0.34, 0.045, -0.3);
 {
   const ring = add(saveBandG, CYL(0.04, 0.035, 16), mat(0xd32f2f));
-  ring.rotation.x = Math.PI / 2;
+  ring.rotation.x = Math.PI / 2; saveBandG.userData.ring = ring;
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.045), new THREE.MeshBasicMaterial({ map:saveTex }));
+  saveBandG.userData.plate = plate;
   plate.rotation.x = -Math.PI / 2; plate.position.set(0, 0.043, 0);
   saveBandG.add(plate);
   tag(saveBandG, 'Lt. arm save 팔찌', () => 'Lt. 유방절제술 · 혈압·채혈·IV 금지');
@@ -1461,6 +1463,56 @@ function setupPatient(gltf) {
     a.attach(bandG);
     tag(bandG, '환자 손목밴드', () => `손목밴드: ${bandName} · 60/F`, 'E1');
     bandG.position.set(0, 0, 0); bandG.quaternion.identity(); bandG.scale.setScalar(0.8);
+    // 팔찌 띠가 손목을 한 바퀴 감싸게: 손목 단면을 따라 피부 표면을 찾아 띠를 만듦 (기존 원통 대신)
+    root.updateMatrixWorld(true);
+    root.traverse(o => { if (o.isSkinnedMesh) o.skeleton.update(); });
+    const wrap = (G, width, color) => {
+      G.updateMatrixWorld(true);
+      const c = G.getWorldPosition(new THREE.Vector3());
+      const ax = V(0, 0, 1).transformDirection(G.matrixWorld);           // 팔 방향
+      const u0 = V(0, 1, 0).transformDirection(G.matrixWorld);           // 위쪽
+      const u1 = new THREE.Vector3().crossVectors(ax, u0).normalize();
+      const rc = new THREE.Raycaster(), pts = [], N = 36;
+      for (let i = 0; i < N; i++) {
+        const t = i / N * Math.PI * 2;
+        const d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
+        // 손목 안(뼈 위치)에서 바깥으로 쏴서 처음 만나는 면 = 손목 피부 (몸통·옷에 걸리지 않게 가까운 거리만)
+        rc.set(c, d); rc.far = 0.05;
+        const h = rc.intersectObject(root, true)[0];
+        pts.push(h ? h.point.distanceTo(c) : NaN);
+      }
+      const ok = pts.filter(r => isFinite(r)).sort((a, b) => a - b);
+      const med = ok.length ? ok[ok.length >> 1] : 0.028;
+      for (let i = 0; i < N; i++) {
+        const t = i / N * Math.PI * 2;
+        const d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
+        let r = pts[i]; if (!isFinite(r) || r > med * 1.5 || r < med * 0.5) r = med;
+        pts[i] = c.clone().addScaledVector(d, r + 0.0025);
+      }
+      // 너무 들쭉날쭉하지 않게 이웃 평균으로 다듬기
+      const sm = pts.map((p, i) => p.clone().add(pts[(i + 1) % N]).add(pts[(i + N - 1) % N]).multiplyScalar(1 / 3));
+      const pos = [], idx = [];
+      sm.forEach(p => {
+        const a = G.worldToLocal(p.clone().addScaledVector(ax, -width / 2)), b = G.worldToLocal(p.clone().addScaledVector(ax, width / 2));
+        pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      });
+      for (let i = 0; i < N; i++) { const j = (i + 1) % N; idx.push(2 * i, 2 * j, 2 * i + 1, 2 * i + 1, 2 * j, 2 * j + 1); }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+      G.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness:0.6, side:THREE.DoubleSide })));
+      G.userData.ring.visible = false;
+      // 이름표: 띠에서 가장 위(천장 쪽)를 향한 곳에, 띠를 따라 눕혀 붙임
+      let k = 0; sm.forEach((p, i) => { if (p.y > sm[k].y) k = i; });
+      const n = sm[k].clone().sub(c).normalize();
+      const tg = new THREE.Vector3().crossVectors(ax, n).normalize();
+      const qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(tg, new THREE.Vector3().crossVectors(n, tg), n));
+      const plate = G.userData.plate;
+      plate.position.copy(G.worldToLocal(sm[k].clone().addScaledVector(n, 0.0015)));
+      plate.quaternion.copy(G.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(qW));
+      plate.material.side = THREE.DoubleSide;
+    };
+    wrap(bandG, 0.02, 0xffffff);
+    wrap(saveBandG, 0.016, 0xd32f2f);
   }
   // SpO₂ 센서: Lt. 검지 끝을 감싼 살구색 테이프형 센서 + 손등·손목 고정 테이프
   if (bones.LeftHandIndex3 && bones.LeftHandIndex4) {
