@@ -1244,9 +1244,33 @@ const threeWayProc = group(threeWay);
   add(threeWayProc, B(0.044, 0.005, 0.01), blue, 0, 0.0125, 0);
   add(threeWayProc, B(0.01, 0.005, 0.022), blue, 0, 0.0125, 0.011);
 }
-tag(threeWay, '3-way (IV 라인 · PCA 연결)', () => '3-way 열림: 수액 + PCA가 함께 Rt. 손목 IV로 주입');
+tag(threeWay, '3-way (IV 라인 · PCA 연결)', () => pcaOpen ? '3-way 열림: 수액 + PCA가 함께 Rt. 손목 IV로 주입' : '3-way: PCA 쪽 포트가 막힘 (손잡이가 PCA 반대쪽을 향함)', 'E5');
+// 3-way 손잡이 돌리기: 0 = 세 방향 모두 열림, π = PCA 옆 포트 막힘(E5 오류 상태)
+let twHandle = null;
+function setThreeWayHandle(a) {
+  if (!twHandle) return;
+  const { geo, idx, base, cx, cz } = twHandle, pos = geo.attributes.position, c = Math.cos(a), s = Math.sin(a);
+  for (let k = 0; k < idx.length; k++) {
+    const i = idx[k], x = base[3 * k] - cx, z = base[3 * k + 2] - cz;
+    pos.setXYZ(i, cx + x * c + z * s, base[3 * k + 1], cz - x * s + z * c);
+  }
+  pos.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingSphere();
+}
 lateLoad('threeway.glb', sc => {
   // 모델: 길이 방향 x(-x 끝 = 수 루어 → 환자 쪽, +x 끝 = 암 루어 → 펌프 쪽), 옆 포트 -z, 손잡이 +y
+  // 파란 손잡이(모델 y > 0.1)만 골라 두고 축(손잡이 기둥 중심)을 구함 → E5 전에는 180° 돌려 PCA 포트를 막아 둠
+  sc.traverse(o => {
+    if (!o.isMesh || twHandle) return;
+    const pos = o.geometry.attributes.position, idx = [], base = [];
+    let cx = 0, cz = 0, n = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      if (y > 0.1) { idx.push(i); base.push(pos.getX(i), y, pos.getZ(i)); }
+      if (y > 0.09 && y < 0.16) { cx += pos.getX(i); cz += pos.getZ(i); n++; }
+    }
+    if (idx.length && n) twHandle = { geo: o.geometry, idx, base, cx: cx / n, cz: cz / n };
+  });
+  setThreeWayHandle(pcaOpen ? 0 : Math.PI);
   const g = fitModel(sc, 0.027);                    // 길이 약 8 cm (잘 보이도록 실물보다 살짝 크게)
   const J = modelPt(sc, 0.33, -0.13, 0.22);         // 옆 포트가 갈라지는 중심
   g.position.sub(J);
@@ -2321,7 +2345,10 @@ const FIX = {
     tween(POUR, p => { const e = ease(p); bulb.scale.set(1 - 0.28 * e, 1 - 0.5 * e, 1 - 0.28 * e); tubesDirty = true; }, () => { tubesDirty = true; moveToPatient(); cupToCart(); });
   },
   E4() { ivRate = 80; paint(ivTex); },
-  E5() { pcaOpen = true; clampMat.color.set(0x2ecc71); clamp.rotation.z = Math.PI / 2; paint(pcaTex); },
+  E5() {
+    pcaOpen = true; clampMat.color.set(0x2ecc71); clamp.rotation.z = Math.PI / 2; paint(pcaTex);
+    tween(0.8, p => setThreeWayHandle(Math.PI * (1 - ease(p))));   // 3-way 손잡이를 돌려 PCA 포트 열기
+  },
   E6() {
     cuff.userData.side = 'R';
     if (patientRig) {   // 3D 환자: 오른팔(위팔)로 옮겨 감기

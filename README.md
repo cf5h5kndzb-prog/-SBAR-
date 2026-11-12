@@ -57,7 +57,7 @@
 | E2 | JP 혈성 배액 증가 · dressing 출혈 |
 | E3 | JP bulb 미압축 · 고정 안 됨 (교정: 비우고 압축 → 환자 옆 환의에 클립 고정) |
 | E4 | 수액 속도 20 mL/hr (처방 80 mL/hr) |
-| E5 | PCA clamp 잠김 |
+| E5 | PCA clamp 잠김 + 3-way가 PCA 쪽 막힘 |
 | E6 | Lt. arm에 BP cuff (Lt. arm save 위반) |
 | E7 | 침상 머리 각도 0° |
 | E8 | 낙상 위험 (난간 내림 · call bell이 바닥에) |
