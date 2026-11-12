@@ -687,6 +687,55 @@ function drawMonitor(g, w, h) {
   for (const [x, z] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) add(g, B(0.04, 0.45, 0.04), mat(0x44525a), x, 0.22, z);
   tag(g, '보호자 의자', '');
 }
+// 환자 옷장 (뒷벽·오른벽 모서리): 아래 소형 냉장고 + 가운데 열린 선반 + 위 2문 수납장. 높이는 남은 시간 박스 윗단(2.28 m)에 맞춤
+{
+  const W = 0.72, D = 0.56, H = 2.28;
+  const g = group(world, 3 - W / 2 - 0.01, 0, -2.5 + D / 2 + 0.01);   // 앞면이 병실 쪽(+z)
+  const woodTex = canvasTex(256, 512, (c, w, h) => {
+    c.fillStyle = '#e9e0d1'; c.fillRect(0, 0, w, h);     // 아이보리 톤 밝은 목재
+    for (let i = 0; i < 70; i++) {                       // 세로 나뭇결 (옅게)
+      const x = Math.random() * w;
+      c.strokeStyle = `rgba(${190 + Math.random() * 20},${170 + Math.random() * 20},${140 + Math.random() * 20},${0.10 + Math.random() * 0.12})`;
+      c.lineWidth = 1 + Math.random() * 3;
+      c.beginPath(); c.moveTo(x, 0);
+      for (let y = 0; y <= h; y += 32) c.lineTo(x + Math.sin(y * 0.02 + i) * 4, y);
+      c.stroke();
+    }
+  });
+  const wood = new THREE.MeshStandardMaterial({ map:woodTex, roughness:0.7 });
+  const woodDark = mat(0xddd3c2, { roughness:0.75 });
+  const doorM = mat(0xf4f1ea, { roughness:0.45 });     // 문: 아이보리 화이트
+  const T = 0.02;                                        // 판 두께
+  // 몸통: 옆판 2, 뒤판, 천판, 바닥판
+  add(g, B(T, H, D), wood, -W / 2 + T / 2, H / 2, 0);
+  add(g, B(T, H, D), wood, W / 2 - T / 2, H / 2, 0);
+  add(g, B(W, H, T), woodDark, 0, H / 2, -D / 2 + T / 2);
+  add(g, B(W, T, D), wood, 0, H - T / 2, 0);
+  add(g, B(W, 0.06, D - 0.04), woodDark, 0, 0.03, -0.02);   // 걸레받이
+  // 아래: 소형 냉장고 (흰색, 열린 칸 안에)
+  const FH = 0.84;
+  const fridge = group(g, 0, 0.06, 0);
+  add(fridge, B(W - 0.08, FH - 0.04, D - 0.08), mat(0xf4f5f4, { roughness:0.4 }), 0, (FH - 0.04) / 2, -0.01);
+  add(fridge, B(W - 0.1, FH - 0.08, 0.025), mat(0xfafafa, { roughness:0.35 }), 0, (FH - 0.04) / 2, D / 2 - 0.045);   // 문
+  add(fridge, B(0.02, 0.22, 0.02), mat(0xb9c0c4, { metalness:0.5, roughness:0.3 }), W / 2 - 0.1, FH - 0.25, D / 2 - 0.02);   // 손잡이
+  add(fridge, B(0.12, 0.012, 0.004), mat(0x9aa3a8), 0, FH - 0.12, D / 2 - 0.031);   // 로고 자리
+  tag(fridge, '환자용 냉장고', '');
+  // 가운데: 상판 + 열린 선반 칸
+  const TOP = 0.06 + FH + 0.04;
+  add(g, B(W, 0.035, D), wood, 0, TOP, 0.0);
+  add(g, B(W - 2 * T, T, D - 0.05), wood, 0, TOP + 0.36, -0.01);           // 위 수납장 바닥
+  // 위: 2문 수납장 (문 + 세로 손잡이)
+  const C0 = TOP + 0.37, CH = H - T - C0;
+  for (const sx of [-1, 1]) {
+    const dw = (W - 0.03) / 2;
+    add(g, B(dw - 0.004, CH - 0.01, 0.022), doorM, sx * (dw / 2 + 0.003), C0 + CH / 2, D / 2 - 0.011);
+    add(g, B(0.014, 0.16, 0.018), mat(0xb8b2a6, { metalness:0.4, roughness:0.4 }), sx * 0.03, C0 + 0.25, D / 2 + 0.008);
+  }
+  // 선반 위 소품: 수건, 컵
+  add(g, B(0.22, 0.05, 0.16), mat(0xe8dfd0, { roughness:0.9 }), -0.16, TOP + 0.045, 0.02);
+  add(g, CYL(0.035, 0.09, 16), mat(0xffffff, { roughness:0.3 }), 0.18, TOP + 0.065, 0.05);
+  tag(g, '환자 옷장', () => '위 수납장 · 선반 · 아래 냉장고');
+}
 
 /* ============================================================
    침상 (머리 쪽 = -z, 환자의 오른쪽(Rt.) = -x, 왼쪽(Lt.) = +x)
