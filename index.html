@@ -74,6 +74,16 @@
   ol.q{padding-left:20px;font-size:14px}
   #noGL{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;z-index:200;padding:24px;text-align:center}
   #noGL[hidden]{display:none}
+  #judge{position:fixed;right:16px;top:64px;width:min(440px,calc(100vw - 32px));background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.28);z-index:60;overflow:hidden}
+  #judge[hidden]{display:none}
+  #judge .jh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  #judge .jh small{display:block;color:var(--brand);font-size:12px;font-weight:700}
+  #judge .jh b{font-size:19px}
+  #judge .jnote{margin:12px 18px;padding:10px 12px;background:#f1f5f6;border-radius:8px;font-size:13px;color:var(--muted)}
+  #judge .jopts{display:grid;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line)}
+  #judge .jopts button{text-align:left;padding:10px 14px;border-radius:10px}
+  #judge .jopts button.back{background:#f1f5f6}
+  #list li.wrong{border:1px solid var(--danger);background:#fff4f4;color:var(--ink)}
 </style>
 <script type="importmap">
 { "imports": {
@@ -112,9 +122,14 @@
   <ul id="feed"></ul>
 </aside>
 
-<div id="hint">드래그: 회전 · 휠: 확대 · 우클릭 드래그: 이동 · 클릭: 오류 지정</div>
+<div id="hint">드래그: 회전 · 휠: 확대 · 우클릭 드래그: 이동 · 클릭: 판단 근거 선택</div>
 <div id="tip" hidden></div>
 <div id="toast"></div>
+<div id="judge" hidden>
+  <div class="jh"><div><small>판단 근거 선택</small><b id="judgeTitle"></b></div><button id="judgeClose">닫기</button></div>
+  <div class="jnote">이상이라고 판단한 근거를 고르세요. 근거가 정확해야 정답으로 인정됩니다. 판단은 오류당 한 번만 기록됩니다.</div>
+  <div class="jopts" id="judgeOpts"></div>
+</div>
 
 <div class="overlay" id="startOv">
   <div class="modal">
@@ -132,8 +147,8 @@
       <label><input type="radio" name="mode" value="free"> 연습 모드 (시간 제한·상태 변화 없음)</label>
     </div>
     <p style="font-size:13px;color:#5d6d77;margin:0">
-      PC: 마우스로 장면을 돌려 보고 의심 가는 물체를 클릭 · VR: 화면 오른쪽 아래 <b>ENTER VR</b> 버튼 후 컨트롤러 트리거로 선택.<br>
-      오답 클릭은 −2점, 힌트는 −3점, 낙상 발생은 −10점입니다.
+      PC: 마우스로 장면을 돌려 보고 의심 가는 물체를 클릭한 뒤 <b>판단 근거</b>를 고르세요 · VR: 화면 오른쪽 아래 <b>ENTER VR</b> 버튼 후 컨트롤러 트리거로 선택.<br>
+      오답 클릭·틀린 근거 선택은 −2점, 힌트는 −3점, 낙상 발생은 −10점입니다.
     </p>
     <div class="row"><button class="primary" id="startBtn">시작하기</button></div>
   </div>
@@ -201,6 +216,33 @@ const ERRORS = [
 ];
 const ERR = Object.fromEntries(ERRORS.map(e => [e.id, e]));
 
+/* 판단 근거 보기: ok = 정답 근거, no = 오답 근거 (팀에서 문구 검토·수정) */
+const REASONS = {
+  E1:{ ok:'손목밴드 이름(김서연)이 처방·병상 정보(나예민)와 다르다',
+       no:['손목밴드가 수액이 들어가는 쪽 손목에 채워져 있다', '알레르기 표시 밴드가 없다'] },
+  E2:{ ok:'JP 배액이 선홍색으로 늘고 dressing에 출혈이 번지고 있다',
+       no:['dressing에 교환 날짜가 적혀 있지 않다', 'dressing이 수술 부위보다 작다'] },
+  E3:{ ok:'JP bulb가 부풀어 음압이 없고, 고정 없이 침대에 매달려 당겨진다',
+       no:['JP 배액관에 라벨이 없다', 'JP bulb가 투명해서 배액이 보인다'] },
+  E4:{ ok:'수액 속도가 20 mL/hr로 처방(80 mL/hr)과 다르다',
+       no:['수액 종류(Plasma Solution A 1 L)가 처방과 다르다', '수액 펌프 전원이 꺼져 있다'] },
+  E5:{ ok:'PCA 라인 클램프가 잠겨 진통제가 전달되지 않는다',
+       no:['PCA 약물(Fentanyl)이 처방과 다르다', 'PCA가 수액 라인과 연결되어 있으면 안 된다'] },
+  E6:{ ok:'Lt. arm save 환자인데 왼팔(Lt.)에 혈압 커프가 감겨 있다',
+       no:['커프가 팔 굵기에 비해 크다', '혈압을 15분마다 자동 측정하고 있다'] },
+  E7:{ ok:'침상 머리가 0°로 평평하다 (처방: 30° 이상)',
+       no:['침상 머리가 60° 이상으로 너무 높다', '침상 카드에 화재 대피 표시가 있다'] },
+  E8:{ ok:'낙상 고위험인데 난간이 내려가 있고 call bell이 손에 닿지 않는다',
+       no:['call bell 색이 빨간색이다', '보호자 의자가 침대 옆에 있다'] }
+};
+const GENERIC = [
+  '처방·인계 내용과 다르다',
+  '위치가 부적절해 환자 안전을 위협한다',
+  '감염관리 기준에 맞지 않는다',
+  '작동 상태가 정상이 아니다',
+  '환자 확인 정보가 맞지 않는다'
+];
+
 const DEBRIEF = [
   '가장 위험하다고 판단한 오류는 무엇이며, 우선순위를 정한 근거(ABC, 환자 상태 변화)는 무엇인가요?',
   '출혈이 의심될 때 의사에게 SBAR(상황-배경-사정-제안)로 어떻게 보고하겠습니까? 직접 말해 보세요.',
@@ -213,7 +255,7 @@ const DEBRIEF = [
    ============================================================ */
 const state = {
   phase:'idle', practice:false, t:0, phoneCalled:false, handHygiene:0,
-  found:new Set(), misses:0, hints:0, fell:false,
+  found:new Set(), wrong:new Map(), misses:0, hints:0, fell:false,
   done:new Set(), log:[], lastMsg:'', hover:'', inXR:false
 };
 const vit = { hr:92, sbp:114, dbp:72, spo2:97, rr:18, temp:36.8, pain:4 };
@@ -2397,6 +2439,7 @@ function renderList() {
   for (const e of ERRORS) {
     const li = document.createElement('li');
     if (state.found.has(e.id)) { li.className = 'done'; li.innerHTML = '<b>✔ ' + e.id + ' ' + e.title + '</b><small>' + e.cat + '</small>'; }
+    else if (state.wrong.has(e.id)) { li.className = 'wrong'; li.innerHTML = '<b>✘ ' + e.id + ' 근거 오류</b><small>' + e.cat + '</small>'; }
     else li.textContent = '？ ' + e.id + ' 아직 못 찾음';
     ul.appendChild(li);
   }
@@ -2460,13 +2503,56 @@ function handHygiene(where) {
 function onSelect(o) {
   if (state.phase !== 'running' || !o) return;
   const id = o.userData.err;
-  if (id) foundError(id);
-  else if (o.userData.action) o.userData.action();   // 체온계·전화기 등 사용하는 물건 (감점 없음)
-  else {
-    state.misses++; renderList();
+  if (!id && o.userData.action) { o.userData.action(); return; }   // 체온계·전화기 등 사용하는 물건 (감점 없음)
+  if (state.inXR) {                                                  // VR: 기존 방식(바로 지정)
+    if (id) foundError(id);
+    else { state.misses++; renderList(); toast(`"${o.userData.label}"은(는) 이상이 없어 보입니다. (−2점)`, '', 1800); }
+    return;
+  }
+  if (id && state.found.has(id)) { toast(ERR[id].id + ' 은(는) 이미 확인했습니다.', '', 1500); return; }
+  if (id && state.wrong.has(id)) { toast('이 항목은 이미 판단을 기록했습니다.', '', 1600); return; }
+  openJudge(o);
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function openJudge(o) {
+  const id = o.userData.err;
+  hideTip();
+  $('judgeTitle').textContent = o.userData.label || '선택한 물체';
+  const box = $('judgeOpts'); box.innerHTML = '';
+  const opts = id
+    ? shuffle([{ t:REASONS[id].ok, ok:true }, ...REASONS[id].no.map(t => ({ t, ok:false }))])
+    : shuffle([...GENERIC]).slice(0, 3).map(t => ({ t, ok:false }));
+  for (const op of opts) {
+    const b = document.createElement('button');
+    b.textContent = op.t;
+    b.onclick = () => judge(o, id, op);
+    box.appendChild(b);
+  }
+  const back = document.createElement('button');
+  back.className = 'back'; back.textContent = '← 관찰 화면으로';
+  back.onclick = closeJudge;
+  box.appendChild(back);
+  $('judge').hidden = false;
+}
+function closeJudge() { $('judge').hidden = true; }
+function judge(o, id, op) {
+  closeJudge();
+  if (state.phase !== 'running') return;
+  if (id && op.ok) { foundError(id); return; }
+  state.misses++;
+  if (id) {
+    state.wrong.set(id, op.t);
+    feed('✘ ' + escapeHtml(o.userData.label) + ': 근거 오류 ("' + escapeHtml(op.t) + '")', 'alert');
+    toast('판단 근거가 맞지 않아 이 오류는 인정되지 않습니다. (−2점)', 'alert', 2600);
+    renderList();
+    if (state.found.size + state.wrong.size === ERRORS.length) end('complete');
+  } else {
+    feed('✘ ' + escapeHtml(o.userData.label) + ': 이상 없음 (오답)', 'alert');
     toast(`"${o.userData.label}"은(는) 이상이 없어 보입니다. (−2점)`, '', 1800);
+    renderList();
   }
 }
+$('judgeClose').addEventListener('click', closeJudge);
 function foundError(id) {
   if (state.found.has(id)) { toast(ERR[id].id + ' 은(는) 이미 확인했습니다.', '', 1500); return; }
   state.found.add(id);
@@ -2479,7 +2565,7 @@ function foundError(id) {
   toast(`✔ ${e.id} ${e.title}\n${e.fix}`, 'good', 3800);
   feed(`✔ ${e.id} ${e.title}`, 'good');
   renderList();
-  if (state.found.size === ERRORS.length) end('complete');
+  if (state.found.size + state.wrong.size === ERRORS.length) end('complete');
 }
 
 /* PC 입력: 클릭/드래그 구분 */
@@ -2573,7 +2659,7 @@ function targets() {
 function start() {
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
   Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fell:false });
-  state.found.clear(); state.done.clear(); state.log.length = 0;
+  state.found.clear(); state.wrong.clear(); closeJudge(); state.done.clear(); state.log.length = 0;
   $('feed').innerHTML = '';
   $('startOv').hidden = true; $('endOv').hidden = true;
   $('hintBtn').disabled = false; $('giveUpBtn').disabled = false;
@@ -2589,12 +2675,12 @@ function end(reason) {
   if (state.phase !== 'running') return;
   state.phase = 'ended';
   $('hintBtn').disabled = true; $('giveUpBtn').disabled = true;
-  hideTip();
+  hideTip(); closeJudge();
   for (const e of ERRORS) if (!state.found.has(e.id)) addHint(e.id, 3600, true);
   const score = calcScore();
-  $('endTitle').textContent = reason === 'complete' ? '🎉 오류 8개를 모두 찾았습니다!' : reason === 'timeout' ? '⏰ Time-out (10분 종료)' : '결과';
+  $('endTitle').textContent = reason === 'complete' ? (state.found.size === ERRORS.length ? '🎉 오류 8개를 모두 찾았습니다!' : '모든 오류에 대한 판단을 마쳤습니다') : reason === 'timeout' ? '⏰ Time-out (10분 종료)' : '결과';
   $('endScore').textContent = score + '점';
-  $('endSummary').textContent = `발견 ${state.found.size}/${ERRORS.length} · 오답 ${state.misses} · 힌트 ${state.hints}` +
+  $('endSummary').textContent = `발견 ${state.found.size}/${ERRORS.length} · 근거 오류 ${state.wrong.size} · 오답 ${state.misses} · 힌트 ${state.hints}` +
     (state.handHygiene ? ` · 손 위생 ${state.handHygiene}회` : ' · 손 위생 안 함') +
     (state.fell ? ' · 낙상 발생(−10)' : '') + (state.practice ? '' : ' · 소요 ' + fmt(Math.min(LIMIT, state.t)));
   const box = $('endList'); box.innerHTML = '';
@@ -2603,7 +2689,8 @@ function end(reason) {
     const ok = state.found.has(e.id);
     const d = document.createElement('div');
     d.className = 'res' + (ok ? '' : ' miss');
-    d.innerHTML = '<b>' + (ok ? '✔ ' : '✘ 놓침 · ') + e.id + ' ' + e.title + '</b><span class="tag">' + e.cat + '</span>' + e.why;
+    const wr = state.wrong.get(e.id);
+    d.innerHTML = '<b>' + (ok ? '✔ ' : wr ? '✘ 근거 오류 · ' : '✘ 놓침 · ') + e.id + ' ' + e.title + '</b><span class="tag">' + e.cat + '</span>' + (wr ? '<div style="color:#d63031;font-size:13px">선택한 근거: ' + escapeHtml(wr) + '</div>' : '') + e.why;
     box.appendChild(d);
   }
   const ef = $('endFeed'); ef.innerHTML = '';
@@ -2618,7 +2705,7 @@ function end(reason) {
 
 function hint() {
   if (state.phase !== 'running' || state.hints >= HINTS_MAX) return;
-  const left = ERRORS.filter(e => !state.found.has(e.id));
+  const left = ERRORS.filter(e => !state.found.has(e.id) && !state.wrong.has(e.id));
   if (!left.length) return;
   const e = left[Math.floor(Math.random() * left.length)];
   addHint(e.id, 4);
