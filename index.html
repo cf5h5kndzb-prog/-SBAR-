@@ -1683,10 +1683,55 @@ function setUpper(angle) {
   r.bones.Spine.quaternion.copy(r.hipsQi).multiply(d).multiply(r.hipsQ).multiply(r.spineBase);
 }
 
+/* 8분 중증 악화: 불안(머리 좌우·배 움켜쥠) → 8분 30초부터 일어나려 함(상체 일으킴·Rt. 난간 쪽으로 손 뻗음·다리를 가장자리로)
+   E8(난간 올림)을 교정했으면 난간에 막혀 다시 눕고 불안한 움직임만 남음. 값은 0~1로 부드럽게 따라감 */
+const unrest = { level: 0, sit: 0, reach: 0, t: 0, tubeT: 0 };
+const smooth01 = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+function boneWorldRot(r, name, axis, ang) {
+  const b = r.bones[name];
+  if (!b || !ang) return;
+  b.parent.updateWorldMatrix(true, false);
+  const pw = b.parent.getWorldQuaternion(new THREE.Quaternion());
+  const d = pw.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, ang)).multiply(pw);
+  b.quaternion.premultiply(d);
+}
+function updateUnrest(r, dt) {
+  if (!r.unrestBase) {
+    r.unrestBase = {};
+    for (const n of ['Neck', 'Head', 'RightArm', 'RightForeArm', 'RightUpLeg', 'LeftUpLeg']) if (r.bones[n]) r.unrestBase[n] = r.bones[n].quaternion.clone();
+  }
+  const live = !state.practice && (state.phase === 'running' || state.phase === 'ended');
+  const tt = state.t;
+  const blocked = state.found.has('E8');
+  const tgtLevel = live && tt >= 480 ? 1 : 0;
+  const tgtTry = live && tt >= 510 ? 1 : 0;
+  const k = Math.min(1, dt * 1.2);
+  unrest.level += (tgtLevel - unrest.level) * k;
+  unrest.sit += ((blocked ? 0 : tgtTry) - unrest.sit) * Math.min(1, dt * 0.6);
+  unrest.reach += ((blocked ? 0 : tgtTry) - unrest.reach) * Math.min(1, dt * 0.8);
+  if (unrest.level < 0.002 && unrest.sit < 0.002) return 0;
+  unrest.t += dt;
+  for (const [n, q] of Object.entries(r.unrestBase)) r.bones[n].quaternion.copy(q);
+  const L = unrest.level, S = smooth01(unrest.sit), R = smooth01(unrest.reach), t = unrest.t;
+  const AX = V(0, 0, 1), AY = V(0, 1, 0), AXx = V(1, 0, 0);
+  // 머리 좌우로 뒤척임 (불안), 일어나려 할 때는 Rt. 쪽(난간 쪽)을 봄
+  boneWorldRot(r, 'Head', AX, L * (0.42 * Math.sin(t * 1.7) + 0.12 * Math.sin(t * 4.3)) * (1 - 0.6 * R) - 0.35 * R);
+  // 배 위 오른손: 움켜쥐었다 놓았다 (아래팔 굽힘) / 일어날 땐 팔을 Rt. 바깥으로 뻗어 난간 쪽으로
+  boneWorldRot(r, 'RightForeArm', AXx, L * (1 - R) * 0.28 * (0.5 + 0.5 * Math.sin(t * 2.6)));
+  boneWorldRot(r, 'RightArm', AY, -0.95 * R);
+  boneWorldRot(r, 'RightArm', AX, 0.35 * R);
+  // 다리를 침대 가장자리(Rt. 쪽)로
+  boneWorldRot(r, 'RightUpLeg', AY, -0.32 * R);
+  boneWorldRot(r, 'LeftUpLeg', AY, -0.2 * R + L * 0.06 * Math.sin(t * 1.1));
+  return 0.62 * S + L * 0.04 * Math.sin(t * 0.9);       // 상체 일으키기 (라디안 추가)
+}
+
 function updatePatient(dt) {
   const r = patientRig;
   if (!r) return;
-  setUpper(headGroup.rotation.x);
+  const sitUp = updateUnrest(r, dt);
+  setUpper(headGroup.rotation.x + sitUp);
+  if (sitUp || unrest.level > 0.002) { unrest.tubeT += dt; if (unrest.tubeT > 0.12) { unrest.tubeT = 0; tubesDirty = true; } }
   // 숨쉬기: 호흡수에 맞춰 가슴을 1.5% 정도 부풀림 (목·어깨는 원래 크기 유지)
   r.breath += dt * (vit.rr / 60) * Math.PI * 2;
   const k = 1 + 0.015 * (0.5 - 0.5 * Math.cos(r.breath));
