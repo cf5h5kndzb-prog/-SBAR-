@@ -409,7 +409,7 @@ const boardTex = canvasTex(1024, 760, (g, w, h) => {
     ['환자', '나예민 (F/60) · 등록번호 20251031-0427'],
     ['진단', '담낭결석 · 복강경 담낭절제술 당일 (POD#0)'],
     ['알레르기', '없음'],
-    ['수액', '0.9% NS 1 L · 80 mL/hr'],
+    ['수액', 'Plasma Solution A 1 L · 80 mL/hr'],
     ['통증', 'PCA(Fentanyl) 사용 · 클램프 개방 유지'],
     ['JP', '우상복부 · bulb 압축(음압) 유지 · 배액량 기록'],
     ['혈관', 'Rt. 손목 IV 유지 · Lt. arm save (Lt. 유방절제술: 혈압·채혈·IV 금지)'],
@@ -429,7 +429,7 @@ const boardTex = canvasTex(1024, 760, (g, w, h) => {
   add(g, B(1.56, 1.17, 0.03), mat(0x8a98a0));
   screenMesh(g, boardTex, 1.5, 1.11, 0, 0, 0.02);
   tag(g, '처방·정보 보드', () =>
-    '환자: 나예민 (F/60) · 등록번호 20251031-0427\n진단: 복강경 담낭절제술 당일\n수액: 0.9% NS 1 L · 80 mL/hr\n통증: PCA 사용 · 클램프 개방 유지\nJP: bulb 압축 유지\n혈관: Rt. 손목 IV · Lt. arm save (유방절제술)\n활동: 침상 머리 30° 이상 · 낙상 고위험\n난간 up · call bell 손 닿는 곳');
+    '환자: 나예민 (F/60) · 등록번호 20251031-0427\n진단: 복강경 담낭절제술 당일\n수액: Plasma Solution A 1 L · 80 mL/hr\n통증: PCA 사용 · 클램프 개방 유지\nJP: bulb 압축 유지\n혈관: Rt. 손목 IV · Lt. arm save (유방절제술)\n활동: 침상 머리 30° 이상 · 낙상 고위험\n난간 up · call bell 손 닿는 곳');
 }
 
 // 활력징후 모니터 (뒷벽 오른쪽)
@@ -983,18 +983,18 @@ lateLoad('pole.glb', sc => {
   pole.add(g);
 });
 
-// 수액 백: 0.9% NS 1 L (라벨은 코드로 그림)
+// 수액 백: Plasma Solution A 1 L (라벨은 코드로 그림)
 const bagLbl = canvasTex(256, 512, (g, w, h) => {
   g.clearRect(0, 0, w, h);
   g.fillStyle = 'rgba(250,252,253,0.92)'; g.fillRect(0, 0, w, h);
   g.fillStyle = '#1f5fae'; g.textAlign = 'center';
   g.font = `bold 14px ${FONT}`; g.fillText('INTRAVENOUS SOLUTION', w / 2, 46);
-  g.font = `16px ${FONT}`; g.fillText('Sodium Chloride Injection', w / 2, 92);
-  g.font = `bold 58px ${FONT}`; g.fillText('0.9% NS', w / 2, 160);
-  g.font = `bold 40px ${FONT}`; g.fillText('1000 mL', w / 2, 210);
-  g.font = `bold 22px ${FONT}`; g.fillText('생리식염주사액', w / 2, 250);
+  g.font = `14px ${FONT}`; g.fillText('Balanced Electrolyte Injection', w / 2 - 14, 84, w - 70);
+  g.font = `bold 40px ${FONT}`; g.fillText('PLASMA', w / 2 - 14, 130, w - 70); g.fillText('SOLUTION A', w / 2 - 14, 172, w - 70);
+  g.font = `bold 40px ${FONT}`; g.fillText('1000 mL', w / 2 - 14, 220, w - 70);
+  g.font = `bold 22px ${FONT}`; g.fillText('플라스마솔루션에이주', w / 2 - 14, 256, w - 70);
   g.font = `13px ${FONT}`; g.textAlign = 'left';
-  ['0.9% Sodium Chloride 9 g/L', 'Na⁺ 154 mEq/L · Cl⁻ 154 mEq/L', '정맥 주사용 · 1회용', 'Lot 25K031 · Exp 2027.10'].forEach((t, i) => g.fillText(t, 28, 300 + i * 22));
+  ['Na⁺ 140 · K⁺ 5 · Mg²⁺ 3 mEq/L', 'Cl⁻ 98 · Acetate 27 · Gluconate 23', '정맥 주사용 · 1회용', 'Lot 25K031 · Exp 2027.10'].forEach((t, i) => g.fillText(t, 18, 300 + i * 22, w - 66));
   // 오른쪽 눈금 (100 mL 단위)
   g.strokeStyle = '#1f5fae'; g.lineWidth = 2; g.font = `bold 11px ${FONT}`; g.textAlign = 'right';
   for (let i = 1; i <= 9; i++) { const y = 40 + i * 44; g.beginPath(); g.moveTo(w - 8, y); g.lineTo(w - (i % 5 ? 20 : 30), y); g.stroke(); g.fillText(String(i), w - 34, y + 4); }
@@ -1014,7 +1014,7 @@ const bagProc = group(bag);
   add(bagProc, CYL(0.006, 0.03), mat(0xe6edf0), 0.025, -BH / 2 - 0.015, 0);
   add(bagProc, CYL(0.007, 0.015), mat(0xf2c200), 0.025, -BH / 2 - 0.035, 0);
   add(bagProc, CYL(0.009, 0.06), mat(0xdfefff, { transparent:true, opacity:0.8 }), -0.025, -0.25, 0);
-  tag(bag, '수액 백 (0.9% NS 1 L)', () => '0.9% NS 1000 mL');
+  tag(bag, '수액 백 (Plasma Solution A 1 L)', () => 'Plasma Solution A 1000 mL');
 }
 lateLoad('ivbag.glb', sc => {
   const g = fitModel(sc, 0.99);                      // 백 본체 약 33 cm + 수액 세트
@@ -1022,7 +1022,7 @@ lateLoad('ivbag.glb', sc => {
   const mid = modelPt(sc, 0, 0.58, 0);               // 백 가운데
   bag.position.y = HOOK_BAG.y - (hole.y - mid.y);    // 원점 = 백 가운데, 걸이 구멍이 고리 높이에
   g.position.set(-hole.x, -mid.y, -hole.z);
-  // 모델에 인쇄된 다른 수액 이름을 가리고 처방(0.9% NS 1 L) 라벨을 붙임
+  // 모델 인쇄 라벨 위에 처방(Plasma Solution A 1 L) 라벨을 선명하게 다시 그려 붙임
   modelFace(g, sc, { x:0, y:0.58, w:0.22, h:0.44 }, bagLbl, 256 / 512);
   bagTail.position.copy(modelPt(sc, 0, -0.94, 0)).add(g.position);
   bagProc.removeFromParent();
@@ -1037,7 +1037,7 @@ const ivTex = canvasTex(320, 240, (g, w, h) => {
   g.fillStyle = '#ffffff'; g.font = `bold 96px ${FONT}`; g.fillText(String(ivRate), 16, 136);
   const nw = g.measureText(String(ivRate)).width;
   g.font = `bold 30px ${FONT}`; g.fillStyle = '#8fd3f4'; g.fillText('mL/hr', 16 + nw + 12, 136);
-  g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('0.9% NS 1 L', 16, 186);
+  g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('Plasma Sol. A 1 L', 16, 186);
   g.fillStyle = '#3dff7a'; g.font = `bold 24px ${FONT}`; g.fillText('● RUNNING', 16, 222);
 });
 const ivPump = group(world, POLE.x + 0.15, 1.3, POLE.z);   // 펌프 본체 가운데
@@ -1182,7 +1182,7 @@ function setTube(m, pts) {
 const IV_TUBE_COLOR = 0xe3eaec;   // 수액 세트 모델의 튜브 색(투명한 흰색)에 맞춤
 const ivTube = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '수액 펌프 → 3-way');
 const ivTube2 = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '3-way → Rt. 손목 IV');
-const ivSetTube = makeTube(IV_TUBE_COLOR, 0.0045, '수액 세트 (백 → 펌프)', null, () => '0.9% NS 1 L → 수액 펌프');
+const ivSetTube = makeTube(IV_TUBE_COLOR, 0.0045, '수액 세트 (백 → 펌프)', null, () => 'Plasma Solution A 1 L → 수액 펌프');
 const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
 const jpTubeTop = makeTube(0xa3121f, 0.004, 'JP 배액관 (삽입 부위)', null, () => 'RUQ JP 삽입 부위 → 환의 안 → Rt. 옆구리');
 jpTubeTop.visible = false;
