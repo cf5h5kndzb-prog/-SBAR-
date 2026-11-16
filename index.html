@@ -177,6 +177,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 /* ============================================================
    설정 · 데이터
@@ -233,7 +234,7 @@ const REASONS = {
   E7:{ ok:'침상 머리가 0°로 평평하다 (처방: 30° 이상)',
        no:['침상 머리가 60° 이상으로 너무 높다', '침상 카드에 화재 대피 표시가 있다'] },
   E8:{ ok:'낙상 고위험인데 난간이 내려가 있고 call bell이 손에 닿지 않는다',
-       no:['call bell 색이 빨간색이다', '보호자 의자가 침대 옆에 있다'] }
+       no:['call bell 색이 빨간색이다', '보호자 소파가 창가 벽에 붙어 있다'] }
 };
 const GENERIC = [
   '처방·인계 내용과 다르다',
@@ -622,7 +623,7 @@ function drawMonitor(g, w, h) {
   g.fillStyle = '#c8d3d9'; g.font = `22px ${FONT}`; g.fillText(`통증 NRS ${vit.pain}/10`, 22, 456);
 }
 
-// 손소독제, 손상성 폐기물 용기, 쓰레기통, 탁자, 의자 (정상 물품)
+// 손소독제, 손상성 폐기물 용기, 쓰레기통, 탁자, 보호자 소파 (정상 물품)
 // 세면대 (출입문 쪽 벽, 의료폐기물 용기 위): 벽걸이 도기 세면대 + 수전 + 배수관
 {
   const g = group(world, 3, 0, 0.25);
@@ -745,13 +746,29 @@ function drawMonitor(g, w, h) {
   add(g, B(0.12, 0.04, 0.08), mat(0xf5f5f5), 0.1, 0.77, 0.04);
   tag(g, '침상 옆 탁자', () => '물컵, 휴지');
 }
+// 보호자 소파 (창가 벽, 창문 아래): 2인용. 회색 인조가죽 좌석·팔걸이 + 아이보리 등받이(위 등판 + 아래 허리 쿠션) + 원목 다리
 {
-  const g = group(world, 1.05, 0, -0.35);   // 환자 왼쪽 침대 옆, 침대를 보게
-  g.rotation.y = -Math.PI / 2;
-  add(g, B(0.45, 0.06, 0.45), mat(0x5b7a8a), 0, 0.45, 0);
-  add(g, B(0.45, 0.45, 0.06), mat(0x5b7a8a), 0, 0.7, -0.2);
-  for (const [x, z] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) add(g, B(0.04, 0.45, 0.04), mat(0x44525a), x, 0.22, z);
-  tag(g, '보호자 의자', '');
+  const SW = 1.45, SD = 0.72;                            // 폭 1.45 m · 깊이 0.72 m
+  const g = group(world, -3 + SD / 2 + 0.02, 0, -0.25);  // 등받이가 왼벽에 붙음
+  g.rotation.y = Math.PI / 2;                            // 앞(+z)이 방 안쪽(+x)
+  const RB = (w, h, d, r) => new RoundedBoxGeometry(w, h, d, 4, r);
+  const grey = mat(0x6e7378, { roughness:0.55 });        // 회색 인조가죽
+  const cream = mat(0xe3dcc0, { roughness:0.6 });        // 아이보리 등받이
+  const wood = mat(0xd9b98a, { roughness:0.7 });         // 원목 다리
+  const AW = 0.17, LEG = 0.1;                            // 팔걸이 두께, 다리 높이
+  // 좌석 받침 + 좌석 쿠션 (좌면 높이 약 0.43 m)
+  add(g, RB(SW - 2 * AW + 0.02, 0.2, SD - 0.04, 0.03), grey, 0, LEG + 0.1, 0.01);
+  add(g, RB(SW - 2 * AW, 0.13, SD - 0.2, 0.05), grey, 0, LEG + 0.26, 0.07);
+  // 팔걸이 (좌우): 위쪽이 둥근 두꺼운 판
+  for (const sx of [-1, 1]) add(g, RB(AW, 0.52, SD, 0.07), grey, sx * (SW / 2 - AW / 2), LEG + 0.26, 0);
+  // 등받이: 위 등판(높고 얇게) + 아래 허리 쿠션(앞으로 볼록)
+  const back = add(g, RB(SW - 2 * AW + 0.04, 0.6, 0.16, 0.06), cream, 0, LEG + 0.55, -SD / 2 + 0.09);
+  back.rotation.x = -0.08;                               // 살짝 뒤로 기울임
+  add(g, RB(SW - 2 * AW, 0.24, 0.14, 0.06), cream, 0, LEG + 0.44, -SD / 2 + 0.2);
+  // 원목 다리 4개 (아래로 가늘어지는 원기둥)
+  for (const [x, z] of [[-SW / 2 + 0.1, -SD / 2 + 0.1], [SW / 2 - 0.1, -SD / 2 + 0.1], [-SW / 2 + 0.1, SD / 2 - 0.1], [SW / 2 - 0.1, SD / 2 - 0.1]])
+    add(g, new THREE.CylinderGeometry(0.03, 0.022, LEG, 16), wood, x, LEG / 2, z);
+  tag(g, '보호자 소파', '');
 }
 // 환자 옷장 (뒷벽·오른벽 모서리): 아래 소형 냉장고 + 가운데 열린 선반 + 위 2문 수납장. 높이는 남은 시간 박스 윗단(2.28 m)에 맞춤
 {
