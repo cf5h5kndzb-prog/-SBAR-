@@ -2360,12 +2360,16 @@ const ANCHOR = {
   E1: [bandG, 0.22], E2: [dressG, 0.3], E3: [bulb, 0.26], E4: [ivPump, 0.42],
   E5: [pcaPump, 0.4], E6: [cuff, 0.3], E7: [hobPlate, 0.36], E8: [railR, 0.7]
 };
+// 동그라미를 함께 띄울 추가 위치 (E5: PCA 펌프 + 3-way)
+const ANCHOR_EXTRA = { E5: [[threeWay, 0.18]] };
+const anchorsOf = id => [ANCHOR[id], ...(ANCHOR_EXTRA[id] || [])];
 const hintRings = [];
 function addHint(id, ttl, red = false) {
-  const [a, size] = ANCHOR[id];
-  const s = makeRing(red ? redRing : orangeRing, size);
-  a.add(s);
-  hintRings.push({ s, until: performance.now() + ttl * 1000 });
+  for (const [a, size] of anchorsOf(id)) {
+    const s = makeRing(red ? redRing : orangeRing, size);
+    a.add(s);
+    hintRings.push({ s, until: performance.now() + ttl * 1000 });
+  }
 }
 
 /* ============================================================
@@ -2627,9 +2631,7 @@ function foundError(id) {
   state.found.add(id);
   FIX[id]();
   tubesDirty = true;
-  const [a, size] = ANCHOR[id];
-  const ring = makeRing(greenRing, size);
-  a.add(ring);
+  for (const [a, size] of anchorsOf(id)) a.add(makeRing(greenRing, size));
   const e = ERR[id];
   toast(`✔ ${e.id} ${e.title}\n${e.fix}`, 'good', 3800);
   feed(`✔ ${e.id} ${e.title}`, 'good');
