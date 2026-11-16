@@ -441,6 +441,30 @@ const clockTex = canvasTex(512, 224, (g, w, h) => {
   screenMesh(g, clockTex, 0.5, 0.22, 0, 0, 0.02);
   tag(g, '벽시계', () => '남은 시간 ' + fmt(LIMIT - state.t));
 }
+// 벽걸이 TV (앞벽, 침대 발치 맞은편): 43인치 얇은 본체 + 벽 고정 브래킷. 꺼진 화면, 정상 물품
+{
+  const TW = 0.97, TH = 0.57, TD = 0.035;               // 43인치 (16:9)
+  const g = group(world, 0.15, 1.8, 2.5);
+  g.rotation.y = Math.PI;                               // 화면이 방 안쪽(-z)·침대를 보게
+  const black = mat(0x1a1d20, { roughness:0.45, metalness:0.2 });
+  // 벽 브래킷 (본체 뒤, 벽에 붙음)
+  add(g, B(0.4, 0.3, 0.03), mat(0x2b3034, { roughness:0.6, metalness:0.3 }), 0, 0, 0.015);
+  // 본체 (브래킷 앞)
+  const body = add(g, B(TW, TH, TD), black, 0, 0, 0.03 + TD / 2);
+  // 꺼진 화면: 살짝 광택 있는 짙은 남회색 + 은은한 반사 그라데이션
+  const tvTex = canvasTex(512, 300, (c, w, h) => {
+    const grd = c.createLinearGradient(0, 0, w, h);
+    grd.addColorStop(0, '#2a3238'); grd.addColorStop(0.45, '#14191d'); grd.addColorStop(1, '#0c0f12');
+    c.fillStyle = grd; c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(255,255,255,0.05)';              // 사선 반사광
+    c.beginPath(); c.moveTo(w * 0.08, 0); c.lineTo(w * 0.38, 0); c.lineTo(w * 0.18, h); c.lineTo(0, h); c.lineTo(0, h * 0.7); c.closePath(); c.fill();
+  });
+  screenMesh(g, tvTex, TW - 0.024, TH - 0.024, 0, 0, 0.03 + TD + 0.001);
+  // 아래 베젤 로고 자리 + 대기 표시등(빨강)
+  add(g, B(0.06, 0.008, 0.002), mat(0x5c6368), 0, -TH / 2 + 0.006, 0.03 + TD + 0.001);
+  add(g, B(0.008, 0.005, 0.003), new THREE.MeshBasicMaterial({ color:0xff3b30 }), TW / 2 - 0.04, -TH / 2 + 0.006, 0.03 + TD + 0.002);
+  tag(g, '벽걸이 TV', () => '꺼져 있음');
+}
 // 베드헤드 패널 (침대 머리 위 벽): 콘센트 4구 · 조명 스위치 · 콜벨(빨강) · O₂(초록) · Suction(노랑). 배경 소품
 {
   const PW = 1.3, PH = 0.2;
