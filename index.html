@@ -3088,13 +3088,19 @@ function evPain() {
   feed(state.found.has('E5') ? '통증 호소 (PCA 작동 중, NRS 4)' : '통증 NRS 상승 (PCA 약물이 전달되지 않음)', 'alert');
 }
 function evBleed() {
+  if (state.found.has('E2')) return;                     // dressing을 이미 확인했으면 활력징후 유지 → 악화 알림 없음
   toast('🩸 출혈이 악화되고 있습니다! 활력징후와 dressing을 확인하세요.', 'alert', 5200);
   feed('출혈 악화: 빈맥·저혈압 진행. 구조 단서: 복부 dressing과 JP 배액을 확인하세요.', 'alert');
-  if (!state.found.has('E2')) addHint('E2', 12, true);   // 구조 단서
+  addHint('E2', 12, true);                               // 구조 단서
 }
 function evSevere() {
-  toast('⚠ 환자 상태가 중증으로 악화됩니다! 침대에서 내려오려고 합니다 (낙상 위험).', 'alert', 5200);
-  feed('중증 악화 · 낙상 위험: 환자가 불안정하게 움직입니다.', 'alert');
+  if (state.found.has('E2')) {                            // 출혈은 확인됨 → 활력징후는 유지, 불안·낙상 위험만
+    toast('⚠ 환자가 불안해하며 침대에서 내려오려고 합니다 (낙상 위험).', 'alert', 5200);
+    feed('낙상 위험: 환자가 불안정하게 움직입니다.', 'alert');
+  } else {
+    toast('⚠ 환자 상태가 중증으로 악화됩니다! 침대에서 내려오려고 합니다 (낙상 위험).', 'alert', 5200);
+    feed('중증 악화 · 낙상 위험: 환자가 불안정하게 움직입니다.', 'alert');
+  }
   if (!state.found.has('E8')) addHint('E8', 10, true);
 }
 function evFall() {
@@ -3107,17 +3113,22 @@ function evFall() {
 
 function targets() {
   const f = state.found;
-  const bleed = (f.has('E2') ? 0.25 : 1) + (f.has('E4') ? 0 : 0.3);
   const painT = state.practice ? 4 : (state.t >= 180 ? (f.has('E5') ? 4 : 8) : (f.has('E5') ? 3 : 5));
   phaseF = state.practice ? 0.1 : (state.t < 180 ? 0.1 : state.t < 300 ? 0.25 : state.t < 480 ? 1.0 : 1.7);
+  // 출혈 트랙: 복부 dressing(E2)을 확인하면 그 순간의 출혈 영향 정도를 고정 → 활력징후가 더 나빠지지 않고 그대로 유지
+  //            확인하지 못하면 시간(3분·5분·8분)이 지날수록 빈맥·저혈압이 진행
+  const bleedNow = (1 + (f.has('E4') ? 0 : 0.3)) * phaseF;
+  if (f.has('E2')) { if (state.bleedHold == null) state.bleedHold = bleedNow; }
+  else state.bleedHold = null;
+  const bleed = f.has('E2') ? state.bleedHold : bleedNow;
   const hiPain = painT >= 7 ? 1 : 0;
   return {
     pain: painT,
-    hr: Math.min(150, 90 + hiPain * 10 + 30 * bleed * phaseF),
-    sbp: Math.max(60, 114 - 20 * bleed * phaseF),
-    dbp: Math.max(34, 72 - 12 * bleed * phaseF),
-    spo2: Math.max(86, 97 - 2 * bleed * phaseF),
-    rr: Math.min(32, 18 + 4 * bleed * phaseF + hiPain * 2)
+    hr: Math.min(150, 90 + hiPain * 10 + 30 * bleed),
+    sbp: Math.max(60, 114 - 20 * bleed),
+    dbp: Math.max(34, 72 - 12 * bleed),
+    spo2: Math.max(86, 97 - 2 * bleed),
+    rr: Math.min(32, 18 + 4 * bleed + hiPain * 2)
   };
 }
 
@@ -3126,7 +3137,7 @@ function targets() {
    ============================================================ */
 function start() {
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
-  Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fell:false });
+  Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fell:false, bleedHold:null });
   state.found.clear(); state.wrong.clear(); closeJudge(); state.done.clear(); state.log.length = 0;
   $('feed').innerHTML = '';
   $('startOv').hidden = true; $('endOv').hidden = true;
