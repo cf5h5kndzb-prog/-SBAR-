@@ -1460,7 +1460,13 @@ function rebuildTubes() {
   // 아랫단에서 나온 관이 옆구리 곡면을 따라 매트리스로 내려옴
   const side1 = Aout.clone().add(V(-0.09, -0.08, 0.03)), side2 = Aout.clone().add(V(-0.16, 0, 0.05)); side2.y = 0.8;
   const gl = patientRig && patientRig.gownLift;
-  if (gl && gl.group.visible) {
+  let head = [A, Aout];                      // 배액관 시작 구간
+  if (gl && gl.group.visible && patientRig.lift) {
+    // 상의를 걷은 모델: 거즈 → 피부 → 바지 허리선 밖으로 한 줄로 이어 그림 (허리선에서 꺾이지 않게)
+    dressG.updateMatrixWorld(true);
+    jpTubeTop.visible = false;
+    head = [...gl.pts.slice(0, -2).map(p => dressG.localToWorld(p.clone())), Aout];
+  } else if (gl && gl.group.visible) {
     dressG.updateMatrixWorld(true);
     jpTubeTop.visible = true;
     setTube(jpTubeTop, gl.pts.map(p => dressG.localToWorld(p.clone())));
@@ -1472,7 +1478,7 @@ function rebuildTubes() {
   const topLead = inl ? inl[1].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.1, 0));
   if (jpSlack) {
     // 오류: 짧게 매트리스 가장자리를 넘어 침대 옆 bulb로
-    setTube(jpTube, [A, Aout, side1, side2, V(-0.5, 0.79, side2.z * 0.4 + top.z * 0.6), topLead, top]);
+    setTube(jpTube, [...head, side1, side2, V(-0.5, 0.79, side2.z * 0.4 + top.z * 0.6), topLead, top]);
     jpClip.visible = false;
   } else {
     // 교정: 옆구리 환의에 클립으로 고정 → 환자 옆 bulb
@@ -1495,8 +1501,8 @@ function rebuildTubes() {
     jpClip.visible = near;
     const mid = jpClipPt.clone().add(V(-0.012, 0, 0));
     // 배액 부위 → 환의 위를 지나 옆구리로 내려와 클립 → bulb
-    if (near) setTube(jpTube, [A, Aout, jpClipPt.clone().add(V(0, 0.008, 0)), side1, side2, topLead, top]);
-    else setTube(jpTube, [A, Aout, Aout.clone().lerp(top, 0.5).add(V(0, 0.05, 0)), topLead, top]);
+    if (near) setTube(jpTube, [...head, jpClipPt.clone().add(V(0, 0.008, 0)), side1, side2, topLead, top]);
+    else setTube(jpTube, [...head, Aout.clone().lerp(top, 0.5).add(V(0, 0.05, 0)), topLead, top]);
   }
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
   const port = monPort.getWorldPosition(new THREE.Vector3());
@@ -1861,11 +1867,12 @@ function setupPatient(gltf) {
       const xW = V(1, 0, 0).transformDirection(dressG.matrixWorld);
       const rs = xW.x < 0 ? 1 : -1;                   // 로컬 x에서 환자 Rt.(world −x) 쪽 부호
       const rcs = new THREE.Raycaster();
+      let skinTarget = root;                           // 레이캐스트 대상 (상의 걷은 모델이 오면 그 모델의 피부)
       const onSkin = (u, v, off) => {                  // u: Rt. 쪽(+), v: 발 쪽(+)
         // 몸 안쪽에서 바깥으로 쏴서 처음 만나는 면 = 피부·환의 표면 (배 위에 올린 손에 걸리지 않게)
         const q = dressG.localToWorld(V(u * rs, -0.04, v));
-        rcs.set(q, nW); rcs.far = 0.08;
-        const h = rcs.intersectObject(root, true)[0];
+        rcs.set(q, nW); rcs.far = skinTarget === root ? 0.08 : 0.14;
+        const h = rcs.intersectObject(skinTarget, true)[0];
         const w = h ? h.point.addScaledVector(nW, off) : dressG.localToWorld(V(u * rs, off, v));
         return dressG.worldToLocal(w);
       };
@@ -1892,7 +1899,27 @@ function setupPatient(gltf) {
       // 배액관: 거즈 가운데 → 피부 위로 Rt. 쪽 → 환의 가장자리 아래로 들어감
       const pts = [];
       for (let i = 0; i <= 6; i++) { const u = 0.075 * i / 6 + (i === 6 ? 0.004 : 0); pts.push(onSkin(u, 0.012 * Math.sin(i / 6 * Math.PI), i === 6 ? 0.001 : 0.0085)); }
-      rig.gownLift = { group: lift, hinge, pts };
+      rig.gownLift = { group: lift, hinge, pts, stainY: 0.0075 };
+      // 상의를 걷어 올린 환자 모델(patient_lift.glb)이 붙으면: 그 모델의 실제 피부 위에 거즈·배액관을 다시 놓고,
+      // 코드로 만든 피부 조각·환의 자락은 쓰지 않는다
+      rig.rebuildLift = target => {
+        skinTarget = target;
+        const LV = 0.075;                               // 걷어 올린 상의 뭉치 아래, 드러난 Rt. 상복부 피부로 (발 쪽으로 7.5 cm)
+        gauze.geometry.dispose(); gauze.geometry = patchGeo(0.003, -0.035, 0.035, LV - 0.035, LV + 0.035);
+        skin.removeFromParent(); hinge.removeFromParent();
+        // 배액관: 거즈 가운데 → 피부 위로 Rt. 아래쪽 → 바지 허리선 밑(옆구리 출구)으로 들어감
+        const ex = dressG.worldToLocal(rig.jpExit.getWorldPosition(new THREE.Vector3()));
+        const ue = ex.x * rs, ve = ex.z, N = 10, np = [];
+        for (let i = 0; i < N; i++) {
+          const t = i / N, u = ue * t, v = LV + (ve - LV) * t + 0.02 * Math.sin(t * Math.PI);
+          np.push(onSkin(u, v, i === 0 ? 0.0075 : 0.0055));
+        }
+        np.push(ex);
+        rig.gownLift.pts = np;
+        const sc = onSkin(0, LV, 0.0045);
+        rig.gownLift.stainPos = sc;
+        skinTarget = root;
+      };
     }
   }
 
@@ -1969,10 +1996,77 @@ function updatePatient(dt) {
   for (const n of ['Neck', 'LeftShoulder', 'RightShoulder']) r.bones[n].scale.setScalar(1 / k);
 }
 
+/* ---------- 상의를 걷어 올린 환자 (patient_lift.glb): E2 교정 때 배 부분만 이 모델로 바꿔 보여 줌 ----------
+   같은 사람을 T자 자세로 만든 모델이라, 원래 환자의 뼈대를 그대로 같이 쓰면(같은 이름의 뼈) 자세·호흡·침상 각도가 똑같이 따라온다.
+   몸통 띠(T자 자세 기준 높이 LIFT_LO ~ LIFT_HI, 몸 중심에서 좌우 LIFT_X 안쪽)만 바꿔 그린다:
+   원래 환자는 그 띠를 지우고, 새 모델은 그 띠만 그림 → 얼굴·팔·다리는 원래 환자 그대로.
+   경계 높이(liftU.cur)를 아래(허리)에서 위(가슴)로 올리면 옷자락이 말려 올라가는 것처럼 보인다. */
+const PATIENT_LIFT_URL = 'patient_lift.glb';
+const LIFT_LO = 0.80, LIFT_HI = 1.27, LIFT_X = 0.235;
+const liftU = { liftLo:{ value:LIFT_LO }, liftCur:{ value:LIFT_LO }, liftX:{ value:LIFT_X } };
+function addLiftBand(mtl, keepInside) {
+  const prev = mtl.onBeforeCompile;
+  mtl.onBeforeCompile = (sh, r) => {
+    if (prev) prev(sh, r);
+    Object.assign(sh.uniforms, liftU);
+    sh.vertexShader = 'varying vec3 vLiftP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLiftP = position;');
+    // 새 모델의 피부(파란 옷이 아닌 부분)는 원래 환자보다 붉고 진해서 톤을 맞춤
+    if (keepInside) sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      {
+        float cloth = smoothstep(0.02, 0.10, diffuseColor.b - diffuseColor.r);
+        vec3 c = diffuseColor.rgb * vec3(0.86, 0.92, 0.98);
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        diffuseColor.rgb = mix(mix(c, vec3(l), 0.12), diffuseColor.rgb, cloth);
+      }`);
+    sh.fragmentShader = 'uniform float liftLo;\nuniform float liftCur;\nuniform float liftX;\nvarying vec3 vLiftP;\n' + sh.fragmentShader.replace('void main() {',
+      `void main() {
+        bool inBand = vLiftP.y > liftLo && vLiftP.y < liftCur && abs(vLiftP.x) < liftX;
+        if (${keepInside ? '!inBand' : 'inBand'}) discard;`);
+  };
+  mtl.customProgramCacheKey = () => 'liftband' + (keepInside ? 1 : 0);
+  mtl.needsUpdate = true;
+}
+function setupPatientLift(gltf) {
+  const rig = patientRig;
+  if (!rig) return;
+  let m1 = null, m2 = null;
+  rig.root.traverse(o => { if (o.isSkinnedMesh) m1 = o; });
+  gltf.scene.traverse(o => { if (o.isSkinnedMesh) m2 = o; });
+  if (!m1 || !m2) throw new Error('스킨 메시 없음');
+  // 뼈 번호를 이름으로 맞춰 원래 환자의 뼈대에 묶음
+  const oldIdx = {};
+  m1.skeleton.bones.forEach((b, i) => { oldIdx[b.name] = i; });
+  const map = m2.skeleton.bones.map(b => oldIdx[b.name]);
+  if (map.some(i => i === undefined)) throw new Error('뼈 이름이 다름');
+  const si = m2.geometry.attributes.skinIndex;
+  for (let i = 0; i < si.count; i++) for (let k = 0; k < 4; k++) si.setComponent(i, k, map[si.getComponent(i, k)]);
+  si.needsUpdate = true;
+  m2.removeFromParent();
+  m1.parent.add(m2);
+  m2.position.copy(m1.position); m2.quaternion.copy(m1.quaternion); m2.scale.copy(m1.scale);
+  m2.bind(m1.skeleton, m1.bindMatrix);
+  m2.frustumCulled = false; m2.castShadow = false; m2.receiveShadow = true;
+  applyGownPrint(m2);
+  addLiftBand(m2.material, true);
+  addLiftBand(m1.material, false);
+  // 거즈·배액관을 새 모델의 피부 위에 다시 놓음 (레이캐스트할 때만 잠깐 띠 전체를 보이게)
+  rig.root.updateMatrixWorld(true);
+  m1.skeleton.update();
+  rig.rebuildLift(m2);
+  m2.raycast = () => {};            // 클릭은 원래 환자 메시로
+  m2.visible = false;
+  rig.lift = { mesh: m2 };
+  tubesDirty = true;
+}
+
 const gltfLoader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/gltf/'));
 {
   gltfLoader.load(PATIENT_URL,
-    gltf => { try { setupPatient(gltf); } catch (e) { gltf.scene.removeFromParent(); patientRig = null; console.warn('환자 모델 적용 실패 → 기본 도형 사용', e); } },
+    gltf => {
+      try { setupPatient(gltf); } catch (e) { gltf.scene.removeFromParent(); patientRig = null; console.warn('환자 모델 적용 실패 → 기본 도형 사용', e); return; }
+      gltfLoader.load(PATIENT_LIFT_URL, g2 => { try { setupPatientLift(g2); } catch (e) { console.warn('상의 걷은 환자 모델 적용 실패 → 기존 환의 자락 사용', e); } },
+        undefined, e => console.warn('patient_lift.glb 불러오기 실패 → 기존 환의 자락 사용', e));
+    },
     undefined,
     e => console.warn('patient.glb 불러오기 실패 → 기본 도형 사용', e));
 }
@@ -2385,7 +2479,28 @@ const FIX = {
   E2() {
     stain.userData.fixed = true;
     // 환의를 살짝 걷어 올려 삽입 부위·배액관을 보여 줌 (혈흔은 거즈 위에서 줄어듦)
-    if (patientRig && patientRig.gownLift) {
+    if (patientRig && patientRig.lift && patientRig.gownLift) {
+      // 상의 걷은 모델: 경계를 허리 → 가슴으로 올림(0.8초) → 거즈 혈흔이 줄어드는 것 확인(약 3초) → 다시 내림(0.8초)
+      const gl = patientRig.gownLift, m2 = patientRig.lift.mesh;
+      m2.visible = true;
+      const H = LIFT_HI - LIFT_LO;
+      // 배가 드러나는 중간쯤(경계가 거즈 높이를 지날 때) 거즈·혈흔·배액관을 피부 위로 옮김
+      const showGauze = on => {
+        if (gl.group.visible === on) return;
+        gl.group.visible = on;
+        if (on) stain.position.copy(gl.stainPos); else stain.position.set(0, 0.002, 0);
+        tubesDirty = true;
+      };
+      // 걷기(0.8초) → oozing 확인(0.8초) → 거즈 위 혈흔이 줄고 옅어짐(1.6초, 지혈·dressing 교체) → 확인(0.8초) → 다시 덮기(0.8초)
+      tween(0.8, p => { liftU.liftCur.value = LIFT_LO + H * ease(p); showGauze(p > 0.55); }, () =>
+        tween(0.8, () => {}, () =>
+          tween(1.6, p => { const e = ease(p); stain.scale.setScalar(1 - 0.45 * e); stainMat.opacity = 1 - 0.6 * e; }, () =>
+            tween(0.8, () => {}, () =>
+              tween(0.8, p => { liftU.liftCur.value = LIFT_LO + H * (1 - ease(p)); showGauze(p < 0.45); }, () => {
+                liftU.liftCur.value = LIFT_LO; m2.visible = false; showGauze(false);
+              })))));
+      return;
+    } else if (patientRig && patientRig.gownLift) {
       const gl = patientRig.gownLift;
       // 걷기(0.8초) → 확인(약 3초) → 다시 덮기(0.8초)
       gl.group.visible = true; gl.hinge.rotation.x = 0;
