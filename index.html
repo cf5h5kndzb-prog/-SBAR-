@@ -1510,11 +1510,12 @@ function rebuildTubes() {
       V(0.52, 0.7 + BED_LIFT, -1.05), V(0.68, 0.85, -1.4), port]);
   } else spo2Tube.visible = false;
   // call bell 줄: 벽 패널 NURSE CALL 잭 → 벽을 타고 내려와 침대 머리 쪽 → Rt. 매트리스 옆 클립 → call bell 코일 끝
-  const clip = V(-0.5, 0.64 + BED_LIFT, -1.2);
+  // 매트리스 옆 클립·침대 머리 쪽 지점은 침상 머리(headGroup)를 따라 움직인다 (E7로 30° 올려도 매트리스에 묻히지 않게)
+  const clip = hg(-0.5, 0.02, -0.45);
   const bp = bellCordEnd.getWorldPosition(new THREE.Vector3());
-  const toWall = [V(-0.52, 0.74 + BED_LIFT, -1.75), V(-0.5, 0.9, -2.3), V(-0.3, 1.0, -2.43), V(0.12, 1.25, -2.43), CALL_JACK.clone().add(V(0, -0.06, 0.006)), CALL_JACK];
+  const toWall = [hg(-0.52, 0.12, -1.0), V(-0.5, 0.9, -2.3), V(-0.3, 1.0, -2.43), V(0.12, 1.25, -2.43), CALL_JACK.clone().add(V(0, -0.06, 0.006)), CALL_JACK];
   setTube(cordTube, bell.userData.fixed
-    ? [bp, V(-0.5, 0.66 + BED_LIFT, -1.0), clip, ...toWall]
+    ? [bp, hg(-0.5, 0.04, -0.25), clip, ...toWall]
     : [bp, V(-0.62, 0.3, -1.25), clip, ...toWall]);
   tubesDirty = false;
 }
@@ -2482,8 +2483,15 @@ const FIX = {
     railR.userData.up = true; bell.userData.fixed = true;
     const y0 = railR.position.y;
     tween(0.9, p => { railR.position.y = y0 + (0 - y0) * ease(p); tubesDirty = true; });
-    const a = bell.position.clone(), b = V(-0.42, 0.665 + BED_LIFT, -0.84);
-    tween(1.0, p => { const e = ease(p); bell.position.lerpVectors(a, b, e); bell.position.y = a.y + (b.y - a.y) * e + 0.15 * Math.sin(Math.PI * e); tubesDirty = true; }, () => { bell.position.copy(b); tubesDirty = true; });
+    // call bell을 침상 머리 부분(headGroup)에 붙여, 침상 머리를 올려도(E7) 매트리스와 함께 올라가 묻히지 않게 한다.
+    // 놓을 자리는 침상이 평평할 때 기준으로 headGroup 좌표로 바꿔 둔다 (E7을 먼저 교정했어도 매트리스 위에 놓임)
+    const r0 = headGroup.rotation.x;
+    headGroup.rotation.x = 0; headGroup.updateMatrixWorld(true);
+    const b = headGroup.worldToLocal(world.localToWorld(V(-0.42, 0.665 + BED_LIFT, -0.84)));
+    headGroup.rotation.x = r0; headGroup.updateMatrixWorld(true);
+    headGroup.attach(bell);
+    const a = bell.position.clone(), qa = bell.quaternion.clone(), qb = new THREE.Quaternion();
+    tween(1.0, p => { const e = ease(p); bell.position.lerpVectors(a, b, e); bell.position.y += 0.15 * Math.sin(Math.PI * e); bell.quaternion.slerpQuaternions(qa, qb, e); tubesDirty = true; }, () => { bell.position.copy(b); bell.quaternion.identity(); tubesDirty = true; });
   }
 };
 
