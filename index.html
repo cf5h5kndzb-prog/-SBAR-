@@ -519,7 +519,47 @@ const clockTex = canvasTex(512, 224, (g, w, h) => {
   tag(g, '벽걸이 TV', () => '꺼져 있음');
 }
 const CALL_JACK = new THREE.Vector3();   // call bell 줄이 꽂히는 잭 끝 (월드 좌표, 아래 패널에서 정함)
-// 베드헤드 패널 (침대 머리 위 벽): 콘센트 4구 · 조명 스위치 · 콜벨(빨강) · O₂(초록) · Suction(노랑). 배경 소품
+// 베드헤드 패널용 낙상주의 판 (640x300): 위 빨간 띠에 '낙상주의', 아래 왼쪽 그림(침대에서 미끄러져 주저앉는 사람), 오른쪽 안내 문구
+function drawFallPlate(c, w, h, FONT) {
+  const R = '#d7261e', K = '#1f2326';
+  c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(0, 0, w, h, 16); c.fill();
+  c.strokeStyle = R; c.lineWidth = 8; c.beginPath(); c.roundRect(4, 4, w - 8, h - 8, 13); c.stroke();
+  c.fillStyle = R; c.beginPath(); c.roundRect(4, 4, w - 8, 78, [13, 13, 0, 0]); c.fill();
+  c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `900 60px ${FONT}`; c.fillText('낙 상 주 의', w / 2, 45);
+  // 그림
+  c.save(); c.translate(22, 90);
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.fillStyle = K;
+  c.fillRect(10, 8, 15, 150);                                       // 머리판
+  c.fillRect(25, 70, 196, 26);                                      // 매트리스
+  c.fillRect(206, 96, 13, 62);                                      // 침대 다리
+  c.beginPath(); c.roundRect(34, 44, 54, 26, 9); c.fill();          // 베개
+  const person = (col, e) => {                                      // 흰 테두리 → 검은 사람 순서로
+    c.strokeStyle = col; c.fillStyle = col;
+    c.beginPath(); c.arc(150, 104, 18 + e / 2, 0, Math.PI * 2); c.fill();                      // 머리
+    c.lineWidth = 24 + e; c.beginPath(); c.moveTo(158, 126); c.lineTo(190, 160); c.stroke();    // 몸통
+    c.lineWidth = 14 + e;
+    c.beginPath(); c.moveTo(162, 130); c.lineTo(130, 108); c.lineTo(116, 78); c.stroke();       // 매트리스를 붙잡는 팔
+    c.beginPath(); c.moveTo(170, 138); c.lineTo(212, 124); c.lineTo(236, 94); c.stroke();       // 허우적대는 팔
+    c.beginPath(); c.moveTo(190, 160); c.lineTo(232, 138); c.lineTo(258, 160); c.stroke();      // 굽은 다리
+    c.beginPath(); c.moveTo(190, 160); c.lineTo(238, 172); c.lineTo(268, 168); c.stroke();      // 뻗은 다리
+  };
+  person('#ffffff', 10);
+  person(K, 0);
+  c.strokeStyle = R; c.lineWidth = 6;                               // 바닥에 부딪힘
+  for (const a of [0.35, 0.95, 1.57, 2.19, 2.79]) {                // 엉덩이 아래로 퍼지는 짧은 선
+    const cx = 190, cy = 168;
+    c.beginPath(); c.moveTo(cx + Math.cos(a) * 18, cy + Math.sin(a) * 14); c.lineTo(cx + Math.cos(a) * 34, cy + Math.sin(a) * 24); c.stroke();
+  }
+  c.restore();
+  // 안내 문구 (오른쪽)
+  c.fillStyle = '#2c3236'; c.textAlign = 'left'; c.font = `800 31px ${FONT}`;
+  c.fillText('침대 난간을', 330, 128); c.fillText('꼭 올려 주세요', 330, 168);
+  c.fillStyle = '#5a6267'; c.font = `700 25px ${FONT}`;
+  c.fillText('도움이 필요하면', 330, 222); c.fillText('콜벨을 누르세요', 330, 256);
+}
+// 베드헤드 패널 (침대 머리 위 벽): 낙상주의 판 · 콘센트 2구 · 조명 스위치 · 콜벨(빨강) · O₂(초록) · Suction(노랑). 배경 소품
 {
   const PW = 1.3, PH = 0.2;
   const g = group(world, -0.01, 1.52, -2.5 + 0.03);   // 침대 가운데 선에 맞춤
@@ -529,15 +569,15 @@ const CALL_JACK = new THREE.Vector3();   // call bell 줄이 꽂히는 잭 끝 (
     c.strokeStyle = '#c9cfd3'; c.lineWidth = 4; c.strokeRect(2, 2, w - 4, h - 4);
     c.strokeStyle = '#d8dde0'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 22); c.lineTo(w, 22); c.moveTo(0, h - 22); c.lineTo(w, h - 22); c.stroke();
     c.textAlign = 'center'; c.fillStyle = '#6b7378'; c.font = `bold 20px ${FONT}`;
-    // 콘센트 4구 (왼쪽)
-    for (let i = 0; i < 4; i++) {
-      const x = 90 + i * 120, y = 100;
+    // 콘센트 2구 (낙상주의 판 오른쪽)
+    for (let i = 0; i < 2; i++) {
+      const x = 380 + i * 104, y = 100;
       c.fillStyle = '#f4f6f7'; c.strokeStyle = '#b9c0c4'; c.lineWidth = 3;
       c.beginPath(); c.roundRect(x - 48, y - 48, 96, 96, 12); c.fill(); c.stroke();
       c.fillStyle = '#e9ecee'; c.beginPath(); c.arc(x, y, 34, 0, Math.PI * 2); c.fill(); c.stroke();
       c.fillStyle = '#3a4146'; c.beginPath(); c.arc(x - 12, y, 6, 0, Math.PI * 2); c.arc(x + 12, y, 6, 0, Math.PI * 2); c.fill();
     }
-    c.fillStyle = '#6b7378'; c.fillText('220V', 270, 178);
+    c.fillStyle = '#6b7378'; c.fillText('220V', 432, 178);
     // 조명 스위치 (2구)
     c.fillStyle = '#f4f6f7'; c.strokeStyle = '#b9c0c4'; c.lineWidth = 3;
     c.beginPath(); c.roundRect(560, 52, 130, 96, 10); c.fill(); c.stroke();
@@ -562,13 +602,21 @@ const CALL_JACK = new THREE.Vector3();   // call bell 줄이 꽂히는 잭 끝 (
   };
   outlet(980, 0x1e9e4a);
   outlet(1175, 0xf2c200);
+  // 낙상주의 판: 패널 왼쪽(원래 콘센트 2구 자리)에 붙인 얇은 흰 판
+  {
+    const FW = 0.3, FH = FW * 300 / 640;            // 30 x 14 cm
+    const fx = px(170);
+    add(g, B(FW, FH, 0.004), mat(0xf7f7f7, { roughness:0.5 }), fx, 0, 0.022);
+    const fTex = canvasTex(640, 300, (c, w, h) => drawFallPlate(c, w, h, FONT));
+    screenMesh(g, fTex, FW - 0.002, FH - 0.002, fx, 0, 0.0245);
+  }
   // 콜벨 버튼 옆 잭: call bell 줄의 플러그가 꽂힘
   const jx = px(785) + 0.042;
   const jackRing = add(g, CYL(0.012, 0.008, 20), mat(0xc4cbd0, { metalness:0.5, roughness:0.35 }), jx, py(100), 0.024); jackRing.rotation.x = Math.PI / 2;
   const plug = add(g, CYL(0.008, 0.03, 16), mat(0xe9e4d6, { roughness:0.5 }), jx, py(100), 0.04); plug.rotation.x = Math.PI / 2;
   g.updateMatrixWorld(true);
   CALL_JACK.copy(g.localToWorld(V(jx, py(100), 0.056)));
-  tag(g, '베드헤드 패널', () => '콘센트 4구 · 조명 스위치 · 콜벨 · O₂ · Suction');
+  tag(g, '베드헤드 패널', () => '낙상주의 판 · 콘센트 2구 · 조명 스위치 · 콜벨 · O₂ · Suction');
 }
 
 // 처방/정보 보드 (뒷벽 왼쪽)
@@ -1235,6 +1283,63 @@ lateLoad('pole.glb', sc => {
   poleProc.removeFromParent();
   pole.add(g);
 });
+
+// 낙상주의 표지판: 폴대 기둥에 끈으로 단 노란 카드 (12 x 17 cm)
+function drawFallSign(c, w, h, FONT) {
+  const r = 34;
+  c.fillStyle = '#f6d70c';
+  c.beginPath(); c.roundRect(0, 0, w, h, r); c.fill();
+  c.strokeStyle = '#1b1b1b'; c.lineWidth = 6;
+  c.beginPath(); c.roundRect(14, 14, w - 28, h - 28, r - 12); c.stroke();
+  // 걸이 구멍
+  c.fillStyle = '#c9ad08'; c.beginPath(); c.arc(w / 2, 36, 11, 0, Math.PI * 2); c.fill();
+  // 제목
+  c.fillStyle = '#e1251b'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `900 96px ${FONT}`; c.fillText('낙상주의', w / 2, 112);
+  c.fillStyle = '#1b1b1b'; c.fillRect(40, 168, w - 80, 5);
+  // 그림: 수액 폴대를 잡은 채 뒤로 넘어지는 사람
+  c.strokeStyle = '#1b1b1b'; c.fillStyle = '#1b1b1b'; c.lineCap = 'round'; c.lineJoin = 'round';
+  // 폴대 (오른쪽) + 수액 백 + 바퀴 받침
+  c.lineWidth = 7;
+  c.beginPath(); c.moveTo(290, 205); c.lineTo(290, 470); c.stroke();
+  c.beginPath(); c.moveTo(262, 205); c.lineTo(318, 205); c.stroke();
+  c.lineWidth = 5;
+  c.beginPath(); c.roundRect(304, 214, 26, 40, 6); c.stroke();
+  c.beginPath(); c.moveTo(317, 254); c.quadraticCurveTo(320, 300, 300, 330); c.stroke();
+  c.lineWidth = 7;
+  c.beginPath(); c.moveTo(250, 470); c.lineTo(330, 470); c.stroke();
+  for (const x of [252, 290, 328]) { c.beginPath(); c.arc(x, 478, 7, 0, Math.PI * 2); c.fill(); }
+  // 사람: 다리가 앞으로 미끄러지며 상체가 뒤로 넘어지는 자세
+  c.beginPath(); c.arc(104, 262, 26, 0, Math.PI * 2); c.fill();                            // 머리 (뒤로 젖혀짐)
+  c.lineWidth = 30;
+  c.beginPath(); c.moveTo(128, 300); c.lineTo(178, 380); c.stroke();                         // 몸통 (뒤로 기울어짐)
+  c.lineWidth = 18;
+  c.beginPath(); c.moveTo(140, 312); c.lineTo(212, 302); c.lineTo(283, 288); c.stroke();     // 폴대를 붙잡은 팔
+  c.beginPath(); c.moveTo(124, 304); c.lineTo(62, 268); c.lineTo(52, 214); c.stroke();       // 허공으로 뻗은 팔
+  c.lineWidth = 22;
+  c.beginPath(); c.moveTo(178, 380); c.lineTo(232, 410); c.lineTo(272, 380); c.stroke();     // 앞으로 들린 다리
+  c.beginPath(); c.moveTo(178, 380); c.lineTo(214, 444); c.lineTo(262, 452); c.stroke();     // 미끄러지는 다리
+  // 미끄러짐 표시
+  c.lineWidth = 5;
+  for (const [x, y] of [[196, 470], [150, 462]]) { c.beginPath(); c.moveTo(x - 30, y); c.lineTo(x + 30, y); c.stroke(); }
+  // 아래 문구
+  c.font = `800 38px ${FONT}`; c.fillText('미끄럼·넘어짐 주의', w / 2, 528);
+}
+{
+  const HOOK_SIGN = V(0.0, 1.66, 0.0);              // 폴대 기둥, 수액 백 고리 아래 눈높이 (수액 백·펌프·PCA와 겹치지 않음)
+  const CW = 0.12, CH = CW * 580 / 400;             // 12 x 17 cm
+  const g = group(pole, HOOK_SIGN.x, HOOK_SIGN.y, HOOK_SIGN.z);
+  g.rotation.y = 0.55; g.translateZ(0.045);          // 침대 발치 쪽을 보게 돌리고 기둥 앞으로
+  const tex = canvasTex(400, 580, (c, w, h) => drawFallSign(c, w, h, FONT));
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(CW, CH), new THREE.MeshStandardMaterial({ map:tex, roughness:0.5, side:THREE.DoubleSide, alphaTest:0.5 }));
+  card.position.y = -0.03 - CH / 2;                  // 끈 아래에 매달림
+  card.castShadow = true;
+  g.add(card);
+  // 기둥에 감은 흰 끈 고리
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.0015, 6, 20), mat(0xf2f2f2));
+  loop.position.y = -0.016; loop.rotation.x = Math.PI / 2; loop.position.z = -0.045; loop.scale.set(1.6, 1.6, 1); g.add(loop);
+  tag(g, '낙상주의 표지판', '');
+}
 
 // 수액 백: Plasma Solution A 1 L (라벨은 코드로 그림)
 const bagLbl = canvasTex(256, 512, (g, w, h) => {
