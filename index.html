@@ -1563,7 +1563,7 @@ clamp.userData.err = 'E5'; clamp.userData.label = 'PCA 라인 클램프';
 clamp.userData.read = () => pcaOpen ? '클램프 열림' : '클램프 잠김';
 
 /* ---------- JP bulb (E3) ---------- */
-const BULB_POS = V(-0.6, 0.5 + BED_LIFT, -0.78);      // 오류: Rt. 침대 옆에 매달려 있음
+const BULB_POS = V(-0.575, 0.5 + BED_LIFT, -0.6);      // 오류: Rt. 침대 옆 난간에 붙어 매달려 있음
 const BULB_FIX_POS = V(-0.37, 0.75 + 0.058, -0.56);      // 교정: 매트리스 위 환자 Rt. 옆구리 옆에 눕힘 (환의에 클립 고정)
 const BULB_FIX_ROT = -Math.PI / 2;                       // 눕힘: 마개가 머리 쪽(클립 쪽), 눈금 면이 위
 let jpClipPt = null;                                    // 환의 클립 위치 (교정 후)
