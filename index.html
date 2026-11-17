@@ -428,6 +428,35 @@ for (const z of [-1, 1]) {
   add(g, B(0.08, 0.04, 0.16), mat(0x8a98a0), -0.03, 0, 0.35);
   tag(g, '출입문', '');
 }
+// 비상구 유도등 (출입문 위): 흰 본체 + 초록 바탕에 문으로 달려 나가는 사람 그림 + EXIT, 스스로 빛나는 화면
+{
+  const SW = 0.4, SH = 0.18;
+  const g = group(world, 3 - 0.035, 2.25, 1.4);
+  g.rotation.y = -Math.PI / 2;                          // 앞면이 방 안쪽(-x)
+  add(g, B(SW + 0.02, SH + 0.02, 0.05), mat(0xf4f5f2, { roughness:0.5 }));
+  const tex = canvasTex(800, 360, (c, w, h) => {
+    c.fillStyle = '#12924a'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#ffffff'; c.fillStyle = '#ffffff'; c.lineCap = 'round'; c.lineJoin = 'round';
+    // 열린 문틀 (왼쪽)
+    c.lineWidth = 16;
+    c.beginPath(); c.moveTo(150, 300); c.lineTo(40, 300); c.lineTo(40, 50); c.lineTo(150, 50); c.stroke();
+    c.beginPath(); c.moveTo(150, 50); c.lineTo(205, 78); c.stroke();
+    // 달리는 사람 (문 밖으로)
+    c.beginPath(); c.arc(170, 88, 24, 0, Math.PI * 2); c.fill();
+    c.lineWidth = 26;
+    c.beginPath(); c.moveTo(158, 128); c.lineTo(132, 205); c.stroke();                         // 몸통
+    c.lineWidth = 20;
+    c.beginPath(); c.moveTo(150, 140); c.lineTo(196, 158); c.lineTo(230, 136); c.stroke();     // 앞팔
+    c.beginPath(); c.moveTo(150, 140); c.lineTo(110, 160); c.lineTo(84, 196); c.stroke();      // 뒷팔
+    c.beginPath(); c.moveTo(132, 205); c.lineTo(178, 238); c.lineTo(166, 296); c.lineTo(198, 300); c.stroke();  // 앞다리
+    c.beginPath(); c.moveTo(132, 205); c.lineTo(104, 252); c.lineTo(60, 262); c.stroke();      // 뒷다리
+    // EXIT
+    c.font = 'bold 190px Arial, Helvetica, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('EXIT', 515, 186);
+  });
+  screenMesh(g, tex, SW - 0.012, SH - 0.012, 0, 0, 0.026);
+  tag(g, '비상구 유도등', '');
+}
 // 벽시계 (남은 시간)
 const clockTex = canvasTex(512, 224, (g, w, h) => {
   g.fillStyle = '#10181d'; g.fillRect(0, 0, w, h);
