@@ -283,7 +283,7 @@ renderer.xr.enabled = true;
 $('app').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xdde6ea);
+scene.background = new THREE.Color(0xf1e9dc);
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 40);
 const dolly = new THREE.Group();
 dolly.add(camera);
@@ -298,7 +298,7 @@ controls.maxPolarAngle = Math.PI * 0.62;
 controls.enableDamping = true;
 controls.update();
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xb8c4ca, 1.25));
+scene.add(new THREE.HemisphereLight(0xfff6ea, 0xc9b89e, 1.25));
 const sun = new THREE.DirectionalLight(0xffffff, 1.4);
 sun.position.set(2, 3.2, 2.2);
 sun.castShadow = true;
@@ -385,28 +385,51 @@ function screenMesh(parent, tex, w, h, x, y, z, ry = 0) {
 /* ============================================================
    병실
    ============================================================ */
-const wallMat = mat(0xeef3f5, { roughness:0.95 });
-const floorTex = canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = '#dfe5e8'; g.fillRect(0, 0, w, h);
-  g.strokeStyle = '#c9d2d6'; g.lineWidth = 3; g.strokeRect(0, 0, w, h);
+// 병실 색: 따뜻한 톤 (벽·천장·바닥·침대 뒤 포인트 벽)
+const wallMat = mat(0xf4eee3, { roughness:0.95 });
+const ceilMat = mat(0xfbf8f2, { roughness:0.95 });
+const accentMat = null;
+// 바닥: 나무결 데코타일 (폭 15 cm 판, 판마다 색이 조금씩 다르고 이음매가 엇갈림)
+const floorTex = canvasTex(512, 512, (g, w, h) => {
+  const rows = 8, ph = h / rows, base = new THREE.Color('#d9bc94'), hsl = {};
+  base.getHSL(hsl);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let r = 0; r < rows; r++) {
+    const off = (r % 2 ? 0.5 : 0) * w + rnd() * 60;
+    for (let k = -1; k < 2; k++) {
+      const x0 = off + k * w;
+      const c = new THREE.Color().setHSL(hsl.h + (rnd() - 0.5) * 0.012, hsl.s * (0.9 + rnd() * 0.2), hsl.l * (0.94 + rnd() * 0.1));
+      g.fillStyle = '#' + c.getHexString(); g.fillRect(x0, r * ph, w, ph);
+      g.globalAlpha = 0.18; g.strokeStyle = '#b8976c'; g.lineWidth = 1.2;     // 나무결
+      for (let i = 0; i < 7; i++) {
+        const y = r * ph + 4 + rnd() * (ph - 8);
+        g.beginPath(); g.moveTo(x0, y);
+        for (let x = 0; x <= w; x += 32) g.lineTo(x0 + x, y + Math.sin(x / 40 + i) * 1.5);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      g.fillStyle = '#b8976c'; g.fillRect(x0, r * ph, 2, ph);                  // 판 끝 이음매
+    }
+    g.fillStyle = '#b8976c'; g.fillRect(0, r * ph, w, 2);                        // 판 사이 줄
+  }
 });
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-floorTex.repeat.set(6, 5);
+floorTex.repeat.set(6 / 1.2, 5 / 1.2);   // 텍스처 한 장 = 1.2 m
 
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 5), new THREE.MeshStandardMaterial({ map:floorTex, roughness:0.6 }));
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; world.add(skip(floor));
 
-function wall(w, h, x, y, z, ry, rx = 0) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
+function wall(w, h, x, y, z, ry, rx = 0, m0 = wallMat) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m0);
   m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.receiveShadow = true;
   world.add(skip(m));
   return m;
 }
-wall(6, 2.6, 0, 1.3, -2.5, 0);            // 뒷벽
+wall(6, 2.6, 0, 1.3, -2.5, 0, 0, accentMat || wallMat);   // 뒷벽 (침대 머리 쪽: 포인트 벽)
 wall(5, 2.6, -3, 1.3, 0, Math.PI / 2);    // 왼벽
 wall(5, 2.6, 3, 1.3, 0, -Math.PI / 2);    // 오른벽
 wall(6, 2.6, 0, 1.3, 2.5, Math.PI);       // 앞벽
-wall(6, 5, 0, 2.6, 0, 0, Math.PI / 2);    // 천장
+wall(6, 5, 0, 2.6, 0, 0, Math.PI / 2, ceilMat);    // 천장
 for (const z of [-1, 1]) {
   const l = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.5), new THREE.MeshBasicMaterial({ color:0xffffff }));
   l.rotation.x = Math.PI / 2; l.position.set(0, 2.59, z); world.add(skip(l));
