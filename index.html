@@ -2355,7 +2355,10 @@ guardian.visible = false;
   const h = add(guardian, SPH(0.125), mat(0x2b2b2b), 0, 1.24, -0.02); h.scale.set(1, 0.8, 1);
   tag(guardian, '보호자 (남편)', () => '환자의 남편');
 }
-const bubbleText = '간호사님, 아내가 얼굴이 하얗고 식은땀을 흘려요. 배가 많이 아프대요.';
+// 보호자 대사 (보고서 3-7): 2분 등장 시 반복 질문, 5분까지 PCA(E5) 미탐지면 PCA를 가리키며 구조 단서
+const GUARDIAN_ASK = '너무 아파하는 거 아니에요? 의사는 언제와요?';
+const GUARDIAN_PCA = '저기 이상한 것 같은데 좀 봐주세요';
+let bubbleText = GUARDIAN_ASK;
 const bubbleTex = canvasTex(640, 220, (g, w, h) => {
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
   g.strokeStyle = '#1f6f8b'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
@@ -2370,6 +2373,7 @@ bubble.raycast = () => {};
 guardian.add(bubble);
 let bubbleTTL = 0;
 let guardianWalk = -1;
+let guardianPoint = 0;          // >0 이면 PCA 쪽을 보고 가리키는 중 (초)
 
 /* ---------- 3D 소품 모델 (카트 · JP bulb · 보호자) ----------
    각 모델은 높이가 1.9 단위로 맞춰져 있어 실제 크기로 줄여 배치한다. 불러오지 못하면 기존 도형을 쓴다. */
@@ -3074,7 +3078,10 @@ function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;',
 const EVENTS = [
   { t:120, run:evGuardian },
   { t:180, run:evPain },
+  { t:190, run:evGuardianAsk },
+  { t:250, run:evGuardianAsk },
   { t:300, run:evBleed },
+  { t:306, run:evGuardianPCA },
   { t:480, run:evSevere },
   { t:540, run:evFall }
 ];
@@ -3095,6 +3102,13 @@ function speak(text, { pitch = 0.85, rate = 1.0 } = {}) {
   u.rate = rate;
   speechSynthesis.speak(u);
 }
+// 보호자가 말하기: 말풍선 + 음성 + 기록
+function guardianSay(text, ttl = 9, delay = 0) {
+  bubbleText = text; paint(bubbleTex);
+  bubble.visible = true; bubbleTTL = ttl + delay;
+  feed('보호자: "' + text + '"', 'alert');
+  setTimeout(() => { if (state.phase === 'running') speak(text); }, delay * 1000);
+}
 function evGuardian() {
   guardian.visible = true; guardianWalk = 0;
   toast('🚪 보호자가 병실에 들어왔습니다.', 'alert', 4200);
@@ -3102,9 +3116,19 @@ function evGuardian() {
     feed('보호자 방문', 'alert');
     return;
   }
-  bubble.visible = true; bubbleTTL = 14;
-  feed('보호자 방문: "' + bubbleText + '"', 'alert');
-  setTimeout(() => { if (state.phase === 'running') speak(bubbleText); }, 1200);   // 문으로 들어와 몇 걸음 걸은 뒤 말함
+  guardianSay(GUARDIAN_ASK, 10, 1.2);                     // 문으로 들어와 몇 걸음 걸은 뒤 말함
+}
+// 반복 질문: PCA 오류가 아직 그대로면 1분마다 다시 물음 (3분 10초 · 4분 10초)
+function evGuardianAsk() {
+  if (!guardian.visible || state.found.has('E5')) return;
+  guardianSay(GUARDIAN_ASK, 8);
+}
+// 5분까지 PCA 오류 미탐지: 보호자가 PCA 쪽을 보며 가리킴 + PCA에 힌트 동그라미 (구조 단서)
+function evGuardianPCA() {
+  if (!guardian.visible || state.found.has('E5')) return;
+  guardianPoint = 6;
+  guardianSay(GUARDIAN_PCA, 9);
+  addHint('E5', 10);
 }
 function evPain() {
   toast('😣 환자가 통증을 호소합니다 (NRS 상승).', 'alert', 4200);
@@ -3335,6 +3359,11 @@ function frame() {
     guardian.lookAt(0.3, 0, -0.6);   // 수평으로만 회전 (눕지 않게)
   }
   if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
+  // 보호자가 PCA를 가리킴: PCA(폴대 쪽) 방향으로 몸을 돌렸다가 다시 환자 쪽으로
+  if (guardian.visible && guardianWalk >= 1) {
+    if (guardianPoint > 0) { guardianPoint -= dt; guardian.lookAt(POLE.x, 0, POLE.z); }
+    else guardian.lookAt(0.3, 0, -0.6);
+  }
 
   // 트윈
   for (let i = tweens.length - 1; i >= 0; i--) {
