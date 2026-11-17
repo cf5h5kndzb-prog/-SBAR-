@@ -1851,37 +1851,6 @@ function applyGownPrint(mesh) {
   mtl.needsUpdate = true;
 }
 
-/* 복부 평탄화: 모델 기본 체형은 배가 앞으로 많이 나와(허리 높이 앞면이 가슴보다 더 튀어나옴) 복수가 찬 것처럼 보임.
-   몸통 뼈(Hips·Spine·Spine1·Spine2)에 묶인 정점 중 배 앞쪽이 BELLY.zFront(T자 자세 기준 앞면 위치, m)보다 앞으로 나온 만큼만 뒤로 눌러 납작하게 만든다.
-   원래 환자(patient.glb)와 상의 걷은 환자(patient_lift.glb)에 똑같이 적용해 E2 교정 때 모델이 바뀌어도 배 모양이 이어진다.
-   keep: 눌린 뒤에도 남기는 비율(0 = 완전 평면, 1 = 변화 없음) — 옷 주름이 완전히 사라지지 않게 일부 남김. */
-const BELLY = { yLo: 0.70, yLoFull: 0.80, yFullEnd: 1.04, yHi: 1.18, xFull: 0.17, xEnd: 0.23, zFront: 0.098, keep: 0.1 };
-function flattenBelly(mesh) {
-  const g = mesh.geometry;
-  if (!g || g.userData.bellyFlat) return;
-  const pos = g.attributes.position, nor = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
-  if (!pos || !si || !sw) return;
-  const torso = mesh.skeleton.bones.map(b => /^(Hips|Spine|Spine1|Spine2)$/.test(b.name.replace(/^mixamorig:?/, '')));
-  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    if (z <= BELLY.zFront) continue;
-    let w = 0;
-    for (let k = 0; k < 4; k++) if (torso[si.getComponent(i, k)]) w += sw.getComponent(i, k);
-    const f = Math.min(1, w) * ss(BELLY.yLo, BELLY.yLoFull, y) * (1 - ss(BELLY.yFullEnd, BELLY.yHi, y)) * (1 - ss(BELLY.xFull, BELLY.xEnd, Math.abs(x)));
-    if (f <= 0) continue;
-    const s = 1 - (1 - BELLY.keep) * f;                       // z 방향 압축 비율 (이 정점에서)
-    pos.setZ(i, BELLY.zFront + (z - BELLY.zFront) * s);
-    if (nor) {                                                // 법선: z로 s배 눌렀으니 (nx, ny, nz/s)
-      const nx = nor.getX(i), ny = nor.getY(i), nz = nor.getZ(i) / s, l = Math.hypot(nx, ny, nz) || 1;
-      nor.setXYZ(i, nx / l, ny / l, nz / l);
-    }
-  }
-  pos.needsUpdate = true; if (nor) nor.needsUpdate = true;
-  g.userData.bellyFlat = true;
-  g.computeBoundingBox(); g.computeBoundingSphere();
-}
-
 function setupPatient(gltf) {
   const root = gltf.scene;
   root.scale.setScalar(PATIENT_SCALE);
@@ -1889,7 +1858,6 @@ function setupPatient(gltf) {
   root.traverse(o => {
     if (o.isBone) bones[o.name.replace(/^mixamorig:?/, '')] = o;
     if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
-    if (o.isSkinnedMesh) flattenBelly(o);
     if (o.isMesh && o.material && o.material.map) applyGownPrint(o);
   });
   const need = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'HeadTop_End', 'LeftShoulder', 'RightShoulder',
@@ -2339,7 +2307,6 @@ function setupPatientLift(gltf) {
   rig.root.traverse(o => { if (o.isSkinnedMesh) m1 = o; });
   gltf.scene.traverse(o => { if (o.isSkinnedMesh) m2 = o; });
   if (!m1 || !m2) throw new Error('스킨 메시 없음');
-  flattenBelly(m2);                // 뼈 번호를 바꾸기 전에 (자기 뼈대 이름으로 몸통 정점을 찾음)
   // 뼈 번호를 이름으로 맞춰 원래 환자의 뼈대에 묶음
   const oldIdx = {};
   m1.skeleton.bones.forEach((b, i) => { oldIdx[b.name] = i; });
