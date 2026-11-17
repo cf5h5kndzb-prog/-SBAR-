@@ -3078,10 +3078,33 @@ const EVENTS = [
   { t:480, run:evSevere },
   { t:540, run:evFall }
 ];
+// 음성 대사: 브라우저 내장 음성 합성(한국어). 남성 목소리가 있으면 쓰고, 없으면 낮은 톤으로
+function pickVoice() {
+  const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+  const ko = vs.filter(v => /^ko/i.test(v.lang));
+  return ko.find(v => /InJoon|Hyunsu|male|남/i.test(v.name) && !/female|여/i.test(v.name)) || ko[0] || null;
+}
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};   // 음성 목록 미리 불러오기
+function speak(text, { pitch = 0.85, rate = 1.0 } = {}) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ko-KR';
+  const v = pickVoice(); if (v) u.voice = v;
+  u.pitch = v && /InJoon|Hyunsu|male|남/i.test(v.name) ? 1.0 : pitch;   // 여성 목소리뿐이면 톤을 낮춤
+  u.rate = rate;
+  speechSynthesis.speak(u);
+}
 function evGuardian() {
-  guardian.visible = true; guardianWalk = 0; bubble.visible = true; bubbleTTL = 14;
+  guardian.visible = true; guardianWalk = 0;
   toast('🚪 보호자가 병실에 들어왔습니다.', 'alert', 4200);
-  feed('보호자 방문: "얼굴이 하얗고 식은땀을 흘려요. 배가 많이 아프대요."', 'alert');
+  if (state.found.has('E5')) {                           // 보호자 등장 전에 PCA 오류를 이미 찾았으면 대사 없음
+    feed('보호자 방문', 'alert');
+    return;
+  }
+  bubble.visible = true; bubbleTTL = 14;
+  feed('보호자 방문: "' + bubbleText + '"', 'alert');
+  setTimeout(() => { if (state.phase === 'running') speak(bubbleText); }, 1200);   // 문으로 들어와 몇 걸음 걸은 뒤 말함
 }
 function evPain() {
   toast('😣 환자가 통증을 호소합니다 (NRS 상승).', 'alert', 4200);
@@ -3140,6 +3163,7 @@ function targets() {
    시작 · 종료
    ============================================================ */
 function start() {
+  if (window.speechSynthesis) speechSynthesis.cancel();
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
   Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fell:false, bleedHold:null });
   state.found.clear(); state.wrong.clear(); closeJudge(); state.done.clear(); state.log.length = 0;
@@ -3157,6 +3181,7 @@ function calcScore() {
 function end(reason) {
   if (state.phase !== 'running') return;
   state.phase = 'ended';
+  if (window.speechSynthesis) speechSynthesis.cancel();
   $('hintBtn').disabled = true; $('giveUpBtn').disabled = true;
   hideTip(); closeJudge();
   for (const e of ERRORS) if (!state.found.has(e.id)) addHint(e.id, 3600, true);
