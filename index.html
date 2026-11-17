@@ -259,7 +259,7 @@ const state = {
   found:new Set(), wrong:new Map(), misses:0, hints:0, fell:false,
   done:new Set(), log:[], lastMsg:'', hover:'', inXR:false
 };
-const vit = { hr:92, sbp:114, dbp:72, spo2:97, rr:18, temp:36.8, pain:4 };
+const vit = { hr:88, sbp:140, dbp:80, spo2:96, rr:18, temp:36.8, pain:6 };   // 시나리오 3-5 기준값 (0분)
 let phaseF = 0.1;
 let hobDeg = 0;
 let ivRate = 20;
@@ -783,19 +783,19 @@ tag(monitorGroup, '활력징후 모니터 (포터블)', () =>
 
 function drawMonitor(g, w, h) {
   g.fillStyle = '#050a0d'; g.fillRect(0, 0, w, h);
-  const alarm = vit.sbp < 90 || vit.hr > 120 || vit.spo2 < 92;
+  const alarm = vit.sbp <= 90.5 || vit.hr >= 119.5 || vit.spo2 < 92;   // 8분 출혈 미조치(BP 90/60·PR 120)에서 알람
   g.fillStyle = '#0f1a20'; g.fillRect(0, 0, w, 40);
   g.fillStyle = '#8fa3ad'; g.font = `20px ${FONT}`; g.fillText('나예민 (F/60) · 성인', 16, 28);
   if (alarm && Math.floor(performance.now() / 500) % 2 === 0) { g.fillStyle = '#c0392b'; g.fillRect(w / 2, 0, w / 2, 40); g.fillStyle = '#fff'; g.font = `bold 24px ${FONT}`; g.fillText('ALARM  활력징후 이상', w / 2 + 16, 29); }
   // NIBP (왼쪽 위, 크게)
-  const bpCol = vit.sbp < 90 ? '#ff5252' : '#ffffff';
+  const bpCol = vit.sbp <= 90.5 ? '#ff5252' : '#ffffff';
   const map = Math.round((vit.sbp + 2 * vit.dbp) / 3);
   g.fillStyle = bpCol; g.font = `bold 26px ${FONT}`; g.fillText('NIBP', 22, 82);
   g.fillStyle = '#8fa3ad'; g.font = `18px ${FONT}`; g.fillText('mmHg · 자동 15분', 96, 82);
   g.fillStyle = bpCol; g.font = `bold 96px ${FONT}`; g.fillText(`${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`, 22, 178);
   g.font = `bold 34px ${FONT}`; g.fillText(`(${map})`, 22, 222);
   // PR (오른쪽 위)
-  const prCol = vit.hr > 120 ? '#ff5252' : '#3dff7a';
+  const prCol = vit.hr >= 119.5 ? '#ff5252' : '#3dff7a';
   g.fillStyle = prCol; g.font = `bold 26px ${FONT}`; g.fillText('PR', 560, 82);
   g.fillStyle = '#8fa3ad'; g.font = `18px ${FONT}`; g.fillText('bpm', 606, 82);
   g.fillStyle = prCol; g.font = `bold 92px ${FONT}`; g.fillText(String(Math.round(vit.hr)), 560, 178);
@@ -3111,25 +3111,29 @@ function evFall() {
   }
 }
 
+/* 활력징후 목표값 — 시나리오 문서 3-5 '경과 시간별 활력징후'와 적용 규칙
+   0분(기준): BP 140/80 · PR 88 · RR 18 · SpO₂ 96% · BT 36.8℃ · NRS 6
+   통증 트랙(E5 미교정, 3분~): BP +10/+15 · PR +10 · NRS 7 → 150/95 · 98   (E5를 교정하면 통증 기여분이 빠짐)
+   출혈 트랙(E2 미확인): 5분 → 통증 상태에서 BP −20/−5 · PR +12 · RR 24 (E5 미교정 130/90·110, 교정 120/75·100)
+                        8분 → BP 90/60 · PR 120 · RR 28 (출혈이 주도, 통증 여부와 같음)
+   복부 dressing(E2)을 확인하면 그 순간의 출혈 단계에서 멈춰 그대로 유지. SpO₂는 전 구간 96% */
 function targets() {
   const f = state.found;
-  const painT = state.practice ? 4 : (state.t >= 180 ? (f.has('E5') ? 4 : 8) : (f.has('E5') ? 3 : 5));
-  phaseF = state.practice ? 0.1 : (state.t < 180 ? 0.1 : state.t < 300 ? 0.25 : state.t < 480 ? 1.0 : 1.7);
-  // 출혈 트랙: 복부 dressing(E2)을 확인하면 그 순간의 출혈 영향 정도를 고정 → 활력징후가 더 나빠지지 않고 그대로 유지
-  //            확인하지 못하면 시간(3분·5분·8분)이 지날수록 빈맥·저혈압이 진행
-  const bleedNow = (1 + (f.has('E4') ? 0 : 0.3)) * phaseF;
-  if (f.has('E2')) { if (state.bleedHold == null) state.bleedHold = bleedNow; }
+  if (state.practice) return { pain:6, hr:88, sbp:140, dbp:80, spo2:96, rr:18 };
+  const t = state.t;
+  const painOn = t >= 180 && !f.has('E5');
+  const painT = f.has('E5') ? 4 : (t >= 180 ? 7 : 6);
+  phaseF = t < 180 ? 0.1 : t < 300 ? 0.25 : t < 480 ? 1.0 : 1.7;
+  // 출혈 단계: 0(~5분) · 1(5분~) · 2(8분~). E2 확인 시 그 순간 단계로 고정
+  const lvlNow = t >= 480 ? 2 : t >= 300 ? 1 : 0;
+  if (f.has('E2')) { if (state.bleedHold == null) state.bleedHold = lvlNow; }
   else state.bleedHold = null;
-  const bleed = f.has('E2') ? state.bleedHold : bleedNow;
-  const hiPain = painT >= 7 ? 1 : 0;
-  return {
-    pain: painT,
-    hr: Math.min(150, 90 + hiPain * 10 + 30 * bleed),
-    sbp: Math.max(60, 114 - 20 * bleed),
-    dbp: Math.max(34, 72 - 12 * bleed),
-    spo2: Math.max(86, 97 - 2 * bleed),
-    rr: Math.min(32, 18 + 4 * bleed + hiPain * 2)
-  };
+  const lvl = f.has('E2') ? state.bleedHold : lvlNow;
+  if (lvl >= 2) return { pain:painT, hr:120, sbp:90, dbp:60, spo2:96, rr:28 };
+  let sbp = 140, dbp = 80, hr = 88, rr = 18;
+  if (painOn) { sbp += 10; dbp += 15; hr += 10; }
+  if (lvl >= 1) { sbp -= 20; dbp -= 5; hr += 12; rr = 24; }
+  return { pain:painT, hr, sbp, dbp, spo2:96, rr };
 }
 
 /* ============================================================
