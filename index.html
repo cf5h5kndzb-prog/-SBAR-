@@ -2416,6 +2416,27 @@ bubble.visible = false;
 bubble.raycast = () => {};
 guardian.add(bubble);
 let bubbleTTL = 0;
+// 환자 대사 (보고서 3-6 심리적 충실도 · 3-7 환자): 모든 대사에 신음 동반
+const PATIENT_LINE = {
+  enter:'아이고… 수술부위가 아파요.',                        // 진입 시 주 호소 (NRS 6)
+  worse:'아… 아까보다 더 아파요.',                           // 3분까지 E5 미교정 (NRS 7)
+  pcaNoEffect:'으… 눌러도 별로 안 나아지는 것 같아요.',      // PCA 확인 시 (E5 미교정)
+  pcaFixed:'휴… 눌렀더니 좀 나아지는 것 같아요.'             // E5 교정 후
+};
+let pBubbleText = PATIENT_LINE.enter;
+const pBubbleTex = canvasTex(640, 220, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#c2185b'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
+  g.fillStyle = '#1d2b33'; g.font = `32px ${FONT}`;
+  wrap(g, '😣 ' + pBubbleText, 24, 56, w - 48, 42);
+});
+const pBubble = new THREE.Sprite(new THREE.SpriteMaterial({ map:pBubbleTex, depthTest:false }));
+pBubble.scale.set(0.95, 0.33, 1);
+pBubble.position.set(0, 0.75, -0.95);          // 환자 머리 위 (침상 머리 각도를 따라 움직임)
+pBubble.visible = false;
+pBubble.raycast = () => {};
+headGroup.add(pBubble);
+let pBubbleTTL = 0;
 let guardianWalk = -1;
 let guardianPoint = 0;          // >0 이면 PCA 쪽을 보고 가리키는 중 (초)
 
@@ -3034,6 +3055,7 @@ function onSelect(o) {
   }
   if (id && state.found.has(id)) { toast(ERR[id].id + ' 은(는) 이미 확인했습니다.', '', 1500); return; }
   if (id && state.wrong.has(id)) { toast('이 항목은 이미 판단을 기록했습니다.', '', 1600); return; }
+  if (id === 'E5' && !state.pcaTold) { state.pcaTold = true; patientSay(PATIENT_LINE.pcaNoEffect, 6); }   // PCA 확인 시 호소
   openJudge(o);
 }
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
@@ -3260,6 +3282,7 @@ function foundError(id) {
   const e = ERR[id];
   toast(`✔ ${e.id} ${e.title}\n${e.fix}`, 'good', 3800);
   feed(`✔ ${e.id} ${e.title}`, 'good');
+  if (id === 'E5') patientSay(PATIENT_LINE.pcaFixed, 6, 1.5);   // PCA 교정 후 반응
   renderList();
   if (state.found.size + state.wrong.size === ERRORS.length) end('complete');
 }
@@ -3309,22 +3332,36 @@ const EVENTS = [
   { t:480, run:evSevere },
   { t:540, run:evFall }
 ];
-// 음성 대사: 브라우저 내장 음성 합성(한국어). 남성 목소리가 있으면 쓰고, 없으면 낮은 톤으로
-function pickVoice() {
+// 음성 대사: 브라우저 내장 음성 합성(한국어)
+//  - 남성(보호자·담당의): 남성 목소리가 있으면 쓰고, 없으면 낮은 톤으로
+//  - 여성(환자 60세): 여성 목소리를 낮은 톤·느린 속도로
+const isMaleVoice = v => /InJoon|Hyunsu|male|남/i.test(v.name) && !/female|여/i.test(v.name);
+function pickVoice(female = false) {
   const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
   const ko = vs.filter(v => /^ko/i.test(v.lang));
-  return ko.find(v => /InJoon|Hyunsu|male|남/i.test(v.name) && !/female|여/i.test(v.name)) || ko[0] || null;
+  if (female) return ko.find(v => !isMaleVoice(v)) || ko[0] || null;
+  return ko.find(isMaleVoice) || ko[0] || null;
 }
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};   // 음성 목록 미리 불러오기
-function speak(text, { pitch = 0.85, rate = 1.0 } = {}) {
+function speak(text, { pitch = 0.85, rate = 1.0, female = false } = {}) {
   if (!window.speechSynthesis) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'ko-KR';
-  const v = pickVoice(); if (v) u.voice = v;
-  u.pitch = v && /InJoon|Hyunsu|male|남/i.test(v.name) ? 1.0 : pitch;   // 여성 목소리뿐이면 톤을 낮춤
+  const v = pickVoice(female); if (v) u.voice = v;
+  u.pitch = !female && v && isMaleVoice(v) ? 1.0 : pitch;   // 남성 역할인데 여성 목소리뿐이면 톤을 낮춤
   u.rate = rate;
   speechSynthesis.speak(u);
+}
+// 환자가 말하기: 머리 위 말풍선 + 음성(신음 섞인 60대 여성) + 기록
+function patientSay(text, ttl = 7, delay = 0) {
+  setTimeout(() => {
+    if (state.phase !== 'running') return;
+    pBubbleText = text; paint(pBubbleTex);
+    pBubble.visible = true; pBubbleTTL = ttl;
+    feed('환자: "' + text + '"', 'alert');
+    speak(text, { female:true, pitch:0.75, rate:0.82 });
+  }, delay * 1000);
 }
 // 보호자가 말하기: 말풍선 + 음성 + 기록
 function guardianSay(text, ttl = 9, delay = 0) {
@@ -3354,9 +3391,12 @@ function evGuardianPCA() {
   guardianSay(GUARDIAN_PCA, 9);
   addHint('E5', 10);
 }
+// 3분까지 PCA(E5) 미교정: 표정을 찡그리며 "아까보다 더 아파요." (NRS 6 → 7)
 function evPain() {
-  toast('😣 환자가 통증을 호소합니다 (NRS 상승).', 'alert', 4200);
-  feed(state.found.has('E5') ? '통증 호소 (PCA 작동 중, NRS 4)' : '통증 NRS 상승 (PCA 약물이 전달되지 않음)', 'alert');
+  if (state.found.has('E5')) return;                     // PCA를 이미 교정했으면 통증 상승 없음
+  toast('😣 환자가 통증을 호소합니다 (NRS 6 → 7).', 'alert', 4200);
+  feed('통증 NRS 상승 (PCA 약물이 전달되지 않음)', 'alert');
+  patientSay(PATIENT_LINE.worse, 7);
 }
 function evBleed() {
   if (state.found.has('E2')) return;                     // dressing을 이미 확인했으면 활력징후 유지 → 악화 알림 없음
@@ -3421,6 +3461,8 @@ function start() {
   renderList();
   feed(state.practice ? '연습 모드를 시작했습니다.' : '인계를 마치고 병실에 들어왔습니다.');
   toast(state.practice ? '의심되는 물체를 클릭하세요.' : '인계를 받고 병실에 입장했습니다. 오류 8개를 찾으세요!', '', 3500);
+  state.pcaTold = false; pBubble.visible = false; pBubbleTTL = 0;
+  patientSay(PATIENT_LINE.enter, 7, 1.8);                // 병실 진입 시 주 호소 (NRS 6)
 }
 
 function calcScore() {
@@ -3600,6 +3642,7 @@ function frame() {
     guardian.lookAt(0.3, 0, -0.6);   // 수평으로만 회전 (눕지 않게)
   }
   if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
+  if (pBubbleTTL > 0) { pBubbleTTL -= dt; if (pBubbleTTL <= 0) pBubble.visible = false; }
   // 보호자가 PCA를 가리킴: PCA(폴대 쪽) 방향으로 몸을 돌렸다가 다시 환자 쪽으로
   if (guardian.visible && guardianWalk >= 1) {
     if (guardianPoint > 0) { guardianPoint -= dt; guardian.lookAt(POLE.x, 0, POLE.z); }
