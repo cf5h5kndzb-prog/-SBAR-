@@ -128,7 +128,7 @@
   <h1>🏥 Room of Error 3D<small>복강경 담낭절제술 당일 환자</small></h1>
   <div class="stats">
     <button id="sideToggle">목록</button>
-    <button id="soundBtn" title="모니터 SpO₂ 맥박음 켜기/끄기">🔊 모니터음</button>
+    <button id="soundBtn" title="모니터 맥박음·알람음 켜기/끄기">🔊 모니터음</button>
     <span class="pill" id="timerPill">⏱ <b id="timer">--:--</b></span>
     <span class="pill">발견 <b id="foundCount">0</b> / <b id="totalCount">8</b></span>
     <span class="pill">오답 <b id="missCount">0</b></span>
@@ -849,9 +849,11 @@ const monScreen = screenMesh(monHead, monTex, 0.34, 0.204, 0, 0.02, 0.072);   //
 tag(monitorGroup, '활력징후 모니터 (포터블)', () =>
   `NIBP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)} · PR ${Math.round(vit.hr)} · SpO₂ ${Math.round(vit.spo2)}% · BT ${vit.temp.toFixed(1)}℃`);
 
+// 8분 출혈 미조치(BP 90/60·PR 120)에서 알람 (E2를 그 전에 찾으면 활력징후가 멈춰 알람 없음)
+function monAlarm() { return vit.sbp <= 90.5 || vit.hr >= 119.5 || vit.spo2 < 92; }
 function drawMonitor(g, w, h) {
   g.fillStyle = '#050a0d'; g.fillRect(0, 0, w, h);
-  const alarm = vit.sbp <= 90.5 || vit.hr >= 119.5 || vit.spo2 < 92;   // 8분 출혈 미조치(BP 90/60·PR 120)에서 알람
+  const alarm = monAlarm();
   g.fillStyle = '#0f1a20'; g.fillRect(0, 0, w, 40);
   g.fillStyle = '#8fa3ad'; g.font = `20px ${FONT}`; g.fillText('나예민 (F/60) · 성인', 16, 28);
   if (alarm && Math.floor(performance.now() / 500) % 2 === 0) { g.fillStyle = '#c0392b'; g.fillRect(w / 2, 0, w / 2, 40); g.fillStyle = '#fff'; g.font = `bold 24px ${FONT}`; g.fillText('ALARM  활력징후 이상', w / 2 + 16, 29); }
@@ -3465,7 +3467,7 @@ function targets() {
    시작 · 종료
    ============================================================ */
 /* 모니터 SpO₂ 맥박음 (Web Audio): 맥박수(PR)마다 '띵' 한 번, SpO₂가 낮을수록 음이 낮아짐 (실제 산소포화도 모니터 방식) */
-const monSound = { on:true, ctx:null, beat:0 };
+const monSound = { on:true, ctx:null, beat:0, alarmT:0 };
 function initMonSound() {                       // 브라우저 정책상 사용자가 클릭한 뒤에 소리를 켤 수 있음
   if (monSound.ctx) { monSound.ctx.resume?.(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -3484,10 +3486,31 @@ function monBeep() {
   osc.connect(gain).connect(ctx.destination);
   osc.start(t); osc.stop(t + 0.13);
 }
+// 고위험 알람음: '띠띠띠 – 띠띠' 5번 울림을 4초마다 반복 (병원 모니터 빨간 알람 방식)
+function monAlarmBurst() {
+  const ctx = monSound.ctx; if (!ctx) return;
+  const t0 = ctx.currentTime;
+  for (const dt of [0, 0.16, 0.32, 0.64, 0.80]) {
+    const t = t0 + dt;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 980;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+    gain.gain.setValueAtTime(0.05, t + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.14);
+  }
+}
 function updateMonSound(dt) {
-  if (!monSound.on || !monSound.ctx || state.phase !== 'running') { monSound.beat = 0; return; }
+  if (!monSound.on || !monSound.ctx || state.phase !== 'running') { monSound.beat = 0; monSound.alarmT = 0; return; }
   monSound.beat += dt * vit.hr / 60;
   if (monSound.beat >= 1) { monSound.beat -= 1; monBeep(); }
+  if (monAlarm()) {
+    monSound.alarmT -= dt;
+    if (monSound.alarmT <= 0) { monSound.alarmT = 4; monAlarmBurst(); }
+  } else monSound.alarmT = 0;
 }
 $('soundBtn').addEventListener('click', () => {
   monSound.on = !monSound.on;
