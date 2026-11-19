@@ -2445,7 +2445,7 @@ let pBubbleText = PATIENT_LINE.enter;
 const pBubbleTex = canvasTex(640, 220, (g, w) => drawBubble(g, w, '😣 ' + pBubbleText, '#c2185b'));
 const pBubble = new THREE.Sprite(new THREE.SpriteMaterial({ map:pBubbleTex, depthTest:false }));
 pBubble.scale.set(0.85, 0.292, 1);
-pBubble.position.set(0, 0.75, -0.95);          // 환자 머리 위 (침상 머리 각도를 따라 움직임)
+pBubble.position.set(0, 0.2, -0.95);          // 환자 머리 위 침대 머리판 높이 (침상 머리 각도를 따라 움직임)
 pBubble.visible = false;
 pBubble.raycast = () => {};
 headGroup.add(pBubble);
