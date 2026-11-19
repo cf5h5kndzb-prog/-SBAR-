@@ -84,6 +84,34 @@
   #judge .jopts button{text-align:left;padding:10px 14px;border-radius:10px}
   #judge .jopts button.back{background:#f1f5f6}
   #list li.wrong{border:1px solid var(--danger);background:#fff4f4;color:var(--ink)}
+  /* SBAR 보고 창 (병동 전화기) */
+  #sbar{position:fixed;right:16px;top:64px;width:min(540px,calc(100vw - 32px));max-height:calc(100vh - 84px);display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.28);z-index:61;overflow:hidden}
+  #sbar[hidden]{display:none}
+  #sbar .jh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  #sbar .jh small{display:block;color:var(--brand);font-size:12px;font-weight:700}
+  #sbar .jh b{font-size:19px}
+  #sbar .jh .r{display:flex;gap:8px;align-items:center}
+  #sbarClock{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;padding:3px 10px;border:1px solid var(--line);border-radius:999px}
+  #sbarClock.over{color:var(--danger);border-color:var(--danger)}
+  #sbar .sbody{overflow:auto;padding:2px 18px 10px}
+  #sbar .jnote{margin:10px 0 4px;padding:10px 12px;background:#f1f5f6;border-radius:8px;font-size:13px;color:var(--muted)}
+  #sbar fieldset{border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:6px 12px 8px}
+  #sbar fieldset.miss{border-color:var(--danger);background:#fff8f8}
+  #sbar fieldset.pass{border-color:var(--ok);background:#f7fbf9}
+  #sbar legend{font-weight:700;color:var(--brand);padding:0 4px;font-size:14px}
+  #sbar label.opt{display:flex;gap:8px;align-items:flex-start;padding:5px 4px;font-size:14px;line-height:1.45;cursor:pointer;border-radius:6px}
+  #sbar label.opt input{margin-top:3px;flex:none}
+  #sbar label.opt.bad{background:#ffe3e3;color:#a61e1e}
+  #sbar .vs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 8px}
+  #sbar .vs label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+  #sbar .vs input{font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;width:100%;box-sizing:border-box}
+  #sbar .vs input.ok{border-color:var(--ok);background:#effaf4}
+  #sbar .vs input.bad{border-color:var(--danger);background:#fff4f4}
+  #sbar .doc{margin:10px 0 2px;padding:10px 12px;background:#eef6f9;border-left:4px solid var(--brand);border-radius:8px;font-size:14px;line-height:1.5}
+  #sbar .doc[hidden]{display:none}
+  #sbar .doc.good{background:#effaf4;border-left-color:var(--ok)}
+  #sbar .sfoot{display:flex;gap:8px;justify-content:flex-end;padding:10px 18px 14px;border-top:1px solid var(--line)}
+  @media (max-width:560px){ #sbar .vs{grid-template-columns:repeat(2,1fr)} }
 </style>
 <script type="importmap">
 { "imports": {
@@ -129,6 +157,22 @@
   <div class="jh"><div><small>판단 근거 선택</small><b id="judgeTitle"></b></div><button id="judgeClose">닫기</button></div>
   <div class="jnote">이상이라고 판단한 근거를 고르세요. 근거가 정확해야 정답으로 인정됩니다. 판단은 오류당 한 번만 기록됩니다.</div>
   <div class="jopts" id="judgeOpts"></div>
+</div>
+
+<div id="sbar" hidden>
+  <div class="jh">
+    <div><small>📞 병동 전화기 · 담당의 보고</small><b>SBAR 보고</b></div>
+    <div class="r"><span id="sbarClock">0:00</span><button id="sbarClose">닫기</button></div>
+  </div>
+  <div class="sbody">
+    <div class="jnote">담당의에게 보고할 내용을 단계별로 고르고, 활력징후·통증·배액량은 <b>지금 직접 확인한 값</b>을 입력하세요. 입력값은 보고 시점의 모니터 수치와 비교합니다. 1분 이내 보고를 목표로 합니다.</div>
+    <div id="sbarForm"></div>
+    <div class="doc" id="sbarDoc" hidden></div>
+  </div>
+  <div class="sfoot">
+    <button id="sbarCancel">← 관찰 화면으로</button>
+    <button class="primary" id="sbarSend">보고하기</button>
+  </div>
 </div>
 
 <div class="overlay" id="startOv">
@@ -195,10 +239,10 @@ const ERRORS = [
     fix:'손목밴드를 "나예민 · 60/F"로 교체했습니다.' },
   { id:'E2', cat:'합병증 관찰', title:'JP 혈성 배액 증가 · dressing 출혈',
     why:'복강경 담낭절제술 후 JP 배액이 선홍색으로 늘고 복부 dressing으로 출혈이 번지고 있습니다. 활력징후(빈맥·저혈압·창백)를 확인하고 배액량을 기록한 뒤 즉시 의사에게 SBAR로 보고합니다.',
-    fix:'dressing을 확인·압박 교체하고 의사에게 출혈을 보고했습니다.' },
+    fix:'출혈 이상징후를 인지했습니다. 복부 dressing과 JP 배액 양상을 확인했습니다.' },
   { id:'E3', cat:'배액관 관리', title:'JP bulb 미압축 · 고정 안 됨',
     why:'JP는 bulb를 눌러 음압을 유지해야 배액됩니다. bulb가 혈성 배액으로 가득 차 부풀어 있으면 흡인이 되지 않고, 침대 옆에 매달린 bulb는 무게·당김으로 배액관이 빠질 위험이 있습니다. bulb를 비우고(배액량 측정) 압축한 뒤 환자 옆에 두고 환의에 클립으로 고정합니다.',
-    fix:'bulb를 비우고 압축한 뒤 환자 옆에 두고 환의에 클립으로 고정했습니다.' },
+    fix:'bulb에서 선홍색 혈성 배액 110 mL를 비웠습니다. bulb를 압축한 뒤 환자 옆에 두고 환의에 클립으로 고정했습니다.' },
   { id:'E4', cat:'투약·수액', title:'수액 속도 20 mL/hr (처방 80 mL/hr)',
     why:'처방과 다른 속도로 주입되면 수술 후 환자의 체액 균형이 깨지고 저혈량이 악화될 수 있습니다. 처방·펌프 설정·환자 상태를 대조(이중 확인)하고 속도를 정정합니다.',
     fix:'수액 속도를 처방대로 80 mL/hr로 정정했습니다.' },
@@ -2638,8 +2682,13 @@ loadModel('cart.glb', sc => {
     ph.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xffc400); o.material.emissiveIntensity = 0; phoneMats.push(o.material); } });
     ph.userData.action = () => {
       state.phoneCalled = true;
-      toast('📞 담당의에게 연결되었습니다. SBAR(상황-배경-사정-제안)로 보고하세요.', 'good', 4200);
-      feed('📞 담당의 보고 전화 (SBAR)', 'good');
+      if (state.inXR) {                               // VR에서는 HTML 창이 보이지 않으므로 안내만
+        toast('📞 담당의에게 연결되었습니다. SBAR(상황-배경-사정-제안)로 보고하세요.', 'good', 4200);
+        feed('📞 담당의 보고 전화 (SBAR)', 'good');
+        return;
+      }
+      if (!sbar.done && sbar.firstAt == null) feed('📞 담당의에게 전화 (SBAR 보고 창)', '');
+      openSbar();
     };
     world.add(tag(ph, '병동 전화기', () => '담당의 보고 (SBAR)'));
     phoneG = ph;
@@ -3009,6 +3058,181 @@ function openJudge(o) {
   $('judge').hidden = false;
 }
 function closeJudge() { $('judge').hidden = true; }
+
+/* ============================================================
+   SBAR 보고 (병동 전화기)
+   - S·B·A·R 보기를 고르고, A의 활력징후·NRS·배액량은 직접 입력
+   - 입력값은 보고 창을 연 시점 또는 제출 시점의 모니터 수치와 비교(허용 오차 VS_TOL)
+   - 빠진 요소가 있으면 담당의가 되묻고(시나리오 3-7), 모두 맞으면 "알겠습니다. 확인하러 가겠습니다."
+   ============================================================ */
+const SBAR_Q = {
+  S:{ title:'S · 상황 (Situation)', opts:[
+    { t:'○○병동 간호사입니다. 나예민 님(F/60, 등록번호 20251031-0427) 상태 보고드립니다.', ok:true, req:'id' },
+    { t:'김서연 님(F/60) 상태 보고드립니다.', ok:false, ask:'id' },
+    { t:'JP 배액이 선홍색 혈성으로 증가하고, 우상복부 dressing에 출혈이 번지고 있습니다.', ok:true, req:'sit' },
+    { t:'하복부 좌·우 dressing에 oozing이 있습니다.', ok:false }
+  ]},
+  B:{ title:'B · 배경 (Background)', opts:[
+    { t:'오늘 복강경 담낭절제술을 받고 병동 도착 후 1시간 경과했습니다. 도착 시 JP 배액은 혈성 20 mL였습니다.', ok:true, req:'bg' },
+    { t:'고혈압·뇌경색 과거력이 있고, Aspirin을 복용해 왔습니다.', ok:true },
+    { t:'수술 후 3일째로 식이를 진행하고 있습니다.', ok:false },
+    { t:'Cefazolin 알레르기가 있습니다.', ok:false }
+  ]},
+  A:{ title:'A · 사정 (Assessment)', vitals:true, opts:[
+    { t:'수술 부위 출혈이 의심됩니다.', ok:true, req:'judge' },
+    { t:'수액 과다로 인한 체액 과부하가 의심됩니다.', ok:false },
+    { t:'통증 외에는 특이 소견이 없습니다.', ok:false }
+  ]},
+  R:{ title:'R · 요청 (Recommendation)', opts:[
+    { t:'병실에 오셔서 환자 상태를 확인해 주시기 바랍니다.', ok:true, any:'req' },
+    { t:'추가 처치나 검사(CBC 등)가 필요한지 지시 부탁드립니다.', ok:true, any:'req' },
+    { t:'다음 회진 때 확인해 주셔도 됩니다.', ok:false },
+    { t:'출혈이 의심되니 제가 먼저 수액 속도를 올려 두겠습니다.', ok:false }
+  ]}
+};
+const SBAR_VS = [
+  { k:'sbp',   label:'BP 수축기 (mmHg)', tol:5 },
+  { k:'dbp',   label:'BP 이완기 (mmHg)', tol:5 },
+  { k:'hr',    label:'PR (회/분)', tol:5 },
+  { k:'rr',    label:'RR (회/분)', tol:2 },
+  { k:'spo2',  label:'SpO₂ (%)', tol:1 },
+  { k:'pain',  label:'통증 NRS (0~10)', tol:0 },
+  { k:'drain', label:'JP 배액량 (mL)', tol:10 }
+];
+const DRAIN_ML = 110;                        // E3에서 bulb를 비울 때 계량컵 배액량
+// 담당의 되묻기 (시나리오 3-7)
+const SBAR_ASK = {
+  id:'환자 성함과 등록번호를 다시 확인해 주세요.',
+  sit:'지금 어떤 상황인지 다시 말씀해 주시겠어요?',
+  bg:'수술은 언제 했고, 처음 배액량은 어땠나요?',
+  vs:'현재 활력징후는요?',
+  pain:'통증 정도는요?',
+  drain:'배액 양상과 양은 어떤가요?',
+  judge:'그래서 환자 상태를 어떻게 판단하세요?',
+  req:'제가 어떻게 해 드리면 될까요?',
+  wrong:'말씀하신 내용 중에 환자 상황과 맞지 않는 부분이 있네요. 다시 확인해 주세요.'
+};
+const SBAR_OK_REPLY = '알겠습니다. 확인하러 가겠습니다.';
+const sbar = { built:false, openAt:0, firstAt:null, tries:0, done:false, secs:null, snap:null, asked:[] };
+
+function vitSnap() {
+  return { sbp:Math.round(vit.sbp), dbp:Math.round(vit.dbp), hr:Math.round(vit.hr), rr:Math.round(vit.rr), spo2:Math.round(vit.spo2), pain:vit.pain, drain:DRAIN_ML };
+}
+function buildSbar() {
+  const box = $('sbarForm'); box.innerHTML = '';
+  for (const [sec, q] of Object.entries(SBAR_Q)) {
+    const fs = document.createElement('fieldset'); fs.dataset.sec = sec;
+    fs.innerHTML = '<legend>' + q.title + '</legend>';
+    if (q.vitals) {
+      const g = document.createElement('div'); g.className = 'vs';
+      for (const f of SBAR_VS) {
+        const l = document.createElement('label');
+        l.innerHTML = escapeHtml(f.label) + '<input type="number" inputmode="numeric" data-k="' + f.k + '">';
+        g.appendChild(l);
+      }
+      fs.appendChild(g);
+    }
+    shuffle(q.opts.map((o, i) => i)).forEach(i => {
+      const o = q.opts[i];
+      const l = document.createElement('label'); l.className = 'opt';
+      l.innerHTML = '<input type="checkbox" data-sec="' + sec + '" data-i="' + i + '"><span>' + escapeHtml(o.t) + '</span>';
+      fs.appendChild(l);
+    });
+    box.appendChild(fs);
+  }
+  $('sbarDoc').hidden = true;
+  sbar.built = true;
+}
+function openSbar() {
+  if (state.phase !== 'running') return;
+  if (sbar.done) { toast('📞 이미 보고했습니다. 담당의가 확인하러 오고 있습니다.', '', 2600); return; }
+  if (!sbar.built) buildSbar();
+  closeJudge(); hideTip();
+  sbar.openAt = performance.now();
+  if (sbar.firstAt == null) sbar.firstAt = sbar.openAt;
+  sbar.snap = vitSnap();
+  $('sbar').hidden = false;
+  tickSbarClock();
+}
+function closeSbar() { $('sbar').hidden = true; }
+function sbarElapsed() { return sbar.firstAt == null ? 0 : ((sbar.secs != null ? sbar.secs * 1000 : performance.now() - sbar.firstAt) / 1000); }
+function tickSbarClock() {
+  if ($('sbar').hidden) return;
+  const s = sbarElapsed();
+  $('sbarClock').textContent = '⏱ ' + fmt(s);
+  $('sbarClock').classList.toggle('over', s > 60);
+  setTimeout(tickSbarClock, 250);
+}
+function doctorSay(text, good, voice = text) {
+  const d = $('sbarDoc');
+  d.hidden = false; d.className = 'doc' + (good ? ' good' : '');
+  d.innerHTML = '<b>👨‍⚕️ 담당의:</b> ' + escapeHtml(text);
+  speak(voice, { pitch:0.95, rate:1.05 });
+}
+function sendSbar() {
+  if (state.phase !== 'running' || sbar.done) return;
+  sbar.tries++;
+  const now = vitSnap(), ask = new Set();
+  const form = $('sbarForm');
+  form.querySelectorAll('fieldset').forEach(fs => fs.classList.remove('miss', 'pass'));
+  form.querySelectorAll('label.opt').forEach(l => l.classList.remove('bad'));
+  const secBad = new Set();
+  // 보기 채점
+  for (const [sec, q] of Object.entries(SBAR_Q)) {
+    const picked = new Set([...form.querySelectorAll('input[data-sec="' + sec + '"]:checked')].map(i => +i.dataset.i));
+    q.opts.forEach((o, i) => {
+      if (o.req && !picked.has(i)) { ask.add(o.req); secBad.add(sec); }
+      if (!o.ok && picked.has(i)) {
+        ask.add(o.ask || 'wrong'); secBad.add(sec);
+        form.querySelector('input[data-sec="' + sec + '"][data-i="' + i + '"]').closest('label').classList.add('bad');
+      }
+    });
+    const anyKey = q.opts.find(o => o.any)?.any;
+    if (anyKey && !q.opts.some((o, i) => o.any && picked.has(i))) { ask.add(anyKey); secBad.add(sec); }
+  }
+  // 수치 채점: 창을 연 시점 또는 지금의 모니터 값과 허용 오차 이내면 정답
+  const vsRes = {};
+  for (const f of SBAR_VS) {
+    const inp = form.querySelector('input[data-k="' + f.k + '"]');
+    const raw = inp.value.trim(), v = Number(raw);
+    const ok = raw !== '' && Number.isFinite(v) && [sbar.snap, now].some(sn => Math.abs(v - sn[f.k]) <= f.tol);
+    inp.classList.toggle('ok', ok); inp.classList.toggle('bad', !ok);
+    vsRes[f.k] = { v:raw, ok, ans:now[f.k] };
+    if (!ok) { ask.add(f.k === 'pain' ? 'pain' : f.k === 'drain' ? 'drain' : 'vs'); secBad.add('A'); }
+  }
+  form.querySelectorAll('fieldset').forEach(fs => fs.classList.add(secBad.has(fs.dataset.sec) ? 'miss' : 'pass'));
+  sbar.last = { vsRes, secBad:[...secBad] };
+  const order = ['id', 'sit', 'bg', 'vs', 'pain', 'drain', 'judge', 'req', 'wrong'];
+  const qs = order.filter(k => ask.has(k)).map(k => SBAR_ASK[k]);
+  if (qs.length) {
+    sbar.asked.push(...qs);
+    feed('📞 SBAR 보고 ' + sbar.tries + '차: 담당의 되물음 (' + qs.length + '건)', 'alert');
+    doctorSay(qs.join(' '), false, qs[0]);         // 화면에는 모두, 음성은 첫 질문만
+    $('sbar').querySelector('.sbody').scrollTop = 1e6;
+    return;
+  }
+  sbar.done = true;
+  sbar.secs = (performance.now() - sbar.firstAt) / 1000;
+  feed('📞 SBAR 보고 완료 (' + sbar.tries + '차 · ' + fmt(sbar.secs) + (sbar.secs <= 60 ? ' · 1분 이내' : ' · 1분 초과') + ') → 담당의: "' + SBAR_OK_REPLY + '"', 'good');
+  doctorSay(SBAR_OK_REPLY, true);
+  toast('📞 담당의: ' + SBAR_OK_REPLY, 'good', 3600);
+  $('sbarSend').disabled = true;
+  setTimeout(closeSbar, 2600);
+}
+function resetSbar() {
+  Object.assign(sbar, { built:false, openAt:0, firstAt:null, tries:0, done:false, secs:null, snap:null, asked:[], last:null });
+  $('sbarSend').disabled = false;
+  closeSbar();
+}
+// 고친 항목의 표시는 다시 고를 때 지움
+$('sbarForm').addEventListener('input', e => {
+  e.target.classList.remove('ok', 'bad');
+  const l = e.target.closest('label.opt'); if (l) l.classList.remove('bad');
+  const fs = e.target.closest('fieldset'); if (fs) fs.classList.remove('miss', 'pass');
+});
+$('sbarClose').addEventListener('click', closeSbar);
+$('sbarCancel').addEventListener('click', closeSbar);
+$('sbarSend').addEventListener('click', sendSbar);
 function judge(o, id, op) {
   closeJudge();
   if (state.phase !== 'running') return;
@@ -3190,7 +3414,7 @@ function start() {
   if (window.speechSynthesis) speechSynthesis.cancel();
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
   Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fell:false, bleedHold:null });
-  state.found.clear(); state.wrong.clear(); closeJudge(); state.done.clear(); state.log.length = 0;
+  state.found.clear(); state.wrong.clear(); closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
   $('feed').innerHTML = '';
   $('startOv').hidden = true; $('endOv').hidden = true;
   $('hintBtn').disabled = false; $('giveUpBtn').disabled = false;
@@ -3207,15 +3431,32 @@ function end(reason) {
   state.phase = 'ended';
   if (window.speechSynthesis) speechSynthesis.cancel();
   $('hintBtn').disabled = true; $('giveUpBtn').disabled = true;
-  hideTip(); closeJudge();
+  hideTip(); closeJudge(); closeSbar();
   for (const e of ERRORS) if (!state.found.has(e.id)) addHint(e.id, 3600, true);
   const score = calcScore();
   $('endTitle').textContent = reason === 'complete' ? (state.found.size === ERRORS.length ? '🎉 오류 8개를 모두 찾았습니다!' : '모든 오류에 대한 판단을 마쳤습니다') : reason === 'timeout' ? '⏰ Time-out (10분 종료)' : '결과';
   $('endScore').textContent = score + '점';
   $('endSummary').textContent = `발견 ${state.found.size}/${ERRORS.length} · 근거 오류 ${state.wrong.size} · 오답 ${state.misses} · 힌트 ${state.hints}` +
     (state.handHygiene ? ` · 손 위생 ${state.handHygiene}회` : ' · 손 위생 안 함') +
-    (state.fell ? ' · 낙상 발생(−10)' : '') + (state.practice ? '' : ' · 소요 ' + fmt(Math.min(LIMIT, state.t)));
+    (state.fell ? ' · 낙상 발생(−10)' : '') + (state.practice ? '' : ' · 소요 ' + fmt(Math.min(LIMIT, state.t))) +
+    (sbar.done ? ` · SBAR 보고 완료(${sbar.tries}차, ${fmt(sbar.secs)})` : sbar.tries ? ' · SBAR 보고 미완료' : ' · SBAR 보고 안 함');
   const box = $('endList'); box.innerHTML = '';
+  {                                               // SBAR 보고 결과 (체크리스트 C10)
+    const d = document.createElement('div');
+    const c10 = sbar.done && sbar.secs <= 60;
+    d.className = 'res' + (c10 ? '' : ' miss');
+    let html = '<b>' + (c10 ? '✔ ' : '✘ ') + 'SBAR 보고 (담당의)</b><span class="tag">의사소통 · C10</span>';
+    if (sbar.done) html += `${sbar.tries}차 보고에서 완료 · 전화를 처음 든 뒤 ${fmt(sbar.secs)} 소요 (${sbar.secs <= 60 ? '1분 이내' : '1분 초과'})`;
+    else if (sbar.tries) html += `${sbar.tries}번 보고했지만 필요한 요소가 빠져 완료되지 않았습니다.`;
+    else html += '담당의에게 보고하지 않았습니다. 출혈이 의심되면 활력징후·통증·배액량을 재사정한 뒤 즉시 SBAR로 보고합니다.';
+    if (sbar.asked.length) html += '<div style="font-size:13px;color:#5d6d77">담당의가 되물은 내용: ' + escapeHtml([...new Set(sbar.asked)].join(' / ')) + '</div>';
+    if (sbar.last) {
+      const vs = SBAR_VS.map(f => { const r = sbar.last.vsRes[f.k]; return (r.ok ? '✔' : '✘') + ' ' + f.label.replace(/ \(.*\)/, '') + ' ' + (r.v || '–') + (r.ok ? '' : ' (모니터 ' + r.ans + ')'); });
+      html += '<div style="font-size:13px;color:#5d6d77">마지막 보고 수치: ' + escapeHtml(vs.join(' · ')) + '</div>';
+    }
+    d.innerHTML = html;
+    box.appendChild(d);
+  }
   const ordered = [...ERRORS].sort((a, b) => state.found.has(b.id) - state.found.has(a.id));
   for (const e of ordered) {
     const ok = state.found.has(e.id);
