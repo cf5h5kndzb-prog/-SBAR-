@@ -2444,6 +2444,7 @@ const PATIENT_LINE = {
   worse:'아… 아까보다 더 아파요.',                           // 3분까지 E5 미교정 (NRS 7)
   pcaNoEffect:'으… 눌러도 별로 안 나아지는 것 같아요.',      // PCA 확인 시 (E5 미교정)
   pcaFixed:'휴… 눌렀더니 좀 나아지는 것 같아요.',            // E5 교정 후
+  repeat:['으… 계속 아파요…', '아이고… 배가 너무 아파요…', '아… 아파요… 좀 어떻게 해 주세요…'],   // E5 미교정 시 1분마다 (보고서 4-4 '통증 지속·불안 호소 지속')
   getUp:'아이고… 어지럽고 너무 아파요… 벨이 어디 갔지…'  // 8분 출혈 미조치: 콜벨을 찾아 침대 밖으로 손을 뻗음 (낙상 위험 행동)
 };
 let pBubbleText = PATIENT_LINE.enter;
@@ -3397,10 +3398,17 @@ const EVENTS = [
   { t:120, run:evGuardian },
   { t:180, run:evPain },
   { t:190, run:evGuardianAsk },
+  { t:220, run:evPainRepeat },
   { t:250, run:evGuardianAsk },
+  { t:280, run:evPainRepeat },
   { t:300, run:evBleed },
   { t:306, run:evGuardianPCA },
-  { t:480, run:evSevere }
+  { t:340, run:evPainRepeat },
+  { t:400, run:evPainRepeat },
+  { t:460, run:evPainRepeat },
+  { t:480, run:evSevere },
+  { t:520, run:evPainRepeat },
+  { t:580, run:evPainRepeat }
 ];
 // 음성 대사: 브라우저 내장 음성 합성(한국어)
 //  - 남성(보호자·담당의): 남성 목소리가 있으면 쓰고, 없으면 낮은 톤으로
@@ -3462,6 +3470,15 @@ function evGuardianPCA() {
   guardianPoint = 6;
   guardianSay(GUARDIAN_PCA, 9);
   addHint('E5', 10);
+}
+// PCA(E5) 미교정이면 3분 이후 1분 간격(3:40부터, 보호자 대사와 30초 엇갈리게)으로 통증 호소를 반복
+// 보고서 4-4 '분기: 구조 단서(5분)' — 통증 지속(NRS 7), 불안 호소 지속. 원인(PCA)은 먼저 말하지 않음(3-7)
+let painRepeatN = 0;
+function evPainRepeat() {
+  if (state.found.has('E5')) return;
+  if (pBubbleTTL > 0) return;                              // 다른 환자 대사(8분 '벨이 어디 갔지…' 등)가 나오는 중이면 건너뜀
+  const lines = PATIENT_LINE.repeat;
+  patientSay(lines[painRepeatN++ % lines.length], 6);
 }
 // 3분까지 PCA(E5) 미교정: 표정을 찡그리며 "아까보다 더 아파요." (NRS 6 → 7)
 function evPain() {
@@ -3581,7 +3598,7 @@ function start() {
   renderList();
   feed(state.practice ? '연습 모드를 시작했습니다.' : '인계를 마치고 병실에 들어왔습니다.');
   toast(state.practice ? '의심되는 물체를 클릭하세요.' : '인계를 받고 병실에 입장했습니다. 오류 8개를 찾으세요!', '', 3500);
-  state.pcaTold = false; pBubble.visible = false; pBubbleTTL = 0;
+  state.pcaTold = false; pBubble.visible = false; pBubbleTTL = 0; painRepeatN = 0;
   patientSay(PATIENT_LINE.enter, 7, 1.8);                // 병실 진입 시 주 호소 (NRS 6)
 }
 
