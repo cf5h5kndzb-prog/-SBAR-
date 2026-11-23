@@ -2300,12 +2300,15 @@ function boneWorldRot(r, name, axis, ang) {
 function updateUnrest(r, dt) {
   if (!r.unrestBase) {
     r.unrestBase = {};
-    for (const n of ['Neck', 'Head', 'RightArm', 'RightForeArm', 'RightUpLeg', 'LeftUpLeg']) if (r.bones[n]) r.unrestBase[n] = r.bones[n].quaternion.clone();
+    for (const n of ['Neck', 'Head', 'RightArm', 'RightForeArm', 'LeftForeArm', 'RightUpLeg', 'LeftUpLeg', 'RightLeg', 'LeftLeg', 'RightFoot', 'LeftFoot'])
+      if (r.bones[n]) r.unrestBase[n] = r.bones[n].quaternion.clone();
   }
   const live = !state.practice && (state.phase === 'running' || state.phase === 'ended');
   const tt = state.t;
   const blocked = state.found.has('E8');
-  const tgtLevel = live && state.severeOn && tt >= 480 ? 1 : 0;
+  // 8분부터 뒤척임: 출혈(E2) 미조치 또는 통증(PCA, E5) 미교정. PCA만 남은 경우 E5를 교정하면 가라앉음
+  const painOn = state.painUnrest && !state.found.has('E5');
+  const tgtLevel = live && (state.severeOn || painOn) && tt >= 480 ? 1 : 0;
   const tgtTry = live && state.severeOn && tt >= 482 ? 1 : 0;      // 화면 알림·대사와 함께 손을 뻗기 시작
   const k = Math.min(1, dt * 1.2);
   unrest.level += (tgtLevel - unrest.level) * k;
@@ -2319,12 +2322,19 @@ function updateUnrest(r, dt) {
   // 머리 좌우로 뒤척임 (불안), 콜벨을 찾을 때는 Rt. 쪽(난간 쪽)을 봄
   boneWorldRot(r, 'Head', AX, L * (0.42 * Math.sin(t * 1.7) + 0.12 * Math.sin(t * 4.3)) * (1 - 0.6 * R) - 0.35 * R);
   // 배 위 오른손: 움켜쥐었다 놓았다 (아래팔 굽힘) / 콜벨을 찾을 땐 팔을 Rt. 바깥(침대 밖)으로 뻗음
-  boneWorldRot(r, 'RightForeArm', AXx, L * (1 - R) * 0.28 * (0.5 + 0.5 * Math.sin(t * 2.6)));
+  boneWorldRot(r, 'RightForeArm', AXx, L * (1 - R) * 0.4 * (0.5 + 0.5 * Math.sin(t * 2.6)));
+  boneWorldRot(r, 'LeftForeArm', AXx, L * 0.3 * (0.5 + 0.5 * Math.sin(t * 2.1 + 2)));          // 왼손도 배 쪽으로 움찔
   boneWorldRot(r, 'RightArm', AY, -0.95 * R);
   boneWorldRot(r, 'RightArm', AX, 0.35 * R);
-  // 다리: 침대 밖으로 내리지 않고 누운 채 조금씩 뒤척임
+  // 다리: 침대 밖으로 내리지 않고, 누운 채 무릎을 번갈아 세웠다 폈다 + 발목을 꼼지락 (통증으로 가만히 있지 못함)
+  const kneeR = L * 0.75 * smooth01(0.5 + 0.9 * Math.sin(t * 0.75));
+  const kneeL = L * 0.65 * smooth01(0.5 + 0.9 * Math.sin(t * 0.75 + Math.PI));
+  boneWorldRot(r, 'RightUpLeg', AXx, -kneeR);  boneWorldRot(r, 'RightLeg', AXx, 2 * kneeR);
+  boneWorldRot(r, 'LeftUpLeg', AXx, -kneeL);   boneWorldRot(r, 'LeftLeg', AXx, 2 * kneeL);
   boneWorldRot(r, 'RightUpLeg', AY, L * 0.05 * Math.sin(t * 1.3 + 1));
   boneWorldRot(r, 'LeftUpLeg', AY, L * 0.06 * Math.sin(t * 1.1));
+  boneWorldRot(r, 'RightFoot', AXx, L * 0.25 * Math.sin(t * 3.1));
+  boneWorldRot(r, 'LeftFoot', AXx, L * 0.25 * Math.sin(t * 2.7 + 1));
   return L * 0.04 * Math.sin(t * 0.9);                  // 상체는 일으키지 않음 (숨 가쁜 듯 아주 작게 들썩임만)
 }
 
@@ -3497,7 +3507,14 @@ function evBleed() {
 // 실제 낙상은 일어나지 않음. 이때 E8(난간·콜벨)이 미교정이면 '낙상 위험 상황' → 남은 시간 안에 E8 교정 여부를 평가
 // 어느 쪽 난간인지는 알려주지 않음 (학습자가 직접 판단)
 function evSevere() {
-  if (state.found.has('E2')) return;                       // 출혈을 확인했으면 환자 상태 유지, 위험 행동 없음
+  if (!state.found.has('E5')) state.painUnrest = true;     // PCA 미교정: 통증으로 손발을 움직이며 뒤척임 (E5 교정 시 가라앉음)
+  if (state.found.has('E2')) {                             // 출혈을 확인했으면 활력징후 유지, 낙상 위험 행동 없음
+    if (state.painUnrest) {
+      toast('⚠ 환자가 통증으로 가만히 있지 못하고 손발을 움직이며 뒤척입니다.', 'alert', 5200);
+      feed('통증 악화 · 환자가 손발을 움직이며 뒤척임 (PCA 약물이 전달되지 않음)', 'alert');
+    }
+    return;
+  }
   state.severeOn = true;                                   // 뒤척임·손 뻗기 동작 시작 (updateUnrest)
   toast('⚠ 환자 상태가 악화됩니다. 환자가 불안해하며 몸을 뒤척이고, 침대 밖으로 손을 뻗습니다.', 'alert', 5200);
   feed('중증 악화 · 환자가 불안해하며 몸을 뒤척이고 침대 밖으로 손을 뻗음', 'alert');
@@ -3589,7 +3606,7 @@ function start() {
   initMonSound();
   if (window.speechSynthesis) speechSynthesis.cancel();
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
-  Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fallRisk:false, fallRiskFixed:false, severeOn:false, bleedHold:null });
+  Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fallRisk:false, fallRiskFixed:false, severeOn:false, painUnrest:false, bleedHold:null });
   state.found.clear(); state.wrong.clear(); closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
   guardian.visible = false; guardianWalk = -1; guardianPoint = 0; bubble.visible = false; bubbleTTL = 0;   // 다시 시작하면 보호자는 아직 안 옴
   $('feed').innerHTML = '';
