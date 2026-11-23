@@ -1507,6 +1507,60 @@ function drawFallSign(c, w, h, FONT) {
   tag(g, '낙상주의 표지판', '');
 }
 
+// 금식(NPO) 표지판: 수술 당일 금식. 병동에서 쓰는 집 모양 자주색 걸이판 (약 15 x 16 cm)
+// 폴대 고리 가로대(침대 반대쪽, PCA 고리와 기둥 사이)에 금속 링으로 걸어 둠
+function drawNpoSign(c, w, h, FONT) {
+  const PURPLE = '#7a1f4b', ORANGE = '#f0a43a';
+  const roof = h * 0.2, rr = 18;
+  // 집 모양 판 (위 꼭짓점 + 아래 둥근 모서리)
+  c.fillStyle = PURPLE;
+  c.beginPath();
+  c.moveTo(w / 2, 6); c.lineTo(w - 6, roof); c.lineTo(w - 6, h - rr - 6);
+  c.quadraticCurveTo(w - 6, h - 6, w - rr - 6, h - 6); c.lineTo(rr + 6, h - 6);
+  c.quadraticCurveTo(6, h - 6, 6, h - rr - 6); c.lineTo(6, roof); c.closePath(); c.fill();
+  // 걸이 구멍
+  c.save(); c.globalCompositeOperation = 'destination-out';
+  c.beginPath(); c.arc(w / 2, roof * 0.62, 13, 0, Math.PI * 2); c.fill(); c.restore();
+  // 금식 아이콘: 주황 원 + 포크·숟가락 + 사선
+  const cx = w / 2, cy = h * 0.4, R = h * 0.15;
+  c.fillStyle = '#fbe9d6'; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = ORANGE; c.lineWidth = 14; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.stroke();
+  c.fillStyle = PURPLE; c.strokeStyle = PURPLE; c.lineCap = 'round';
+  // 숟가락 (왼쪽)
+  c.beginPath(); c.ellipse(cx - 20, cy - 24, 13, 20, 0, 0, Math.PI * 2); c.fill();
+  c.lineWidth = 8; c.beginPath(); c.moveTo(cx - 20, cy - 4); c.lineTo(cx - 20, cy + 46); c.stroke();
+  // 포크 (오른쪽)
+  c.lineWidth = 5;
+  for (const dx of [-9, -3, 3, 9]) { c.beginPath(); c.moveTo(cx + 22 + dx, cy - 44); c.lineTo(cx + 22 + dx, cy - 20); c.stroke(); }
+  c.lineWidth = 8;
+  c.beginPath(); c.moveTo(cx + 13, cy - 20); c.quadraticCurveTo(cx + 22, cy - 8, cx + 31, cy - 20); c.stroke();
+  c.beginPath(); c.moveTo(cx + 22, cy - 14); c.lineTo(cx + 22, cy + 46); c.stroke();
+  // 금지 사선
+  c.strokeStyle = ORANGE; c.lineWidth = 13; c.lineCap = 'butt';
+  const d = R * 0.72;
+  c.beginPath(); c.moveTo(cx - d, cy - d); c.lineTo(cx + d, cy + d); c.stroke();
+  // 글자
+  c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `900 92px ${FONT}`; c.fillText('금  식', w / 2, h * 0.7);
+  c.fillStyle = ORANGE; c.font = `700 25px ${FONT}`;
+  c.fillText('(입으로는 아무것도 안 됩니다)', w / 2, h * 0.86, w - 40);
+}
+{
+  const SW = 0.15, SH = SW * 540 / 500;             // 약 15 x 16 cm
+  const g = group(pole, -0.13, 1.845, HOOK_BAG.z);  // 고리 가로대 위 걸이 지점 (기둥과 PCA 고리 사이)
+  g.rotation.y = 0.35;                               // 침대 발치 쪽(학습자 쪽)으로 살짝 돌림
+  const tex = canvasTex(500, 540, (c, w, h) => { c.clearRect(0, 0, w, h); drawNpoSign(c, w, h, FONT); });
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(SW, SH), new THREE.MeshStandardMaterial({ map:tex, roughness:0.55, side:THREE.DoubleSide, alphaTest:0.5 }));
+  const holeY = SH / 2 - SH * 0.2 * 0.62 * (540 / 540);   // 판 가운데에서 걸이 구멍까지
+  card.position.y = -0.05 - holeY;                   // 링 아래로 매달림
+  card.castShadow = true;
+  g.add(card);
+  // 가로대에 건 금속 링 (사진처럼 S자 고리 대신 둥근 링)
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0022, 8, 24), mat(0xc9ced2, { metalness:0.7, roughness:0.3 }));
+  ring.position.y = -0.026; g.add(ring);
+  tag(g, '금식 표지판', '수술 당일 금식 (NPO)');
+}
+
 // 수액 백: Plasma Solution A 1 L (라벨은 코드로 그림)
 const bagLbl = canvasTex(256, 512, (g, w, h) => {
   g.clearRect(0, 0, w, h);
