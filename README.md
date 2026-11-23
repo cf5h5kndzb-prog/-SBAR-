@@ -26,7 +26,8 @@
 |---|---|---|
 | `jp_full.glb` | JP bulb: 선홍색 혈액이 가득 차 부푼 상태 (E3 오류) | 0.17 MB |
 | `jp_compressed.glb` | JP bulb: 압축된 상태 (E3 교정 후로 바뀜) | 0.14 MB |
-| `guardian.glb` | 보호자(남편). 2분에 걸어 들어와 침대 옆에 섬 | 0.42 MB |
+| `guardian_walk.glb` | 보호자(남편), Mixamo 리깅 · 'Walking'(걷기)과 'Step_to_Sit_Transition' 첫 장면(서 있기) 애니메이션. 2분에 문에서 걸어 들어와 침대 옆에 섬. 원본 40 MB → 텍스처 1024 JPEG로 압축 | 3.3 MB |
+| `guardian.glb` | 보호자 예전 정지 모델 (guardian_walk.glb를 못 불러올 때만 사용) | 0.42 MB |
 | `cart.glb` | 처치 카트 (환자 오른쪽 다리 쪽, 침대에서 조금 떨어짐). 무광으로 질감 정리 | 0.58 MB |
 | `thermometer.glb` | 고막 체온계 (카트 위). 클릭하면 현재 체온, 감점 없음 | 0.14 MB |
 | `phone.glb` | 병동 전화기 (카트 위). 클릭하면 SBAR 보고 창이 열림(S·B·R 보기 선택 + A 활력징후·NRS·배액량 직접 입력, 모니터 수치와 대조, 누락 시 담당의가 되묻고 완료 시 "알겠습니다. 확인하러 가겠습니다."), 출혈 악화(5분)부터 깜빡임 | 0.12 MB |

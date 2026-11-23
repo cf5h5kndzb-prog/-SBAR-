@@ -2455,7 +2455,28 @@ pBubble.visible = false;
 pBubble.raycast = () => {};
 headGroup.add(pBubble);
 let pBubbleTTL = 0;
-let guardianWalk = -1;
+let guardianWalk = -1;          // 0~1: 걸어 들어오는 진행도, 1이면 도착
+// 걷는 길: 문(오른벽) 앞에서 방 안으로 몇 걸음 → 침대 오른쪽(환자 Lt. 쪽) 옆으로 곡선 (2차 베지어)
+const GPATH = [new THREE.Vector2(2.75, 1.4), new THREE.Vector2(1.85, 1.35), new THREE.Vector2(1.2, 0.22)];
+const gpAt = u => { const a = 1 - u; return new THREE.Vector2(
+  a * a * GPATH[0].x + 2 * a * u * GPATH[1].x + u * u * GPATH[2].x,
+  a * a * GPATH[0].y + 2 * a * u * GPATH[1].y + u * u * GPATH[2].y); };
+// 곡선 길이를 표로 만들어 거리 → 곡선 위치로 바꿈 (일정한 걸음 속도)
+const GP_LUT = (() => { const L = [0]; let p = gpAt(0); for (let i = 1; i <= 100; i++) { const q = gpAt(i / 100); L.push(L[i - 1] + p.distanceTo(q)); p = q; } return L; })();
+const GP_LEN = GP_LUT[100];
+function gpAtDist(d) {
+  d = Math.max(0, Math.min(GP_LEN, d));
+  let i = 1; while (i < 100 && GP_LUT[i] < d) i++;
+  const u = (i - 1 + (d - GP_LUT[i - 1]) / Math.max(1e-6, GP_LUT[i] - GP_LUT[i - 1])) / 100;
+  return { p:gpAt(u), u };
+}
+const G_WALK_V = 1.0;             // 60대 남성 걸음 속도 (m/s)
+const gState = { dist:0, yaw:0 };
+const yawTo = (fromX, fromZ, x, z) => Math.atan2(x - fromX, z - fromZ);   // 모델 앞쪽이 +z
+function turnToward(cur, tgt, maxStep) {
+  let d = tgt - cur; d = Math.atan2(Math.sin(d), Math.cos(d));
+  return cur + Math.max(-maxStep, Math.min(maxStep, d));
+}
 let guardianPoint = 0;          // >0 이면 PCA 쪽을 보고 가리키는 중 (초)
 
 /* ---------- 3D 소품 모델 (카트 · JP bulb · 보호자) ----------
@@ -2797,12 +2818,40 @@ loadModel('jp_compressed.glb', sc => {
   jpReady();
 });
 
-// 보호자(남편): 기존 도형 대신 3D 모델. 걸어 들어와 침대 옆에 선다
-loadModel('guardian.glb', sc => {
-  const g = fitModel(sc, 1.72);
+// 보호자(남편): Mixamo 리깅 모델(guardian_walk.glb, 'Walking' 걷기 + 'Step_to_Sit_Transition' 첫 장면을 서 있기 자세로 사용)
+// 문에서 걸어 들어와 침대 옆에 선다. 불러오기 실패 시 예전 정지 모델(guardian.glb)
+const GW = { mixer:null, walk:null, idle:null, speed:1.42 };   // speed: Walking 애니 1배속의 실제 걸음 속도(m/s, 발 디딤 측정값)
+function useGuardianModel(root, animated) {
   for (const o of [...guardian.children]) if (o !== bubble) o.removeFromParent();
-  guardian.add(g);
-});
+  root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  guardian.add(root);
+  if (!animated) return;
+  GW.mixer = new THREE.AnimationMixer(root);
+  GW.walk = GW.mixer.clipAction(animated.walk);
+  GW.idle = GW.mixer.clipAction(animated.idle);
+  GW.idle.play(); GW.idle.paused = true; GW.idle.time = 0;            // 서 있기: 앉기 전환 동작의 첫 장면(똑바로 선 자세)
+  GW.walk.play(); GW.walk.setEffectiveWeight(0);
+  GW.mixer.update(0);
+}
+gltfLoader.load('guardian_walk.glb', gltf => {
+  try {
+    const root = gltf.scene;
+    const walk = gltf.animations.find(a => a.name === 'Walking');
+    const idle = gltf.animations.find(a => a.name === 'Step_to_Sit_Transition');
+    if (!walk || !idle) throw new Error('애니메이션 없음');
+    // 키 1.72 m: 선 자세로 맞춘 뒤 실제 피부 위치 기준으로 높이를 잼
+    const mx = new THREE.AnimationMixer(root); mx.clipAction(idle).play(); mx.setTime(0);
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root, true);
+    const k = 1.72 / (box.max.y - box.min.y);
+    mx.stopAllAction(); mx.uncacheRoot(root);
+    root.scale.setScalar(k);
+    root.position.y = -box.min.y * k;
+    GW.speed *= k;
+    useGuardianModel(root, { walk, idle });
+  } catch (e) { console.warn('guardian_walk.glb 적용 실패', e); loadOldGuardian(); }
+}, undefined, e => { console.warn('guardian_walk.glb 불러오기 실패', e); loadOldGuardian(); });
+function loadOldGuardian() { loadModel('guardian.glb', sc => useGuardianModel(fitModel(sc, 1.72), null)); }
 
 /* ============================================================
    마커 (찾음 / 힌트)
@@ -3392,13 +3441,15 @@ function guardianSay(text, ttl = 9, delay = 0) {
   setTimeout(() => { if (state.phase === 'running') speak(text); }, delay * 1000);
 }
 function evGuardian() {
-  guardian.visible = true; guardianWalk = 0;
+  guardian.visible = true; guardianWalk = 0; gState.dist = 0;
+  { const p = gpAt(0), q = gpAt(0.05); gState.yaw = yawTo(p.x, p.y, q.x, q.y); guardian.position.set(p.x, 0, p.y); guardian.rotation.set(0, gState.yaw, 0); }
+  if (GW.mixer) { GW.walk.stopFading(); GW.idle.stopFading(); GW.walk.reset().play(); GW.walk.setEffectiveWeight(1); GW.idle.setEffectiveWeight(0); }
   toast('🚪 보호자가 병실에 들어왔습니다.', 'alert', 4200);
   if (state.found.has('E5')) {                           // 보호자 등장 전에 PCA 오류를 이미 찾았으면 대사 없음
     feed('보호자 방문', 'alert');
     return;
   }
-  guardianSay(GUARDIAN_ASK, 10, 1.2);                     // 문으로 들어와 몇 걸음 걸은 뒤 말함
+  guardianSay(GUARDIAN_ASK, 10, 2.0);                     // 문으로 들어와 침대 옆에 다다를 즈음 말함
 }
 // 반복 질문: PCA 오류가 아직 그대로면 1분마다 다시 물음 (3분 10초 · 4분 10초)
 function evGuardianAsk() {
@@ -3523,6 +3574,7 @@ function start() {
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
   Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fallRisk:false, fallRiskFixed:false, severeOn:false, bleedHold:null });
   state.found.clear(); state.wrong.clear(); closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
+  guardian.visible = false; guardianWalk = -1; guardianPoint = 0; bubble.visible = false; bubbleTTL = 0;   // 다시 시작하면 보호자는 아직 안 옴
   $('feed').innerHTML = '';
   $('startOv').hidden = true; $('endOv').hidden = true;
   $('hintBtn').disabled = false; $('giveUpBtn').disabled = false;
@@ -3714,18 +3766,31 @@ function frame() {
   mouth.scale.z = 1 + Math.max(0, pn - 4) * 0.9;
   mouth.scale.x = 1 - Math.max(0, pn - 4) * 0.06;
 
-  // 보호자 걸어오기
+  // 보호자 걸어오기: 걷기 애니메이션을 걸음 속도에 맞춰 재생(발 미끄러짐 없게), 마지막 0.5 m는 천천히 → 멈춰 서기
   if (guardianWalk >= 0 && guardianWalk < 1) {
-    guardianWalk = Math.min(1, guardianWalk + dt / 4);
-    guardian.position.set(2.8 + (1.2 - 2.8) * guardianWalk, 0, 1.4 + (0.2 - 1.4) * guardianWalk);
-    guardian.lookAt(0.3, 0, -0.6);   // 수평으로만 회전 (눕지 않게)
+    const left = GP_LEN - gState.dist;
+    const v = G_WALK_V * Math.max(0.45, Math.min(1, left / 0.5));
+    gState.dist = Math.min(GP_LEN, gState.dist + v * dt);
+    const { p, u } = gpAtDist(gState.dist);
+    const q = gpAt(Math.min(1, u + 0.02));
+    guardian.position.set(p.x, 0, p.y);
+    if (u < 0.99) gState.yaw = turnToward(gState.yaw, yawTo(p.x, p.y, q.x, q.y), dt * 4);   // 가는 방향을 봄
+    guardian.rotation.set(0, gState.yaw, 0);
+    guardianWalk = gState.dist / GP_LEN;
+    if (GW.mixer) GW.walk.setEffectiveTimeScale(v / GW.speed);
+    if (guardianWalk >= 1 && GW.mixer) GW.walk.crossFadeTo(GW.idle.setEffectiveWeight(1), 0.45, false);   // 걷기 → 서 있기
   }
+  if (GW.mixer && guardian.visible) GW.mixer.update(dt);
   if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
   if (pBubbleTTL > 0) { pBubbleTTL -= dt; if (pBubbleTTL <= 0) pBubble.visible = false; }
   // 보호자가 PCA를 가리킴: PCA(폴대 쪽) 방향으로 몸을 돌렸다가 다시 환자 쪽으로
-  if (guardian.visible && guardianWalk >= 1) {
-    if (guardianPoint > 0) { guardianPoint -= dt; guardian.lookAt(POLE.x, 0, POLE.z); }
-    else guardian.lookAt(0.3, 0, -0.6);
+  if (guardian.visible && guardianWalk >= 1) {          // 도착 후 천천히 몸을 돌림 (환자 쪽 / PCA 쪽)
+    const gx = guardian.position.x, gz = guardian.position.z;
+    let tgt;
+    if (guardianPoint > 0) { guardianPoint -= dt; tgt = yawTo(gx, gz, POLE.x, POLE.z); }
+    else tgt = yawTo(gx, gz, 0.3, -0.6);
+    gState.yaw = turnToward(gState.yaw, tgt, dt * 2.2);
+    guardian.rotation.set(0, gState.yaw, 0);
   }
 
   // 트윈
