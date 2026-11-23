@@ -193,7 +193,7 @@
     </div>
     <p style="font-size:13px;color:#5d6d77;margin:0">
       PC: 마우스로 장면을 돌려 보고 의심 가는 물체를 클릭한 뒤 <b>판단 근거</b>를 고르세요 · VR: 화면 오른쪽 아래 <b>ENTER VR</b> 버튼 후 컨트롤러 트리거로 선택.<br>
-      오답 클릭·틀린 근거 선택은 −2점, 힌트는 −3점, 낙상 발생은 −10점입니다.
+      오답 클릭·틀린 근거 선택은 −2점, 힌트는 −3점입니다.
     </p>
     <div class="row"><button class="primary" id="startBtn">시작하기</button></div>
   </div>
@@ -301,7 +301,7 @@ const DEBRIEF = [
    ============================================================ */
 const state = {
   phase:'idle', practice:false, t:0, phoneCalled:false, handHygiene:0,
-  found:new Set(), wrong:new Map(), misses:0, hints:0, fell:false,
+  found:new Set(), wrong:new Map(), misses:0, hints:0, fallRisk:false, fallRiskFixed:false,
   done:new Set(), log:[], lastMsg:'', hover:'', inXR:false
 };
 const vit = { hr:88, sbp:140, dbp:80, spo2:96, rr:18, temp:36.8, pain:6 };   // 시나리오 3-5 기준값 (0분)
@@ -2442,7 +2442,8 @@ const PATIENT_LINE = {
   enter:'아이고… 수술부위가 아파요.',                        // 진입 시 주 호소 (NRS 6)
   worse:'아… 아까보다 더 아파요.',                           // 3분까지 E5 미교정 (NRS 7)
   pcaNoEffect:'으… 눌러도 별로 안 나아지는 것 같아요.',      // PCA 확인 시 (E5 미교정)
-  pcaFixed:'휴… 눌렀더니 좀 나아지는 것 같아요.'             // E5 교정 후
+  pcaFixed:'휴… 눌렀더니 좀 나아지는 것 같아요.',            // E5 교정 후
+  getUp:'아이고… 너무 아파서 못 누워 있겠어요. 일어나 볼게요.'  // 8분 출혈 미조치: 낙상 위험 행동
 };
 let pBubbleText = PATIENT_LINE.enter;
 const pBubbleTex = canvasTex(640, 220, (g, w) => drawBubble(g, w, '😣 ' + pBubbleText, '#c2185b'));
@@ -3299,6 +3300,10 @@ function foundError(id) {
   toast(`✔ ${e.id} ${e.title}\n${e.fix}`, 'good', 3800);
   feed(`✔ ${e.id} ${e.title}`, 'good');
   if (id === 'E5') patientSay(PATIENT_LINE.pcaFixed, 6, 1.5);   // PCA 교정 후 반응
+  if (id === 'E8' && state.fallRisk) {                          // 낙상 위험 상황에서 대응
+    state.fallRiskFixed = true;
+    feed('✔ 낙상 위험 상황 대응: 난간을 올리고 콜벨을 손 닿는 곳에 두었습니다.', 'good');
+  }
   renderList();
   if (state.found.size + state.wrong.size === ERRORS.length) end('complete');
 }
@@ -3345,8 +3350,7 @@ const EVENTS = [
   { t:250, run:evGuardianAsk },
   { t:300, run:evBleed },
   { t:306, run:evGuardianPCA },
-  { t:480, run:evSevere },
-  { t:540, run:evFall }
+  { t:480, run:evSevere }
 ];
 // 음성 대사: 브라우저 내장 음성 합성(한국어)
 //  - 남성(보호자·담당의): 남성 목소리가 있으면 쓰고, 없으면 낮은 톤으로
@@ -3420,22 +3424,15 @@ function evBleed() {
   feed('출혈 악화: 빈맥·저혈압 진행. 구조 단서: 복부 dressing과 JP 배액을 확인하세요.', 'alert');
   addHint('E2', 12, true);                               // 구조 단서
 }
+// 8분 낙상 위험 행동 (보고서 3-6·4-3·4-4): 출혈(E2) 미조치면 환자가 불안·통증으로 혼자 일어나려 함
+// 실제 낙상은 일어나지 않음. 이때 E8(난간·콜벨)이 미교정이면 '낙상 위험 상황' → 남은 시간 안에 E8 교정 여부를 평가
+// 어느 쪽 난간인지는 알려주지 않음 (학습자가 직접 판단)
 function evSevere() {
-  if (state.found.has('E2')) {                            // 출혈은 확인됨 → 활력징후는 유지, 불안·낙상 위험만
-    toast('⚠ 환자가 불안해하며 침대에서 내려오려고 합니다 (낙상 위험).', 'alert', 5200);
-    feed('낙상 위험: 환자가 불안정하게 움직입니다.', 'alert');
-  } else {
-    toast('⚠ 환자 상태가 중증으로 악화됩니다! 침대에서 내려오려고 합니다 (낙상 위험).', 'alert', 5200);
-    feed('중증 악화 · 낙상 위험: 환자가 불안정하게 움직입니다.', 'alert');
-  }
-  if (!state.found.has('E8')) addHint('E8', 10, true);
-}
-function evFall() {
-  if (!state.found.has('E8') && !state.fell) {
-    state.fell = true;
-    toast('❌ 낙상 사고가 발생했습니다. (−10점)', 'alert', 5200);
-    feed('낙상 발생: 난간이 내려가 있고 호출벨이 손에 닿지 않았습니다.', 'alert');
-  }
+  if (state.found.has('E2')) return;                       // 출혈을 확인했으면 환자 상태 유지, 위험 행동 없음
+  toast('⚠ 환자 상태가 악화됩니다. 환자가 혼자 일어나려고 합니다.', 'alert', 5200);
+  feed('중증 악화 · 환자가 불안해하며 혼자 침상에서 일어나려 함', 'alert');
+  patientSay(PATIENT_LINE.getUp, 8, 1.5);
+  if (!state.found.has('E8')) state.fallRisk = true;       // 낙상 위험 상황 발생
 }
 
 /* 활력징후 목표값 — 시나리오 문서 3-5 '경과 시간별 활력징후'와 적용 규칙
@@ -3522,7 +3519,7 @@ function start() {
   initMonSound();
   if (window.speechSynthesis) speechSynthesis.cancel();
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
-  Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fell:false, bleedHold:null });
+  Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fallRisk:false, fallRiskFixed:false, bleedHold:null });
   state.found.clear(); state.wrong.clear(); closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
   $('feed').innerHTML = '';
   $('startOv').hidden = true; $('endOv').hidden = true;
@@ -3535,7 +3532,7 @@ function start() {
 }
 
 function calcScore() {
-  return Math.max(0, Math.round(state.found.size / ERRORS.length * 100) - state.misses * 2 - state.hints * 3 - (state.fell ? 10 : 0));
+  return Math.max(0, Math.round(state.found.size / ERRORS.length * 100) - state.misses * 2 - state.hints * 3);
 }
 function end(reason) {
   if (state.phase !== 'running') return;
@@ -3549,9 +3546,18 @@ function end(reason) {
   $('endScore').textContent = score + '점';
   $('endSummary').textContent = `발견 ${state.found.size}/${ERRORS.length} · 근거 오류 ${state.wrong.size} · 오답 ${state.misses} · 힌트 ${state.hints}` +
     (state.handHygiene ? ` · 손 위생 ${state.handHygiene}회` : ' · 손 위생 안 함') +
-    (state.fell ? ' · 낙상 발생(−10)' : '') + (state.practice ? '' : ' · 소요 ' + fmt(Math.min(LIMIT, state.t))) +
+    (state.fallRisk ? (state.fallRiskFixed ? ' · 낙상 위험 상황 대응함' : ' · 낙상 위험 상황 미대응') : '') + (state.practice ? '' : ' · 소요 ' + fmt(Math.min(LIMIT, state.t))) +
     (sbar.done ? ` · SBAR 보고 완료(${sbar.tries}차, ${fmt(sbar.secs)})` : sbar.tries ? ' · SBAR 보고 미완료' : ' · SBAR 보고 안 함');
   const box = $('endList'); box.innerHTML = '';
+  if (state.fallRisk) {                           // 8분 낙상 위험 상황 (E8 미교정 상태에서 환자가 혼자 일어나려 함)
+    const d = document.createElement('div');
+    d.className = 'res' + (state.fallRiskFixed ? '' : ' miss');
+    d.innerHTML = '<b>' + (state.fallRiskFixed ? '✔ ' : '✘ ') + '낙상 위험 상황 대응</b><span class="tag">낙상 예방 · E8</span>' +
+      (state.fallRiskFixed
+        ? '환자가 혼자 일어나려 할 때 난간을 올리고 콜벨을 손 닿는 곳에 두어 낙상을 예방했습니다.'
+        : '환자가 혼자 일어나려 했지만 난간이 내려가 있고 콜벨이 손에 닿지 않는 상태가 그대로였습니다. 실제 병동이었다면 낙상으로 이어질 수 있었습니다.');
+    box.appendChild(d);
+  }
   {                                               // SBAR 보고 결과 (체크리스트 C10)
     const d = document.createElement('div');
     const c10 = sbar.done && sbar.secs <= 60;
