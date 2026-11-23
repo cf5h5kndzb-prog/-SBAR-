@@ -1508,7 +1508,7 @@ function drawFallSign(c, w, h, FONT) {
 }
 
 // 금식(NPO) 표지판: 수술 당일 금식. 병동에서 쓰는 집 모양 자주색 걸이판 (약 15 x 16 cm)
-// 폴대 고리 가로대(침대 반대쪽, PCA 고리와 기둥 사이)에 금속 링으로 걸어 둠
+// 폴대 위 PCA 쪽 팔걸이(기둥과 PCA 고리 사이)에 금속 링으로 걸어 둠 — 위치는 pole.glb 팔걸이 실측값
 function drawNpoSign(c, w, h, FONT) {
   const PURPLE = '#7a1f4b', ORANGE = '#f0a43a';
   const roof = h * 0.2, rr = 18;
@@ -1547,7 +1547,7 @@ function drawNpoSign(c, w, h, FONT) {
 }
 {
   const SW = 0.15, SH = SW * 540 / 500;             // 약 15 x 16 cm
-  const g = group(pole, -0.13, 1.845, HOOK_BAG.z);  // 고리 가로대 위 걸이 지점 (기둥과 PCA 고리 사이)
+  const g = group(pole, -0.13, 1.9325, 0.056);       // pole.glb 팔걸이: x −0.13에서 중심 높이 1.921 m, z 0.056 (굵기 약 1.5 cm)
   g.rotation.y = 0.35;                               // 침대 발치 쪽(학습자 쪽)으로 살짝 돌림
   const tex = canvasTex(500, 540, (c, w, h) => { c.clearRect(0, 0, w, h); drawNpoSign(c, w, h, FONT); });
   const card = new THREE.Mesh(new THREE.PlaneGeometry(SW, SH), new THREE.MeshStandardMaterial({ map:tex, roughness:0.55, side:THREE.DoubleSide, alphaTest:0.5 }));
@@ -1557,7 +1557,9 @@ function drawNpoSign(c, w, h, FONT) {
   g.add(card);
   // 가로대에 건 금속 링 (사진처럼 S자 고리 대신 둥근 링)
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0022, 8, 24), mat(0xc9ced2, { metalness:0.7, roughness:0.3 }));
-  ring.position.y = -0.026; g.add(ring);
+  ring.position.y = -0.026;                          // 링 위쪽 안쪽이 팔걸이에 얹힘
+  ring.rotation.y = -1.52;                           // 팔걸이(기둥→PCA 고리 방향)가 링 구멍을 지나가게
+  g.add(ring);
   tag(g, '금식 표지판', '수술 당일 금식 (NPO)');
 }
 
