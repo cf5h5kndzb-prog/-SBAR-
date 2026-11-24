@@ -2794,10 +2794,11 @@ function setupPatient(gltf) {
         const t = i / N * Math.PI * 2;
         const d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
         let r = pts[i]; if (!isFinite(r) || r > med * 1.5 || r < med * 0.5) r = med;
-        pts[i] = c.clone().addScaledVector(d, r + 0.0025);
+        pts[i] = c.clone().addScaledVector(d, r + 0.005);
       }
       // 너무 들쭉날쭉하지 않게 이웃 평균으로 다듬기
-      const sm = pts.map((p, i) => p.clone().add(pts[(i + 1) % N]).add(pts[(i + N - 1) % N]).multiplyScalar(1 / 3));
+      let sm = pts;
+      for (let pass = 0; pass < 3; pass++) { const src = sm; sm = src.map((p, i) => p.clone().add(src[(i + 1) % N]).add(src[(i + N - 1) % N]).multiplyScalar(1 / 3)); }
       const pos = [], idx = [];
       sm.forEach(p => {
         const a = G.worldToLocal(p.clone().addScaledVector(ax, -width / 2)), b = G.worldToLocal(p.clone().addScaledVector(ax, width / 2));
@@ -2808,18 +2809,29 @@ function setupPatient(gltf) {
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
       G.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness:0.6, side:THREE.DoubleSide })));
       G.userData.ring.visible = false;
-      // 이름표: 띠에서 가장 위(천장 쪽)를 향한 곳에, 띠를 따라 눕혀 붙임
+      // 이름표 인쇄면: 띠 위쪽(천장 쪽)에서 손목 둘레를 따라 곡면으로 감기게 만듦 (평평한 판 X)
       let k = 0; sm.forEach((p, i) => { if (p.y > sm[k].y) k = i; });
-      const n = sm[k].clone().sub(c).normalize();
-      const tg = new THREE.Vector3().crossVectors(ax, n).normalize();
-      const qW = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(tg, new THREE.Vector3().crossVectors(n, tg), n));
-      const plate = G.userData.plate;
-      plate.position.copy(G.worldToLocal(sm[k].clone().addScaledVector(n, 0.0015)));
-      plate.quaternion.copy(G.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(qW));
-      plate.material.side = THREE.DoubleSide;
+      const plate = G.userData.plate, tex = plate.material.map;
+      plate.visible = false;
+      const rad = sm.map(p => p.distanceTo(c.clone().addScaledVector(ax, p.clone().sub(c).dot(ax))));   // 단면 반지름
+      const tk = k / N * Math.PI * 2, Lw = width * 2, rMean = rad.reduce((x, y) => x + y, 0) / N;
+      const M = 24, lp = [], li = [], lu = [];
+      for (let j = 0; j <= M; j++) {
+        const th = tk + (j / M - 0.5) * (Lw / rMean);
+        const fi = ((th / (Math.PI * 2)) * N % N + N) % N, i0 = Math.floor(fi) % N, i1 = (i0 + 1) % N, f = fi - Math.floor(fi);
+        const r = rad[i0] * (1 - f) + rad[i1] * f + 0.0014;
+        const d = u0.clone().multiplyScalar(Math.cos(th)).addScaledVector(u1, Math.sin(th));
+        const pc = c.clone().addScaledVector(d, r);
+        for (const sgn of [-1, 1]) { const q = G.worldToLocal(pc.clone().addScaledVector(ax, sgn * width / 2)); lp.push(q.x, q.y, q.z); lu.push(j / M, sgn < 0 ? 0 : 1); }
+      }
+      for (let j = 0; j < M; j++) { const a0 = 2 * j; li.push(a0, a0 + 2, a0 + 1, a0 + 1, a0 + 2, a0 + 3); }
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li); lg.computeVertexNormals();
+      const label = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ map:tex, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 }));
+      G.add(label);
     };
-    wrap(bandG, 0.02, 0xffffff);
-    wrap(saveBandG, 0.016, 0xd32f2f);
+    wrap(bandG, 0.036, 0xffffff);
+    wrap(saveBandG, 0.028, 0xd32f2f);
   }
   // SpO₂ 센서: Lt. 검지 끝을 감싼 살구색 테이프형 센서 + 손등·손목 고정 테이프
   if (bones.LeftHandIndex3 && bones.LeftHandIndex4) {
