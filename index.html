@@ -2593,6 +2593,38 @@ function updateMouth(dt) {
   if (Math.abs(o - MOUTH.applied) > 0.012 || (o < 0.012 && MOUTH.applied !== 0)) { MOUTH.applied = o < 0.012 ? 0 : o; setMouthOpen(MOUTH.applied); MOUTH.open = o; } else MOUTH.open = o;
 }
 
+// 누운 환자 배 납작하게: 원본 모델은 배가 크게 솟아 있어(복수 찬 것처럼) 옆에서 보면 허리가 휜 듯 보임 → 몸통 가운데 배 부분만 눌러 평평하게.
+// 스킨 메시의 현재(누운) 자세에서 월드 좌표로 배 부분 정점을 아래로 눌러, 그 변위를 바인드 좌표로 되돌려 지오메트리에 영구 반영
+// (이후 침상 머리를 올려도 몸통을 따라 자연스럽게 움직임)
+function flattenBelly(mesh, opts = {}) {
+  const { yKnee = 0.9, press = 0.72, zFull = [-1.0, -0.6], zFade = [-1.14, -0.46], xHalf = 0.27 } = opts;
+  mesh.updateWorldMatrix(true, false); mesh.skeleton.update();
+  const geo = mesh.geometry, pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  const names = mesh.skeleton.bones.map(b => b.name.replace(/^mixamorig:?/, ''));
+  const torso = new Set(['Hips', 'Spine', 'Spine1', 'Spine2']);
+  const bm = mesh.skeleton.boneMatrices;
+  const v = new THREE.Vector3(), Mb = new THREE.Matrix4(), tmp = new THREE.Matrix4(), A = new THREE.Matrix4(), M3 = new THREE.Matrix3();
+  const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  let moved = 0;
+  for (let i = 0; i < pos.count; i++) {
+    let wt = 0;
+    for (let k = 0; k < 4; k++) if (torso.has(names[si.getComponent(i, k)])) wt += sw.getComponent(i, k);
+    if (wt < 0.6) continue;
+    v.fromBufferAttribute(pos, i); mesh.applyBoneTransform(i, v); v.applyMatrix4(mesh.matrixWorld);   // 현재 자세의 월드 좌표
+    const wz = sm(zFade[0], zFull[0], v.z) * (1 - sm(zFull[1], zFade[1], v.z)), wx = 1 - sm(0.0, xHalf, Math.abs(v.x));
+    if (v.y <= yKnee || wz * wx <= 0.001) continue;
+    const dy = -(v.y - yKnee) * press * wz * wx;
+    // 월드 변위(0,dy,0) → 바인드 좌표 변위
+    Mb.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (!w) continue; tmp.fromArray(bm, si.getComponent(i, k) * 16); for (let e = 0; e < 16; e++) Mb.elements[e] += tmp.elements[e] * w; }
+    A.copy(mesh.matrixWorld).multiply(mesh.bindMatrixInverse).multiply(Mb).multiply(mesh.bindMatrix);
+    M3.setFromMatrix4(A.invert());
+    const d = new THREE.Vector3(0, dy, 0).applyMatrix3(M3);
+    pos.setXYZ(i, pos.getX(i) + d.x, pos.getY(i) + d.y, pos.getZ(i) + d.z); moved++;
+  }
+  pos.needsUpdate = true; geo.computeBoundingSphere();
+  return moved;
+}
 function setupPatient(gltf) {
   const root = gltf.scene;
   root.scale.setScalar(PATIENT_SCALE);
@@ -2685,6 +2717,10 @@ function setupPatient(gltf) {
     }
     root.updateMatrixWorld(true);
   }
+  // 배 납작하게 (복수 찬 듯 솟은 배 + 휜 허리 인상 개선)
+  root.updateMatrixWorld(true);
+  root.traverse(o => { if (o.isSkinnedMesh) { try { rig.bellyMoved = flattenBelly(o); } catch (e) { console.warn('배 납작하게 실패', e); } } });
+  root.updateMatrixWorld(true);
   // 베개: 뒤통수에 닿도록 위치와 높이 맞춤
   {
     const hp2 = J('Head').lerp(J('HeadTop_End'), 0.45);
@@ -3132,6 +3168,7 @@ function setupPatientLift(gltf) {
   m1.parent.add(m2);
   m2.position.copy(m1.position); m2.quaternion.copy(m1.quaternion); m2.scale.copy(m1.scale);
   m2.bind(m1.skeleton, m1.bindMatrix);
+  m2.updateWorldMatrix(true, false); try { flattenBelly(m2); } catch (e) { console.warn('상의 걷은 모델 배 납작하게 실패', e); }
   m2.frustumCulled = false; m2.castShadow = false; m2.receiveShadow = true;
   applyGownPrint(m2);
   addLiftBand(m2.material, true);
