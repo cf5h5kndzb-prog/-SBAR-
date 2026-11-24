@@ -457,27 +457,20 @@ function screenMesh(parent, tex, w, h, x, y, z, ry = 0) {
 const wallMat = mat(0xf4eee3, { roughness:0.95 });
 const ceilMat = mat(0xfbf8f2, { roughness:0.95 });
 const accentMat = null;
-// 바닥: 연베이지 석재 무늬 데코타일 (60 x 60 cm, 은은한 마블 결 + 가는 줄눈) — 병동 리모델링·1인실에서 흔한 바닥
+// 바닥: 연회색 칩 무늬 병원용 PVC 시트 (이음매 없는 시트, 작은 색 알갱이) — 대학병원 병동에서 가장 흔한 바닥
 const floorTex = canvasTex(512, 512, (g, w, h) => {
-  let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const tiles = 2, ts = w / tiles;                    // 텍스처 한 장 = 1.2 m → 타일 60 cm
-  for (let r = 0; r < tiles; r++) for (let c = 0; c < tiles; c++) {
-    const l = 0.84 + rnd() * 0.03;                   // 타일마다 밝기를 조금씩 다르게
-    g.fillStyle = `hsl(38, 16%, ${l * 100}%)`; g.fillRect(c * ts, r * ts, ts, ts);
-    g.save(); g.beginPath(); g.rect(c * ts, r * ts, ts, ts); g.clip();
-    for (let i = 0; i < 9; i++) {                    // 마블 결
-      g.globalAlpha = 0.07 + rnd() * 0.06; g.strokeStyle = rnd() < 0.5 ? '#b9ab96' : '#f4efe6'; g.lineWidth = 1 + rnd() * 3;
-      g.beginPath(); let x = c * ts + rnd() * ts, y = r * ts; g.moveTo(x, y);
-      for (let k = 0; k < 10; k++) { x += (rnd() - 0.4) * 40; y += ts / 9; g.lineTo(x, y); }
-      g.stroke();
-    }
-    for (let i = 0; i < 900; i++) {                  // 잔 점무늬
-      g.globalAlpha = 0.12; g.fillStyle = rnd() < 0.5 ? '#c4b8a4' : '#efe9de';
-      g.fillRect(c * ts + rnd() * ts, r * ts + rnd() * ts, 2, 2);
-    }
-    g.restore(); g.globalAlpha = 1;
-    g.fillStyle = '#c6baa6'; g.fillRect(c * ts, r * ts, ts, 2); g.fillRect(c * ts, r * ts, 2, ts);   // 줄눈
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = '#d5d6d2'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 260; i++) {                    // 은은한 톤 얼룩
+    g.globalAlpha = 0.05; g.fillStyle = rnd() < 0.5 ? '#c3c5c1' : '#e3e3de';
+    g.beginPath(); g.arc(rnd() * w, rnd() * h, 10 + rnd() * 30, 0, Math.PI * 2); g.fill();
   }
+  const chips = ['#9fa3a3', '#b9bcba', '#ecebe6', '#8d9296', '#c9c2b4', '#a9b3b8'];
+  for (let i = 0; i < 5200; i++) {                   // 작은 칩(색 알갱이)
+    g.globalAlpha = 0.55 + rnd() * 0.4; g.fillStyle = chips[(rnd() * chips.length) | 0];
+    const sz = 1 + rnd() * 2.6; g.fillRect(rnd() * w, rnd() * h, sz, sz * (0.5 + rnd()));
+  }
+  g.globalAlpha = 1;
 });
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 floorTex.repeat.set(6 / 1.2, 5 / 1.2);   // 텍스처 한 장 = 1.2 m
