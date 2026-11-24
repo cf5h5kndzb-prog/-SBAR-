@@ -4013,7 +4013,7 @@ function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;',
    시나리오 진행 (시간 앵커)
    ============================================================ */
 const EVENTS = [
-  { t:120, run:evGuardian },
+  { t:Math.max(60, 120 - Math.ceil(GP_LEN / G_WALK_V + 0.5)), run:evGuardian },   // 걸어와서 침대 옆에 서는 때가 2분 즈음 → 그만큼 일찍 들어옴 (대사는 그 2초 뒤)
   { t:180, run:evPain },
   { t:190, run:evGuardianAsk },
   { t:220, run:evPainRepeat },
@@ -4125,7 +4125,7 @@ function evGuardian() {
     feed('보호자 방문', 'alert');
     return;
   }
-  guardianSayPending = { text:GUARDIAN_ASK, t:0 };        // 문을 지나 병실에 들어온 뒤 1.5초 후에 말함 (updateProps 쪽에서 셈)
+  guardianSayPending = { text:GUARDIAN_ASK, t:0 };        // 침대 옆에 선 뒤 2초 후에 말함 (메인 루프에서 셈)
 }
 // 반복 질문: PCA 오류가 아직 그대로면 1분마다 다시 물음 (3분 10초 · 4분 10초)
 function evGuardianAsk() {
@@ -4475,9 +4475,9 @@ function frame() {
     if (GW.mixer) GW.walk.setEffectiveTimeScale(v / GW.speed);
     if (guardianWalk >= 1 && GW.mixer) GW.walk.crossFadeTo(GW.idle.setEffectiveWeight(1), 0.45, false);   // 걷기 → 서 있기
   }
-  if (guardianSayPending && guardian.visible) {                   // 병실 안(문 안쪽 x<2.9)에 들어선 뒤 1.5초 후 대사
-    if (guardian.position.x < 2.9) guardianSayPending.t += dt;
-    if (guardianSayPending.t >= 1.5) { const tx = guardianSayPending.text; guardianSayPending = null; if (!state.found.has('E5')) guardianSay(tx, 10); }
+  if (guardianSayPending && guardian.visible) {                   // 환자 옆에 도착한 뒤 2초 후 대사
+    if (guardianWalk >= 1) guardianSayPending.t += dt;
+    if (guardianSayPending.t >= 2.0) { const tx = guardianSayPending.text; guardianSayPending = null; if (!state.found.has('E5')) guardianSay(tx, 10); }
   }
   if (GW.mixer && guardian.visible) GW.mixer.update(dt);
   if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
