@@ -2432,8 +2432,11 @@ function rebuildTubes() {
   if (patientRig && patientRig.spo2) {
     const r = patientRig;
     spo2Tube.visible = true;
-    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3()),
-      V(0.52, 0.7 + BED_LIFT, -1.05), V(0.68, 0.85, -1.4), port]);
+    const sp = r.spo2Pts ? r.spo2Pts.map(a => a.getWorldPosition(new THREE.Vector3())) : [r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3())];
+    const last = sp[sp.length - 1];
+    // 아래팔 끝에서 Lt. 침상 난간(윗면 y≈1.05) 위로 넘어가 바깥으로 내려가 모니터 포트로
+    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), ...sp, last.clone().add(V(0.05, 0.03, -0.02)), V(0.36, last.y + 0.1, last.z - 0.05), V(0.45, 1.1, last.z - 0.07),
+      V(0.52, 1.125, last.z - 0.09), V(0.6, 1.06, last.z - 0.16), V(0.66, 0.97, -1.2), V(0.78, 0.93, -1.48), port]);
   } else spo2Tube.visible = false;
   // call bell 줄: 벽 패널 NURSE CALL 잭 → 벽을 타고 내려와 침대 머리 쪽 → Rt. 매트리스 옆 클립 → call bell 코일 끝
   // 매트리스 옆 클립·침대 머리 쪽 지점은 침상 머리(headGroup)를 따라 움직인다 (E7로 30° 올려도 매트리스에 묻히지 않게)
@@ -2748,7 +2751,7 @@ function setupPatient(gltf) {
         const t = i / N * Math.PI * 2;
         const d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
         let r = pts[i]; if (!isFinite(r) || r > med * 1.5 || r < med * 0.5) r = med;
-        pts[i] = c.clone().addScaledVector(d, r + 0.005);
+        pts[i] = c.clone().addScaledVector(d, r + 0.0075);
       }
       // 너무 들쭉날쭉하지 않게 이웃 평균으로 다듬기
       let sm = pts;
@@ -2801,6 +2804,18 @@ function setupPatient(gltf) {
     rig.spo2Back = anchor('LeftHand', h.clone().addScaledVector(d2, 0.055).addScaledVector(up, 0.026), frameQ(d2, up));
     add(rig.spo2Back, B(0.04, 0.002, 0.014), tapeM);                       // 손등 고정 테이프
     rig.spo2Wrist = anchor('LeftHand', h.clone().addScaledVector(d2, -0.06).addScaledVector(up, 0.03), frameQ(d2, up));
+    // SpO₂ 케이블 경로: 검지 → 손등 → 손목 → 아래팔 피부 위를 따라가며(손목밴드·Lt. arm save 팔찌 아래로 통과) 피부 표면에 붙여 지나감.
+    // 피부 위 지점은 위에서 아래로 레이캐스트해 한 번만 구해 뼈에 붙여 둠 (손을 뚫고 지나가지 않게)
+    {
+      const rc2 = new THREE.Raycaster(), s0 = rig.spo2.getWorldPosition(new THREE.Vector3());
+      const skin = p => { rc2.set(p.clone().add(V(0, 0.15, 0)), V(0, -1, 0)); rc2.far = 0.3;
+        const hit = rc2.intersectObject(root, true).find(x => x.object.isMesh && x.point.distanceTo(p) < 0.09);
+        return hit ? hit.point.clone().add(V(0, 0.0028, 0)) : p.clone().add(V(0, 0.02, 0)); };
+      const st = [[s0.clone().lerp(h, 0.3), 'LeftHand'], [s0.clone().lerp(h, 0.65), 'LeftHand'], [h.clone(), 'LeftHand'],
+        [h.clone().addScaledVector(d2, -0.025), 'LeftHand'], [h.clone().addScaledVector(d2, -0.045), 'LeftHand'], [h.clone().addScaledVector(d2, -0.065), 'LeftForeArm'],
+        [h.clone().addScaledVector(d2, -0.085), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.105), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.125), 'LeftForeArm']];
+      rig.spo2Pts = st.map(([p, bn]) => anchor(bn, skin(p), frameQ(d2, up)));
+    }
   }
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
   function upperArm(side) {
