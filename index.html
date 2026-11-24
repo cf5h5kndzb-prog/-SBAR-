@@ -2597,7 +2597,7 @@ function updateMouth(dt) {
 // 스킨 메시의 현재(누운) 자세에서 월드 좌표로 배 부분 정점을 아래로 눌러, 그 변위를 바인드 좌표로 되돌려 지오메트리에 영구 반영
 // (이후 침상 머리를 올려도 몸통을 따라 자연스럽게 움직임)
 function flattenBelly(mesh, opts = {}) {
-  const { yKnee = 0.9, press = 0.72, zFull = [-1.0, -0.6], zFade = [-1.14, -0.46], xHalf = 0.27 } = opts;
+  const { yKnee = 0.9, press = 0.55, zFull = [-1.0, -0.6], zFade = [-1.14, -0.46], xHalf = 0.27 } = opts;
   mesh.updateWorldMatrix(true, false); mesh.skeleton.update();
   const geo = mesh.geometry, pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
   const names = mesh.skeleton.bones.map(b => b.name.replace(/^mixamorig:?/, ''));
@@ -2721,6 +2721,38 @@ function setupPatient(gltf) {
   root.updateMatrixWorld(true);
   root.traverse(o => { if (o.isSkinnedMesh) { try { rig.bellyMoved = flattenBelly(o); } catch (e) { console.warn('배 납작하게 실패', e); } } });
   root.updateMatrixWorld(true);
+  // 손: 배가 낮아져 손이 떠 보임 → 손목을 안쪽으로 모으고 손이 배 윗면에 얹히도록 손 각도를 숙임
+  {
+    const rcB = new THREE.Raycaster(), X = V(1, 0, 0), Y = V(0, 1, 0);
+    const wp = n => bones[n].getWorldPosition(new THREE.Vector3());
+    const belly = (x, z) => { rcB.set(V(x, 2, z), V(0, -1, 0)); const h = rcB.intersectObject(root, true)[0]; return h ? h.point.y : NaN; };
+    for (const side of ['Left', 'Right']) {
+      const sg = side === 'Left' ? 1 : -1;
+      // 손목이 몸 가운데 쪽으로 오도록 아래팔을 수직축으로 살짝 회전 (팔꿈치는 그대로)
+      {
+        let best = 0, bd = Infinity, cur = 0; const D = THREE.MathUtils.degToRad(4);
+        for (let k = -8; k <= 8; k++) {
+          boneWorldRot(rig, side + 'ForeArm', Y, (k * D) - cur); cur = k * D; root.updateMatrixWorld(true);
+          const e = wp(side + 'ForeArm'), h = wp(side + 'Hand');
+          const d = Math.abs(h.x - sg * 0.15) + (h.z < e.z ? 1 : 0);
+          if (d < bd) { bd = d; best = k * D; }
+        }
+        boneWorldRot(rig, side + 'ForeArm', Y, best - cur); root.updateMatrixWorld(true);
+      }
+      // 손가락 마디가 배 윗면 + 2.5 cm에 오도록 손을 X축으로 숙임 (부호는 실제로 낮아지는 쪽을 선택)
+      for (let it = 0; it < 6; it++) {
+        const m = wp(side + 'HandMiddle1'), w = wp(side + 'Hand');
+        const b = belly(sg * 0.04, -0.7);   // 손이 없는 배 윗면 높이
+        if (!isFinite(b)) break;
+        const dy = m.y - (b + 0.03), L = Math.max(0.03, Math.abs(m.z - w.z));
+        if (Math.abs(dy) < 0.004) break;
+        const ang = Math.atan2(dy, L) * 0.9;
+        boneWorldRot(rig, side + 'Hand', X, ang); root.updateMatrixWorld(true);
+        const m2 = wp(side + 'HandMiddle1');
+        if (Math.abs(m2.y - (b + 0.03)) > Math.abs(dy)) { boneWorldRot(rig, side + 'Hand', X, -2 * ang); root.updateMatrixWorld(true); }
+      }
+    }
+  }
   // 베개: 뒤통수에 닿도록 위치와 높이 맞춤
   {
     const hp2 = J('Head').lerp(J('HeadTop_End'), 0.45);
