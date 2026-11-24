@@ -3515,7 +3515,18 @@ if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};   // 음
 // 녹음 음성 파일(Typecast로 제작, voice/ 폴더): 대사 문장 → 파일. 파일이 있는 대사는 녹음으로, 없는 대사는 브라우저 기본 음성으로 읽음
 // 파일 이름 규칙: p_ 환자 / g_ 보호자 / d_ 담당의. 새 파일을 넣으면 여기에 한 줄 추가
 const VOICE_FILES = {
-  [PATIENT_LINE.enter]: 'voice/p_enter.mp3'
+  [PATIENT_LINE.enter]: 'voice/p_enter.mp3',
+  // 담당의 되묻기·보고 완료 (파일이 아직 없으면 기본 음성으로 읽음)
+  [SBAR_ASK.id]:    'voice/d_ask_id.mp3',
+  [SBAR_ASK.sit]:   'voice/d_ask_sit.mp3',
+  [SBAR_ASK.bg]:    'voice/d_ask_bg.mp3',
+  [SBAR_ASK.vs]:    'voice/d_ask_vs.mp3',
+  [SBAR_ASK.pain]:  'voice/d_ask_pain.mp3',
+  [SBAR_ASK.drain]: 'voice/d_ask_drain.mp3',
+  [SBAR_ASK.judge]: 'voice/d_ask_judge.mp3',
+  [SBAR_ASK.req]:   'voice/d_ask_req.mp3',
+  [SBAR_ASK.wrong]: 'voice/d_ask_wrong.mp3',
+  [SBAR_OK_REPLY]:  'voice/d_ok.mp3'
 };
 const voiceCache = {};
 let curVoice = null;
