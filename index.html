@@ -2849,11 +2849,25 @@ loadModel('cart.glb', sc => {
     phoneG = ph;
   });
 });
+// 전화벨 소리(sound/phone_ring.mp3): 전화기가 깜빡이는 동안 반복 재생, 전화기를 누르거나 시나리오가 끝나면 멈춤
+const phoneRing = new Audio('sound/phone_ring.mp3');
+phoneRing.loop = true; phoneRing.preload = 'auto'; phoneRing.volume = 0.7;
+let phoneRingRetryAt = 0;
 function updateProps(dt) {
   if (!phoneMats.length) return;
   const blink = state.phase === 'running' && !state.phoneCalled && state.t >= 300;   // 출혈 악화(5분) 이후
   const k = blink ? 0.5 + 0.5 * Math.sin(performance.now() / 1000 * Math.PI * 3) : 0;
   for (const m of phoneMats) m.emissiveIntensity = k * 0.9;
+  if (blink) {
+    const now = performance.now();
+    if (phoneRing.paused && now >= phoneRingRetryAt) {
+      phoneRingRetryAt = now + 1000;                  // 재생이 막히면(브라우저 정책) 1초 뒤 다시 시도
+      phoneRing.currentTime = 0;
+      const p = phoneRing.play(); if (p && p.catch) p.catch(() => {});
+    }
+  } else if (!phoneRing.paused) {
+    phoneRing.pause(); phoneRing.currentTime = 0;
+  }
 }
 
 // JP bulb (E3): 처음에는 혈액이 가득 차 부풀어 있음 → 교정 시 압축된 bulb
