@@ -2315,6 +2315,7 @@ function rebuildTubes() {
    - 손목밴드(E1)·혈압 커프(E6)·IV 카테터·복부 dressing(E2)은 뼈에 붙여 몸을 따라 움직이게 함 */
 const PATIENT_URL = 'patient.glb';
 const PATIENT_SCALE = 0.93;                          // 원본 키 1.69 m → 약 1.57 m
+const SHOULDER_DROP_DEG = 22;                         // 어깨(쇄골)를 내리는 각도
 const POSE_DEG = 20.5;                               // 원본 자세(Lie_on_Chair)의 상체 각도
 let patientRig = null;
 
@@ -2462,6 +2463,21 @@ function setupPatient(gltf) {
   rig.hipsQ = bones.Hips.getWorldQuaternion(new THREE.Quaternion());
   rig.hipsQi = rig.hipsQ.clone().invert();
   patientRig = rig;
+  // 어깨 내리기: 원래 자세는 어깨가 으쓱 올라가 있음 → 쇄골(Shoulder 뼈)을 발 쪽으로 돌려 내리고, 위팔은 원래 각도를 유지
+  {
+    const Jw = n => bones[n].getWorldPosition(new THREE.Vector3());
+    const down = Jw('Spine').sub(Jw('Spine2')).normalize();                 // 몸 위쪽의 반대(발 쪽)
+    for (const side of ['Left', 'Right']) {
+      const S = Jw(side + 'Shoulder'), A = Jw(side + 'Arm');
+      const c = A.clone().sub(S).normalize();
+      const axis = new THREE.Vector3().crossVectors(c, down).normalize();
+      const ang = THREE.MathUtils.degToRad(SHOULDER_DROP_DEG);
+      boneWorldRot(rig, side + 'Shoulder', axis, ang);
+      root.updateMatrixWorld(true);
+      boneWorldRot(rig, side + 'Arm', axis, -ang);
+      root.updateMatrixWorld(true);
+    }
+  }
   { let fsm = null; root.traverse(o => { if (o.isSkinnedMesh && o.material && o.material.map) fsm = o; }); if (fsm) { try { initMouth(fsm); } catch (e) { console.warn('입 움직임 초기화 실패', e); } } }
 
   // 위치: 척추 아래쪽 관절을 침상 경첩(HINGE) 위에, 골반이 매트리스 위에 오도록
