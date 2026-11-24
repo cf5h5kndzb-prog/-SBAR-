@@ -893,6 +893,7 @@ const clockTex = canvasTex(512, 224, (g, w, h) => {
   screenMesh(g, clockTex, 0.5, 0.22, 0, 0, 0.02);
   tag(g, '벽시계', () => '남은 시간 ' + fmt(LIMIT - state.t));
 }
+let tvUpdate = null;
 // 벽걸이 TV (앞벽, 침대 발치 맞은편): 얇은 본체 + 벽 고정 브래킷. 화면에 낙상예방 캠페인 포스터("보행 전 3초 멈춤"), 정상 물품
 {
   const TW = 0.99, TH = 0.57, TD = 0.035;               // 가로 99 cm
@@ -903,17 +904,77 @@ const clockTex = canvasTex(512, 224, (g, w, h) => {
   add(g, B(0.4, 0.3, 0.03), mat(0x2b3034, { roughness:0.6, metalness:0.3 }), 0, 0, 0.015);
   // 본체 (브래킷 앞)
   add(g, B(TW, TH, TD), black, 0, 0, 0.03 + TD / 2);
-  // 화면: 낙상예방 포스터 (fall_poster.jpg, 1280x720). 불러오기 전에는 꺼진 화면색
+  // 화면: 병원 공지 영상 (슬라이드가 돌아가며 나옴): 낙상예방 포스터(fall_poster.jpg) · 회진 시간 · 손 위생 · 면회 · 식사 · 병실 이용 안내 + 아래 흐르는 자막
   const scr = screenMesh(g, null, TW - 0.024, TH - 0.024, 0, 0, 0.03 + TD + 0.001);
-  scr.material.color.set(0x14191d);
-  new THREE.TextureLoader().load('fall_poster.jpg', t => {
-    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-    scr.material.map = t; scr.material.color.set(0xffffff); scr.material.needsUpdate = true;
-  });
+  const tvC = document.createElement('canvas'); tvC.width = 1024; tvC.height = 576;
+  const tx = tvC.getContext('2d');
+  const tvTex = new THREE.CanvasTexture(tvC); tvTex.colorSpace = THREE.SRGBColorSpace; tvTex.anisotropy = 8;
+  scr.material.map = tvTex; scr.material.color.set(0xffffff); scr.material.needsUpdate = true;
+  const poster = new Image(); let posterOK = false; poster.onload = () => { posterOK = true; }; poster.src = 'fall_poster.jpg';
+  const SLIDE_SEC = 8;
+  const TV_SLIDES = [
+    { title:'낙상 예방 안내', poster:true },
+    { title:'회진 시간 안내', color:'#1f6fb2', lines:['주치의 회진   오전 7:30 ~ 8:30', '교수 회진   월·수·금 오전 8:00', '오후 회진   오후 4:00 ~ 5:00', '병동 간호사 라운딩   매 시간', '불편하시면 언제든 호출벨을 눌러 주세요'] },
+    { title:'손 위생 6단계', color:'#16845a', lines:['1  손바닥과 손바닥을 마주 대고 문지르기', '2  손등과 손바닥 문지르기', '3  손가락 사이 문지르기', '4  손가락 끝을 반대 손바닥에 문지르기', '5  엄지손가락 돌려 닦기', '6  손목까지 닦기 (30초 이상)'] },
+    { title:'면회 안내', color:'#b0562d', lines:['평일   오후 6:00 ~ 8:00', '주말·공휴일   오후 2:00 ~ 8:00', '환자 1인당 보호자 1명 상주', '면회 전·후 반드시 손 위생', '발열·기침이 있으면 면회를 삼가 주세요'] },
+    { title:'식사 안내', color:'#8a5cc2', lines:['아침   오전 8:00', '점심   낮 12:00', '저녁   오후 5:30', '수술·검사 전후 식사는 의료진 안내에 따르세요', '냉장고 보관 음식에는 이름과 날짜를 적어 주세요'] },
+    { title:'병실 이용 안내', color:'#c28a00', lines:['병원 내 전 지역 금연', '타인을 위해 TV·통화 소리를 줄여 주세요', '귀중품은 개인 보관함에 보관해 주세요', '침대 난간은 올려 두고 이동 시 도움을 요청하세요', '병실 불은 입구 벽 스위치로 켜고 끕니다'] }
+  ];
+  const TICK = '※ 병원 전 지역 금연  ※ 낙상 예방을 위해 일어나기 전 호출벨을 눌러 주세요  ※ 손 위생은 감염 예방의 시작입니다  ※ 회진 시간은 환자 상태에 따라 변동될 수 있습니다  ';
+  const rr = (c, x, y, w, h, r) => { c.beginPath(); c.roundRect(x, y, w, h, r); };
+  function drawTv(c, t) {
+    const idx = Math.floor(t / SLIDE_SEC) % TV_SLIDES.length, lt = t % SLIDE_SEC, sl = TV_SLIDES[idx];
+    tvDrawIdx = idx;
+    const W = 1024, H = 576;
+    c.save();
+    if (sl.poster) {
+      c.fillStyle = '#10161a'; c.fillRect(0, 0, W, H);
+      if (posterOK) c.drawImage(poster, 0, 0, W, H);
+    } else {
+      c.fillStyle = '#f3f7fa'; c.fillRect(0, 0, W, H);
+      // 상단 바
+      c.fillStyle = '#0b3f78'; c.fillRect(0, 0, W, 66);
+      c.fillStyle = '#ffffff'; c.font = `bold 28px ${FONT}`; c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText('SIMC MEDICAL CENTER  |  병원 공지', 32, 34);
+      const d = new Date(); c.textAlign = 'right'; c.font = `bold 28px ${FONT}`;
+      c.fillText(String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'), W - 32, 34);
+      // 제목
+      const e0 = Math.min(1, lt / 0.6), ee = 1 - Math.pow(1 - e0, 3);
+      c.globalAlpha = ee; c.fillStyle = sl.color; c.textAlign = 'left'; c.font = `900 60px ${FONT}`;
+      c.fillText(sl.title, 70 + (1 - ee) * 40, 142);
+      c.fillRect(70, 184, 150 * ee, 8);
+      c.globalAlpha = 1;
+      // 본문 (한 줄씩 차례로 나타남)
+      c.font = `bold 33px ${FONT}`;
+      sl.lines.forEach((ln, i) => {
+        const a = Math.min(1, Math.max(0, (lt - 0.5 - i * 0.45) / 0.5)), ea = 1 - Math.pow(1 - a, 3);
+        c.globalAlpha = ea;
+        c.fillStyle = sl.color; c.beginPath(); c.arc(86 + (1 - ea) * 30, 246 + i * 54, 9, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#1f2a33'; c.fillText(ln, 112 + (1 - ea) * 30, 247 + i * 54);
+      });
+      c.globalAlpha = 1;
+      // 오른쪽 아래 장식 원
+      c.fillStyle = sl.color; c.globalAlpha = 0.1; c.beginPath(); c.arc(W - 80, 330, 190, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+      // 아래 흐르는 자막
+      c.fillStyle = '#0b3f78'; c.fillRect(0, H - 56, W, 56);
+      c.fillStyle = '#ffffff'; c.font = `bold 26px ${FONT}`; c.textAlign = 'left';
+      const tw = c.measureText(TICK).width, off = (t * 90) % tw;
+      c.save(); c.beginPath(); c.rect(0, H - 56, W, 56); c.clip();
+      c.fillText(TICK, -off, H - 27); c.fillText(TICK, -off + tw, H - 27);
+      c.restore();
+    }
+    // 슬라이드 전환: 처음·끝 0.5초 페이드
+    const f = Math.min(lt / 0.5, (SLIDE_SEC - lt) / 0.5, 1);
+    if (f < 1) { c.fillStyle = '#0a0e11'; c.globalAlpha = 1 - Math.max(0, f); c.fillRect(0, 0, W, H); }
+    c.restore();
+  }
+  let tvT = 0, tvAcc = 99, tvDrawIdx = 0;
+  tvUpdate = dt => { tvT += dt; tvAcc += dt; if (tvAcc < 0.066) return; tvAcc = 0; drawTv(tx, tvT); tvTex.needsUpdate = true; };
+  drawTv(tx, 0.01); tvTex.needsUpdate = true;
   // 아래 베젤 로고 자리 + 켜짐 표시등(초록)
   add(g, B(0.06, 0.008, 0.002), mat(0x5c6368), 0, -TH / 2 + 0.006, 0.03 + TD + 0.001);
   add(g, B(0.008, 0.005, 0.003), new THREE.MeshBasicMaterial({ color:0x34c759 }), TW / 2 - 0.04, -TH / 2 + 0.006, 0.03 + TD + 0.002);
-  tag(g, '벽걸이 TV', () => '낙상예방 캠페인: 보행 전 3초 멈춤');
+  tag(g, '벽걸이 TV', () => '병원 공지 영상: ' + TV_SLIDES[tvDrawIdx].title + ' (낙상예방 · 회진 · 손 위생 · 면회 · 식사 · 병실 이용)');
 }
 const CALL_JACK = new THREE.Vector3();   // call bell 줄이 꽂히는 잭 끝 (월드 좌표, 아래 패널에서 정함)
 // 베드헤드 패널용 낙상주의 판 (640x300): 위 빨간 띠에 '낙상주의', 아래 왼쪽 그림(침대에서 미끄러져 주저앉는 사람), 오른쪽 안내 문구
@@ -2285,6 +2346,9 @@ const gownPrintTex = (() => {
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   return t;
 })();
+// 입 움직임: 말할 때 턱(입 아래 정점)을 내리고, 벌어진 입 안쪽을 어둡게 칠함. 값은 환자 모델의 기본 자세(bind pose) 좌표 (단위 m)
+const MOUTH = { c:new THREE.Vector3(-0.0084, 1.4835, 0.102), open:0, applied:0 };
+const MOUTH_U = { mouthC:{ value:MOUTH.c }, mouthGap:{ value:0 } };
 function applyGownPrint(mesh) {
   const geo = mesh.geometry;
   geo.computeBoundingBox();
@@ -2293,9 +2357,10 @@ function applyGownPrint(mesh) {
   mtl.onBeforeCompile = sh => {
     sh.uniforms.gownPrint = { value: gownPrintTex };
     sh.uniforms.gownScale = { value: 1 / (GOWN_TILE_M * unitsPerM) };
+    sh.uniforms.mouthC = MOUTH_U.mouthC; sh.uniforms.mouthGap = MOUTH_U.mouthGap;
     sh.vertexShader = 'varying vec3 vGownP;\nvarying vec3 vGownN;\n' + sh.vertexShader
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGownP = position;\nvGownN = normal;');
-    sh.fragmentShader = 'uniform sampler2D gownPrint;\nuniform float gownScale;\nvarying vec3 vGownP;\nvarying vec3 vGownN;\n' + sh.fragmentShader
+    sh.fragmentShader = 'uniform sampler2D gownPrint;\nuniform float gownScale;\nuniform vec3 mouthC;\nuniform float mouthGap;\nvarying vec3 vGownP;\nvarying vec3 vGownN;\n' + sh.fragmentShader
       .replace('#include <map_fragment>', `#include <map_fragment>
       {
         // 파란 옷 부분만 (피부·머리카락 제외)
@@ -2304,9 +2369,59 @@ function applyGownPrint(mesh) {
         vec3 p = vGownP * gownScale;
         float a = texture2D(gownPrint, p.zy).a * w.x + texture2D(gownPrint, p.xz).a * w.y + texture2D(gownPrint, p.xy).a * w.z;
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.42, 0.5, 0.66), a * gm * 0.8);
+      }
+      {
+        // 벌어진 입 안쪽 (윗입술 선 ~ 내려간 아랫입술 사이)
+        vec3 dm = vGownP - mouthC;
+        float hy = max(mouthGap * 0.5, 1e-4);
+        float r = length(vec2(dm.x / 0.024, (dm.y + mouthGap * 0.5) / hy));
+        float mk = (1.0 - smoothstep(0.7, 1.0, r)) * step(0.0015, mouthGap) * (1.0 - smoothstep(0.02, 0.04, abs(dm.z)));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.17, 0.03, 0.04), mk);
       }`);
   };
   mtl.needsUpdate = true;
+}
+
+// 입 움직임 초기화: 입 아래(턱) 정점과 가중치를 미리 계산
+function initMouth(sm) {
+  const pos = sm.geometry.attributes.position, c = MOUTH.c;
+  const idx = [], wt = [];
+  for (let i = 0; i < pos.count; i++) {
+    const dx = pos.getX(i) - c.x, dy = pos.getY(i) - c.y, dz = pos.getZ(i) - c.z;
+    if (Math.abs(dx) > 0.06 || dy > 0.003 || dy < -0.085 || dz < -0.05) continue;
+    const lat = Math.cos(Math.min(1, Math.abs(dx) / 0.06) * Math.PI / 2);
+    const t = Math.min(1, Math.max(0, (dy + 0.085) / 0.065));          // 입술선(1) → 아래로 갈수록 0
+    const w = lat * lat * t * t * (3 - 2 * t);
+    if (w > 0.002) { idx.push(i); wt.push(w); }
+  }
+  MOUTH.sm = sm; MOUTH.idx = Int32Array.from(idx); MOUTH.wt = Float32Array.from(wt);
+  MOUTH.base = Float32Array.from(idx.map(i => pos.getY(i)));
+}
+const MOUTH_MAX = 0.016;                 // 가장 크게 벌어질 때 턱이 내려가는 길이 (m)
+function setMouthOpen(o) {
+  MOUTH.open = o;
+  MOUTH_U.mouthGap.value = o * MOUTH_MAX;
+  const sm = MOUTH.sm; if (!sm) return;
+  const pos = sm.geometry.attributes.position;
+  for (let k = 0; k < MOUTH.idx.length; k++) pos.setY(MOUTH.idx[k], MOUTH.base[k] - o * MOUTH_MAX * MOUTH.wt[k]);
+  pos.needsUpdate = true;
+}
+function updateMouth(dt) {
+  let tgt = 0;
+  const ts = talkSrc;
+  if (ts && ts.audio) {
+    const a = ts.audio;
+    if (!a.paused && !a.ended) {
+      const env = VOICE_ENV[ts.file];
+      const ch = env ? env.charCodeAt(Math.floor(a.currentTime / 0.03)) - 48 : NaN;
+      tgt = isNaN(ch) ? 0.45 + 0.35 * Math.sin(performance.now() * 0.03) : Math.min(1, ch / 7.5);
+    }
+  } else if (ts && ts.tts) {
+    tgt = window.speechSynthesis && speechSynthesis.speaking ? 0.45 + 0.4 * Math.sin(performance.now() * 0.026) : 0;
+  }
+  const k = Math.min(1, dt * (tgt > MOUTH.open ? 30 : 16));
+  const o = MOUTH.open + (tgt - MOUTH.open) * k;
+  if (Math.abs(o - MOUTH.applied) > 0.012 || (o < 0.012 && MOUTH.applied !== 0)) { MOUTH.applied = o < 0.012 ? 0 : o; setMouthOpen(MOUTH.applied); MOUTH.open = o; } else MOUTH.open = o;
 }
 
 function setupPatient(gltf) {
@@ -2337,6 +2452,7 @@ function setupPatient(gltf) {
   rig.hipsQ = bones.Hips.getWorldQuaternion(new THREE.Quaternion());
   rig.hipsQi = rig.hipsQ.clone().invert();
   patientRig = rig;
+  { let fsm = null; root.traverse(o => { if (o.isSkinnedMesh && o.material && o.material.map) fsm = o; }); if (fsm) { try { initMouth(fsm); } catch (e) { console.warn('입 움직임 초기화 실패', e); } } }
 
   // 위치: 척추 아래쪽 관절을 침상 경첩(HINGE) 위에, 골반이 매트리스 위에 오도록
   setUpper(0);
@@ -3936,12 +4052,15 @@ const VOICE_FILES = {
   [SBAR_ASK.wrong]: 'voice/d_ask_wrong.mp3',
   [SBAR_OK_REPLY]:  'voice/d_ok.mp3'
 };
+const VOICE_ENV = {"voice/p_bell.mp3": "0000000000000000000000000000000000000000000000000267787765937999999324999999799993100004887776666565544433133343323222101226422331000000000000688778753333377666520009835434333322100101332212112201120001000000000000000000000000000000000000000000000000000004777776422664424431032341000009500677410254222344443000776254454455665100000000454444322200000000000000000000000000000000000000000000000000000000000000000000000000000000", "voice/p_enter.mp3": "000000000000000000000000000000000000135798777666423446996765855555432222110000000000000000000024136442000045444432000588877755443333200001122211000000000000005999200000311599998877655556554200000000000000000000000000000000000000000000000000000000000000", "voice/p_pca_fixed.mp3": "0000000001100000000002201100000000000000000000000000000000499932246899984689622100000000000000000000035532236771000016666432222222222110000000000000000000022999667876564200000000000000000000003267679752000043345431257200016840000199554444433333322000000000000000000000000000000000000000000000000000000000", "voice/p_pca_noeffect.mp3": "00000000000000000000000000000000000000000000001000189999989999579999833222122000000000000001333344555430000444444443333332210000000062565455435655578761100000023444433000044300120000055300002556200001038766555554444333332222222222100000000000000000000000000000000000000000000000000000000000000000", "voice/p_repeat1.mp3": "000000000000000000000000000007998777631100000000000010121010000000000000000000000000119883100022687000000000000099335433333220012222221000000000000000000000", "voice/p_repeat2.mp3": "0065224212211000000000000000000000000000000000085110788777699998979432412200112210000000000000000009974477500004434444333333322110000000000000000000007997533335654554410000392002554444344444344444443320000000000000000000000000000000000000000000000000000000", "voice/p_repeat3.mp3": "00000000000000000000000000000000000663000799976774763222359669865446435659443200000000000003444333333444444300302202200057883000000078766665555564101221000000000000000000000000000000000000128950004771000159300011199820106422234455200399840008776666666665656665310036400000000000000000000000000000000", "voice/p_worse.mp3": "0000000000000000000000000000000000000000000000000000000000000000000036666556421000000000000000000000000000000000000000002499010048710019999998776544433200000000000000000000000000000019992000020299965578766565443322100000000000000000000000000000000000000000000000000000000000000000000000"};   // 환자 음성 30 ms 간격 소리 크기(0~8): 말할 때 입 벌림에 사용
 const voiceCache = {};
 let curVoice = null;
+let talkSrc = null;      // 지금 환자가 말하는 중이면 {audio,file} 또는 {tts:true}
 for (const f of Object.values(VOICE_FILES)) { const a = new Audio(f); a.preload = 'auto'; voiceCache[f] = a; }   // 미리 불러오기
 function stopVoice() {
   if (window.speechSynthesis) speechSynthesis.cancel();
   if (curVoice) { curVoice.pause(); curVoice = null; }
+  talkSrc = null;
 }
 function speak(text, opts = {}) {
   stopVoice();
@@ -3949,7 +4068,8 @@ function speak(text, opts = {}) {
   if (f) {
     const a = voiceCache[f] || (voiceCache[f] = new Audio(f));
     a.currentTime = 0; curVoice = a;
-    a.play().catch(() => { curVoice = null; ttsSpeak(text, opts); });   // 재생 실패 시 기본 음성
+    talkSrc = f.indexOf('voice/p_') === 0 ? { audio:a, file:f } : null;
+    a.play().catch(() => { curVoice = null; talkSrc = null; ttsSpeak(text, opts); });   // 재생 실패 시 기본 음성
     return;
   }
   ttsSpeak(text, opts);
@@ -3959,6 +4079,8 @@ function ttsSpeak(text, { pitch = 0.85, rate = 1.0, female = false } = {}) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'ko-KR';
+  if (female) talkSrc = { tts:true };
+  u.onend = u.onerror = () => { if (talkSrc && talkSrc.tts) talkSrc = null; };
   const v = pickVoice(female); if (v) u.voice = v;
   u.pitch = !female && v && isMaleVoice(v) ? 1.0 : pitch;   // 남성 역할인데 여성 목소리뿐이면 톤을 낮춤
   u.rate = rate;
@@ -4367,6 +4489,8 @@ function frame() {
   updateProps(dt);
   updateDoor(dt);
   updateCurtain(dt);
+  updateMouth(dt);
+  if (tvUpdate) tvUpdate(dt);
   if (tubesDirty) rebuildTubes();
 
   // 힌트 링
