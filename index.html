@@ -1388,27 +1388,49 @@ function drawMonitor(g, w, h) {
   }
   tag(g, '보호자 소파 (3인용)', '');
 }
-// 병원 안내문 6장 (앞벽 왼쪽, TV 옆): 클립보드형 안내문이 2줄 × 3열로 붙어 있음. 사진은 notices/ 폴더
+// 병원 안내문 6장 (앞벽 왼쪽, TV 옆): 코르크 게시판에 압정으로 한 장씩 꽂아 둠 (2줄 × 3열). 사진은 notices/ 폴더 (종이 부분만 잘라 사용)
 {
   const NOTICES = [
-    ['n_visit', 454, 644, '방문객 출입 안내', '출입증 소지한 입원환자·보호자 1인만 출입 가능'],
-    ['n_wifi',  454, 650, 'Guest WiFi 연결 방법 안내', '모바일 Guest WiFi 연결 방법'],
-    ['n_life',  454, 672, '병원 생활 안내', '입원환자 보호자 및 간병인을 위한 병원 생활 안내'],
-    ['n_fee',   454, 630, '진료비 안내문', '병실료 안내 (본인부담금 기준)'],
-    ['n_park',  454, 694, '주차 요금 안내', '일반주차장 요금 및 감면 내역'],
-    ['n_food',  454, 684, '환자 급식 원산지 안내', '환자식 식재료 원산지']
+    ['n_visit', 403, 552, '방문객 출입 안내', '출입증 소지한 입원환자·보호자 1인만 출입 가능'],
+    ['n_wifi',  403, 521, 'Guest WiFi 연결 방법 안내', '모바일 Guest WiFi 연결 방법'],
+    ['n_life',  423, 559, '병원 생활 안내', '입원환자 보호자 및 간병인을 위한 병원 생활 안내'],
+    ['n_fee',   430, 529, '진료비 안내문', '병실료 안내 (본인부담금 기준)'],
+    ['n_park',  440, 598, '주차 요금 안내', '일반주차장 요금 및 감면 내역'],
+    ['n_food',  440, 594, '환자 급식 원산지 안내', '환자식 식재료 원산지']
   ];
-  const PW = 0.42, XS = [-2.42, -1.8, -1.18], TOPS = [2.28, 1.56];
+  const PW = 0.252, GAP = 0.05, ROWH = [0.35, 0.345];            // 안내문 너비(기존 0.42 m의 3/5), 칸 간격, 줄 높이
+  const BWd = 3 * PW + 4 * GAP + 0.04, BHt = ROWH[0] + ROWH[1] + 3 * GAP + 0.04;
+  const board = group(world, -1.8, 1.8, 2.495);
+  board.rotation.y = Math.PI;                                  // 앞면이 방 안쪽(-z)
+  const corkTex = canvasTex(512, 512, (c, w, h) => {
+    c.fillStyle = '#b98b55'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) {
+      const v = Math.random();
+      c.fillStyle = v < 0.5 ? 'rgba(120,80,40,0.35)' : (v < 0.8 ? 'rgba(220,175,120,0.4)' : 'rgba(70,45,20,0.3)');
+      c.beginPath(); c.arc(Math.random() * w, Math.random() * h, 1 + Math.random() * 3, 0, 7); c.fill();
+    }
+  });
+  add(board, B(BWd + 0.05, BHt + 0.05, 0.03), mat(0x7a5230, { roughness:0.6 }), 0, 0, 0.015);      // 나무 틀
+  const cork = new THREE.Mesh(new THREE.PlaneGeometry(BWd, BHt), new THREE.MeshStandardMaterial({ map:corkTex, roughness:0.95 }));
+  cork.position.z = 0.0305; board.add(cork);
+  tag(board, '병원 게시판', '병원 안내문 6장이 압정으로 꽂혀 있음');
   const loader = new THREE.TextureLoader();
+  const pinCols = [0xd33b32, 0x2f6fd6, 0xf2c200, 0x2e9e5b, 0xd33b32, 0x2f6fd6];
   NOTICES.forEach(([file, tw, th, label, read], i) => {
-    const h = PW * th / tw, cx = XS[i % 3], top = TOPS[Math.floor(i / 3)];
-    const g = group(world, cx, top - h / 2, 2.495);
-    g.rotation.y = Math.PI;                              // 앞면이 방 안쪽(-z)
-    g.rotation.z = (i % 2 ? 1 : -1) * 0.008;             // 손으로 붙인 듯 아주 살짝 기울임
+    const col = i % 3, row = Math.floor(i / 3), h = PW * th / tw;
+    const x = -BWd / 2 + 0.02 + GAP + PW / 2 + col * (PW + GAP);
+    const topY = BHt / 2 - 0.02 - GAP - (row ? ROWH[0] + GAP : 0);
+    const g = group(board, x + (i % 2 ? 0.004 : -0.004), topY - h / 2, 0.0315);
+    g.rotation.z = [0.012, -0.01, 0.008, -0.013, 0.01, -0.008][i];   // 손으로 꽂은 듯 살짝 기울임
     const tex = loader.load('notices/' + file + '.jpg');
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(PW, h), new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.28 }));
+    sh.position.set(0.006, -0.006, 0.0003); g.add(sh);          // 종이 그림자
     const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, h), new THREE.MeshStandardMaterial({ map:tex, roughness:0.55 }));
-    m.receiveShadow = true; g.add(m);
+    m.position.z = 0.0012; m.receiveShadow = true; g.add(m);
+    const pin = group(g, 0, h / 2 - 0.022, 0.0012);             // 압정
+    add(pin, new THREE.SphereGeometry(0.0075, 12, 8), mat(pinCols[i], { roughness:0.3, metalness:0.2 }), 0, 0, 0.004);
+    add(pin, CYL(0.002, 0.006, 8), mat(0xcfcfcf, { metalness:0.7, roughness:0.3 }), 0, 0, 0.001).rotation.x = Math.PI / 2;
     tag(g, '안내문', () => label + ' · ' + read);
   });
 }
