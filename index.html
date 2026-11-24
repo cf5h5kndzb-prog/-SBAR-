@@ -1432,7 +1432,19 @@ const BED_LIFT = 0.13;   // 3D 침대 모델의 매트리스 받침 높이에 �
 const bed = group(world, 0, BED_LIFT, 0);
 const bedFrameParts = [];
 const frameMat = mat(0x8a9ba5);
-const mattressMat = mat(0xe8f0f5);
+// 침대 고급화: 퀼팅(마름모 누비) 매트리스 커버 + 풋보드 패널(호두색 원목 / 아이보리 가죽) + 금장 라인
+const BED_STYLE = 'wood';      // 'wood' | 'ivory'
+const mattressMat = (() => {
+  const t = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#f3f4f1'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#cdd2d3'; c.lineWidth = 3;
+    for (let i = -4; i <= 8; i++) { c.beginPath(); c.moveTo(i * 64, 0); c.lineTo(i * 64 + h, h); c.moveTo(i * 64, h); c.lineTo(i * 64 + h, 0); c.stroke(); }
+    c.fillStyle = '#b9c0c2';
+    for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) { c.beginPath(); c.arc(i * 64 + (j % 2 ? 0 : 0), j * 64, 3, 0, Math.PI * 2); c.fill(); }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3.5, 3.5);
+  return new THREE.MeshStandardMaterial({ map:t, roughness:0.85 });
+})();
 const HINGE = V(0, 0.62, -0.75);
 
 bedFrameParts.push(add(bed, B(0.95, 0.1, 2.1), frameMat, 0, 0.43, -0.8));
@@ -1512,6 +1524,36 @@ const hobTex = canvasTex(1024, 700, (g, w, h) => {
 });
 const foot = group(bed, 0, 0.64, 0.27);
 bedFrameParts.push(add(foot, B(0.95, 0.4, 0.04), frameMat));
+{
+  let panelM;
+  if (BED_STYLE === 'wood') {
+    const t = canvasTex(512, 256, (c, w, h) => {
+      const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#6e4528'); g.addColorStop(0.5, '#7d4f2e'); g.addColorStop(1, '#613c22');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+      let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 160; i++) {                          // 나뭇결
+        const y = rnd() * h; c.strokeStyle = rnd() < 0.5 ? 'rgba(40,22,10,' + (0.1 + rnd() * 0.25) + ')' : 'rgba(170,115,70,' + (0.08 + rnd() * 0.2) + ')';
+        c.lineWidth = 0.6 + rnd() * 2.2; c.beginPath(); c.moveTo(0, y);
+        c.bezierCurveTo(w * 0.3, y + (rnd() - 0.5) * 10, w * 0.65, y + (rnd() - 0.5) * 10, w, y + (rnd() - 0.5) * 8); c.stroke();
+      }
+    });
+    panelM = new THREE.MeshStandardMaterial({ map:t, roughness:0.42 });
+  } else {
+    const t = canvasTex(512, 256, (c, w, h) => {
+      c.fillStyle = '#ebe2cf'; c.fillRect(0, 0, w, h);
+      c.strokeStyle = '#cfc3a9'; c.lineWidth = 3;                // 버튼 누빔(카펜)
+      for (let i = -4; i <= 12; i++) { c.beginPath(); c.moveTo(i * 64, 0); c.lineTo(i * 64 + h, h); c.moveTo(i * 64, h); c.lineTo(i * 64 + h, 0); c.stroke(); }
+      c.fillStyle = '#b79a5b';
+      for (let i = 0; i <= 8; i++) for (let j = 0; j <= 4; j++) { c.beginPath(); c.arc(i * 64, j * 64, 5, 0, Math.PI * 2); c.fill(); }
+    });
+    panelM = new THREE.MeshStandardMaterial({ map:t, roughness:0.5 });
+  }
+  const gold = new THREE.MeshStandardMaterial({ color:0xd8b765, metalness:0.35, roughness:0.35 });
+  add(foot, B(0.66, 0.31, 0.012), panelM, 0, 0.012, 0.004);
+  add(foot, B(0.68, 0.012, 0.016), gold, 0, 0.012 + 0.161, 0.006);
+  add(foot, B(0.68, 0.012, 0.016), gold, 0, 0.012 - 0.161, 0.006);
+  for (const sx of [-1, 1]) add(foot, B(0.012, 0.334, 0.016), gold, sx * 0.34, 0.012, 0.006);
+}
 const hobPlate = group(foot, 0, 0, 0);
 screenMesh(hobPlate, hobTex, 0.36, 0.246, 0, 0, 0.025);
 hitSphere(hobPlate, 0, 0, 0.03, 0.17, '침상 카드', 'E7', () => `침상 머리 각도 ${hobDeg}°`);
