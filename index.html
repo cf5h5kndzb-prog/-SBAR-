@@ -901,7 +901,7 @@ const clockTex = canvasTex(512, 224, (g, w, h) => {
 let tvUpdate = null;
 // 벽걸이 TV (앞벽, 침대 발치 맞은편): 얇은 본체 + 벽 고정 브래킷. 화면에 낙상예방 캠페인 포스터("보행 전 3초 멈춤"), 정상 물품
 {
-  const TW = 0.99, TH = 0.57, TD = 0.035;               // 가로 99 cm
+  const TW = 0.792, TH = 0.57, TD = 0.035;              // 가로 79 cm (옆으로 너무 길어 보여 기존 99 cm에서 1/5 줄임)
   const g = group(world, 0.15, 1.8, 2.5);
   g.rotation.y = Math.PI;                               // 화면이 방 안쪽(-z)·침대를 보게
   g.scale.setScalar(1.6);                               // 병실 크기에 맞게 3/5 키움 (가로 약 158 cm)
@@ -912,7 +912,7 @@ let tvUpdate = null;
   add(g, B(TW, TH, TD), black, 0, 0, 0.03 + TD / 2);
   // 화면: 병원 공지 영상 (슬라이드가 돌아가며 나옴): 낙상예방 포스터(fall_poster.jpg) · 회진 시간 · 손 위생 · 면회 · 식사 · 병실 이용 안내 + 아래 흐르는 자막
   const scr = screenMesh(g, null, TW - 0.024, TH - 0.024, 0, 0, 0.03 + TD + 0.001);
-  const tvC = document.createElement('canvas'); tvC.width = 1024; tvC.height = 576;
+  const tvC = document.createElement('canvas'); tvC.width = 820; tvC.height = 576;
   const tx = tvC.getContext('2d');
   const tvTex = new THREE.CanvasTexture(tvC); tvTex.colorSpace = THREE.SRGBColorSpace; tvTex.anisotropy = 8;
   scr.material.map = tvTex; scr.material.color.set(0xffffff); scr.material.needsUpdate = true;
@@ -931,11 +931,11 @@ let tvUpdate = null;
   function drawTv(c, t) {
     const idx = Math.floor(t / SLIDE_SEC) % TV_SLIDES.length, lt = t % SLIDE_SEC, sl = TV_SLIDES[idx];
     tvDrawIdx = idx;
-    const W = 1024, H = 576;
+    const W = tvC.width, H = 576;
     c.save();
     if (sl.poster) {
       c.fillStyle = '#10161a'; c.fillRect(0, 0, W, H);
-      if (posterOK) c.drawImage(poster, 0, 0, W, H);
+      if (posterOK) { const ph = W * poster.naturalHeight / poster.naturalWidth; c.drawImage(poster, 0, (H - ph) / 2, W, ph); }   // 비율 유지(위아래 여백)
     } else {
       c.fillStyle = '#f3f7fa'; c.fillRect(0, 0, W, H);
       // 상단 바
@@ -956,11 +956,11 @@ let tvUpdate = null;
         const a = Math.min(1, Math.max(0, (lt - 0.5 - i * 0.45) / 0.5)), ea = 1 - Math.pow(1 - a, 3);
         c.globalAlpha = ea;
         c.fillStyle = sl.color; c.beginPath(); c.arc(86 + (1 - ea) * 30, 246 + i * 54, 9, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#1f2a33'; c.fillText(ln, 112 + (1 - ea) * 30, 247 + i * 54);
+        c.fillStyle = '#1f2a33'; c.fillText(ln, 112 + (1 - ea) * 30, 247 + i * 54, W - 112 - 26);
       });
       c.globalAlpha = 1;
       // 오른쪽 아래 장식 원
-      c.fillStyle = sl.color; c.globalAlpha = 0.1; c.beginPath(); c.arc(W - 80, 330, 190, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+      c.fillStyle = sl.color; c.globalAlpha = 0.1; c.beginPath(); c.arc(W - 60, 330, 170, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
       // 아래 흐르는 자막
       c.fillStyle = '#0b3f78'; c.fillRect(0, H - 56, W, 56);
       c.fillStyle = '#ffffff'; c.font = `bold 26px ${FONT}`; c.textAlign = 'left';
@@ -2353,7 +2353,8 @@ function rebuildTubes() {
   setTube(ivSetTube, [bt, bt.clone().add(V(0, -0.07, 0.03)), V(bt.x + 0.05, bt.y - 0.11, bt.z + 0.07),
     V(bt.x + 0.07, pin.y - 0.08, pin.z + 0.14), V(pin.x + 0.05, pin.y + 0.12, pin.z + 0.06), pin.clone().add(V(0, 0.03, 0)), pin]);
   // 3-way: Rt. 난간 위쪽(난간을 내리면 함께 내려감), 몸통은 환자 손 쪽을 향하고 옆 포트는 폴대 쪽
-  const twAt = V(-0.53, 1.1 + railR.position.y * 0.72, -1.25);
+  // 3-way는 침상 머리 부분(headGroup)에 붙여 둠: 침상 머리를 30° 올려도(E7) 환자·팔과 함께 올라가 라인이 매트리스를 뚫지 않음
+  const twAt = headGroup.localToWorld(V(-0.53, 1.1 + railR.position.y * 0.72 - HINGE.y - BED_LIFT, -1.25 - HINGE.z));
   const X = V(site.x - twAt.x, 0, site.z - twAt.z).normalize();
   const Y = V(0, 1, 0);
   const Z = new THREE.Vector3().crossVectors(X, Y);           // 손잡이를 위로 두면 옆 포트는 폴대 쪽(-x, 발치 쪽)을 향함
@@ -2428,7 +2429,8 @@ function rebuildTubes() {
   }
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
   const port = monPort.getWorldPosition(new THREE.Vector3());
-  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, V(0.41, 1.12, -1.18), V(0.48, 1.165, -1.2), V(0.56, 1.1, -1.24), V(0.64, 0.98, -1.34), V(0.78, 0.95, -1.5), port]);   // Lt. 침상 난간(윗면 y≈1.08) 위로 넘어 바깥으로 내려감
+  const hgAt = (x, y, z) => headGroup.localToWorld(V(x, y - HINGE.y - BED_LIFT, z - HINGE.z));          // 평평할 때의 월드 좌표 → 침상 머리와 함께 움직이는 점
+  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, hgAt(0.41, 0.95, -1.18), V(0.48, 1.165, -1.2), V(0.56, 1.1, -1.24), V(0.64, 0.98, -1.34), V(0.78, 0.95, -1.5), port]);   // Lt. 침상 난간(윗면 y≈1.08) 위로 넘어 바깥으로 내려감
   else setTube(cuffTube, [cp, V(-0.25, 1.0 + BED_LIFT, -1.75), V(0.4, 1.05 + BED_LIFT, -1.8), V(0.7, 1.15, -1.7), port]);
   // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
   if (patientRig && patientRig.spo2) {
