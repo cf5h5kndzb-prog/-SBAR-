@@ -2565,6 +2565,40 @@ function loadModel(url, fn) {
 }
 
 // 침대 프레임 (주름 기둥을 눌러 최저 높이로 만든 모델) + 난간
+// 환자 슬리퍼: 침대 Rt. 쪽(JP 배액 쪽) 바닥, 발치 쪽 난간 아래에 가지런히 (검은색 슬라이드형, 약 27 x 10 cm)
+// 앞코가 침대 바깥(-x)을 향해, 침상에 걸터앉아 바로 신을 수 있는 방향 · 정상 물품(오류 아님)
+{
+  const L = 0.27, W = 0.1;
+  const blk = new THREE.MeshStandardMaterial({ color:0x1d1f22, roughness:0.85 });
+  // 발 모양 밑창 (앞쪽이 넓고 뒤꿈치가 좁음): 길이 방향 = 로컬 +x(앞코)
+  const sh = new THREE.Shape();
+  sh.moveTo(-L / 2, 0);
+  sh.bezierCurveTo(-L / 2, W * 0.42, -L * 0.2, W * 0.42, 0, W * 0.47);
+  sh.bezierCurveTo(L * 0.3, W * 0.52, L / 2, W * 0.4, L / 2, 0);
+  sh.bezierCurveTo(L / 2, -W * 0.42, L * 0.3, -W * 0.5, 0, -W * 0.46);
+  sh.bezierCurveTo(-L * 0.2, -W * 0.42, -L / 2, -W * 0.42, -L / 2, 0);
+  const soleGeo = new THREE.ExtrudeGeometry(sh, { depth:0.022, bevelEnabled:true, bevelThickness:0.004, bevelSize:0.004, bevelSegments:2, curveSegments:20 });
+  soleGeo.rotateX(-Math.PI / 2);                     // 바닥에 눕힘 (두께가 위로)
+  // 발등 끈: 앞쪽 절반을 덮는 반원 통 (두께 있는 띠)
+  const bandGeo = new THREE.CylinderGeometry(1, 1, 0.075, 24, 1, true, 0, Math.PI);
+  const mkSlipper = (x, z, yaw) => {
+    const sg = group(world, x, 0, z);
+    sg.rotation.y = yaw;
+    const sole = new THREE.Mesh(soleGeo, blk); sole.castShadow = true; sole.receiveShadow = true; sg.add(sole);
+    const band = new THREE.Mesh(bandGeo, new THREE.MeshStandardMaterial({ color:0x26282c, roughness:0.8, side:THREE.DoubleSide }));
+    band.rotation.z = Math.PI / 2;                     // 통 축을 앞뒤(x) 방향으로 → 띠가 발등을 가로지름
+    band.scale.set(0.035, 1, W * 0.5);                 // 높이 3.5 cm, 폭은 밑창에 맞춤
+    band.position.set(L * 0.12, 0.026, 0);
+    band.castShadow = true;
+    sg.add(band);
+    return sg;
+  };
+  const slippers = group(world, 0, 0, 0);
+  // 침대 Rt. 쪽 바깥 바닥, 두 짝을 나란히 (앞코가 -x)
+  for (const [z, yaw] of [[0.12, Math.PI + 0.04], [0.25, Math.PI - 0.03]]) slippers.add(mkSlipper(-0.78, z, yaw));
+  tag(slippers, '환자 슬리퍼', '침대 옆 바닥에 가지런히 놓인 슬리퍼');
+}
+
 loadModel('bed.glb', sc => {
   const g = fitModel(sc, 0.872 * 1.2);           // 모델 높이 0.872 → 실제 약 1.05 m (길이 약 2.3 m)
   g.rotation.y = -Math.PI / 2;                   // 발판(베이지 패널)이 발 쪽(+z)으로
