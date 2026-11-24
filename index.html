@@ -396,21 +396,23 @@ function hitSphere(parent, x, y, z, r, label, err, read) {
 }
 
 /* 텍스트 캔버스 텍스처 */
-function canvasTex(w, h, draw) {
+function canvasTex(w, h, draw, ss = 1) {            // ss: 해상도 배율 (글씨가 가까이서도 또렷하도록 2배 등으로 그림)
   const c = document.createElement('canvas');
-  c.width = w; c.height = h;
+  c.width = w * ss; c.height = h * ss;
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  tex.userData = { c, draw };
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.userData = { c, draw, ss };
   paint(tex);
   return tex;
 }
 function paint(tex) {
   const { c, draw } = tex.userData;
   const g = c.getContext('2d');
-  g.clearRect(0, 0, c.width, c.height);
-  draw(g, c.width, c.height);
+  const ss = tex.userData.ss || 1;
+  g.setTransform(ss, 0, 0, ss, 0, 0);
+  g.clearRect(0, 0, c.width / ss, c.height / ss);
+  draw(g, c.width / ss, c.height / ss);
   tex.needsUpdate = true;
 }
 function wrap(g, text, x, y, maxW, lh) {
@@ -1626,7 +1628,7 @@ const hobTex = canvasTex(1024, 700, (g, w, h) => {
   g.fillStyle = '#c0392b'; g.fillRect(0, 603, w, h - 603);
   g.fillStyle = '#ffffff'; g.font = `bold 50px ${FONT}`; g.textAlign = 'center'; g.fillText('낙상 고주의', w / 2, 668);
   g.textAlign = 'left';
-});
+}, 2);
 const foot = group(bed, 0, 0.64, 0.27);
 bedFrameParts.push(add(foot, B(0.95, 0.4, 0.04), frameMat));
 const hobPlate = group(foot, 0, 0, 0);
@@ -3233,7 +3235,7 @@ function fitModel(scene, height) {
   return g;
 }
 function loadModel(url, fn) {
-  gltfLoader.load(url, gltf => { try { fn(gltf.scene); } catch (e) { console.warn(url + ' 적용 실패', e); } },
+  gltfLoader.load(url, gltf => { try { gltf.scene.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap']) if (m && m[k]) m[k].anisotropy = renderer.capabilities.getMaxAnisotropy(); }); } catch (e) {} try { fn(gltf.scene); } catch (e) { console.warn(url + ' 적용 실패', e); } },
     undefined, e => console.warn(url + ' 불러오기 실패 → 기본 도형 사용', e));
 }
 
