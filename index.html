@@ -323,6 +323,7 @@ let lastSec = -1;
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.localClippingEnabled = true;
 } catch (e) { $('noGL').hidden = false; throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -1303,10 +1304,6 @@ function drawMonitor(g, w, h) {
   const PWd = 0.17, PHt = PWd * 528 / 480;
   const poster = new THREE.Mesh(new THREE.PlaneGeometry(PWd, PHt), new THREE.MeshStandardMaterial({ map:ptex, roughness:0.45 }));
   poster.position.set(MW / 2 - 0.035 - PWd / 2, -MH / 2 + 0.035 + PHt / 2, 0.0225); g.add(poster);   // 거울 오른쪽 아래 (방 안에서 볼 때)
-  for (const dx of [-1, 1]) {                                              // 투명 테이프
-    const tp = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.012), new THREE.MeshBasicMaterial({ color:0xf3eed8, transparent:true, opacity:0.7 }));
-    tp.position.set(poster.position.x + dx * (PWd / 2 - 0.012), poster.position.y + PHt / 2 - 0.002, 0.0228); g.add(tp);
-  }
   tag(g, '세면대 거울', () => '올바른 손위생 방법 안내문이 붙어 있음');
 }
 
@@ -2149,11 +2146,53 @@ lateLoad('ivbag.glb', sc => {
   g.position.set(-hole.x, -mid.y, -hole.z);
   // 모델 인쇄 라벨 위에 처방(Plasma Solution A 1 L) 라벨을 선명하게 다시 그려 붙임
   modelFace(g, sc, { x:0, y:0.58, w:0.22, h:0.44 }, bagLbl, 256 / 512);
+  g.traverse(m => {                                    // 점적통 부분을 잘라내고, 아래에서 직접 만든 투명 점적통(물방울이 보임)으로 대체
+    if (!m.isMesh) return;
+    m.material = m.material.clone();
+    m.material.clippingPlanes = [new THREE.Plane(V(0, 1, 0), -DRIP.y1), new THREE.Plane(V(0, -1, 0), DRIP.y0)];
+    m.material.clipIntersection = true;
+  });
   bagTail.position.copy(modelPt(sc, 0, -0.94, 0)).add(g.position);
   bagProc.removeFromParent();
   bag.add(g);
   tubesDirty = true;
 });
+
+// 점적통 (수액 백 아래): 투명 점적통 안에서 처방/펌프 속도에 맞춰 물방울이 한 방울씩 떨어짐
+const DRIP = { x:-0.683, z:-1.335, y0:1.285, y1:1.405, GTT_PER_ML:20, phase:0 };   // 일반 수액세트 20방울 = 1 mL
+const dripG = group(world, DRIP.x, (DRIP.y0 + DRIP.y1) / 2, DRIP.z);
+const dripH = DRIP.y1 - DRIP.y0;
+const dripDrop = new THREE.Mesh(new THREE.SphereGeometry(0.0032, 14, 10), new THREE.MeshStandardMaterial({ color:0xcfeaf6, transparent:true, opacity:0.85, roughness:0.1, metalness:0.1 }));
+const dripPool = new THREE.Mesh(new THREE.CylinderGeometry(0.0116, 0.0116, 0.03, 20), new THREE.MeshStandardMaterial({ color:0xbfe3f2, transparent:true, opacity:0.55, roughness:0.15 }));
+const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.0005, 6, 20), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0 }));
+{
+  add(dripG, new THREE.CylinderGeometry(0.0125, 0.0125, dripH - 0.012, 24, 1, true), new THREE.MeshStandardMaterial({ color:0xe8f4f8, transparent:true, opacity:0.22, roughness:0.05, side:THREE.DoubleSide, depthWrite:false }));
+  const capM = mat(0xaeb5b8, { roughness:0.5 });
+  add(dripG, CYL(0.0142, 0.008, 24), capM, 0, dripH / 2 - 0.004, 0);
+  add(dripG, CYL(0.0142, 0.008, 24), capM, 0, -dripH / 2 + 0.004, 0);
+  add(dripG, CYL(0.0032, 0.022, 10), mat(0xe9eff1, { roughness:0.4 }), 0, dripH / 2 - 0.019, 0);         // 점적 노즐
+  dripPool.position.y = -dripH / 2 + 0.008 + 0.015; dripG.add(dripPool);
+  dripRing.rotation.x = Math.PI / 2; dripRing.position.y = dripPool.position.y + 0.0152; dripG.add(dripRing);
+  dripDrop.visible = false; dripG.add(dripDrop);
+  tag(dripG, '점적통', () => `현재 ${ivRate} mL/hr → 약 ${(3600 / (ivRate * DRIP.GTT_PER_ML)).toFixed(1)}초에 1방울 (20 gtt/mL 세트)`);
+}
+function updateDrip(dt) {
+  const period = 3600 / (ivRate * DRIP.GTT_PER_ML);                // 한 방울 주기(초): 80 mL/hr → 2.25 s, 20 mL/hr → 9 s
+  DRIP.phase = (DRIP.phase + dt / period) % 1;
+  const ph = DRIP.phase, FALL = Math.min(0.25 / period, 0.2);      // 주기의 마지막 구간(약 0.25 s)에 낙하
+  const topY = dripH / 2 - 0.03, surf = dripPool.position.y + 0.015;
+  if (ph < 1 - FALL) {                                              // 노즐 끝에서 방울이 점점 커짐
+    const k = ph / (1 - FALL); const r = 0.35 + 0.65 * k;
+    dripDrop.visible = true; dripDrop.scale.set(r, r * (1 + 0.35 * k * k), r); dripDrop.position.y = topY - 0.0032 * r * (1 + 0.35 * k * k);
+    if (ph >= 0.12) dripRing.material.opacity = 0;
+  } else {                                                          // 떨어짐 → 수면에 닿으면 파문
+    const f = (ph - (1 - FALL)) / FALL;
+    const y = topY - 0.004 - (topY - 0.004 - surf) * f * f;
+    if (f < 0.97) { dripDrop.visible = true; dripDrop.scale.set(0.9, 1.2, 0.9); dripDrop.position.y = y; dripRing.material.opacity = 0; }
+    else { dripDrop.visible = false; }
+  }
+  if (ph < 0.12) { const w = ph / 0.12; dripRing.scale.setScalar(0.4 + w * 1.6); dripRing.material.opacity = 0.6 * (1 - w); }                // 수면 파문
+}
 
 // 수액 펌프 (E4) — 화면 숫자는 코드로 그림
 const ivTex = canvasTex(320, 240, (g, w, h) => {
@@ -4637,6 +4676,7 @@ function frame() {
   if (vrAutoStart > 0) { vrAutoStart -= dt; if (vrAutoStart <= 0 && state.phase === 'idle') start(); }
 
   updateMonSound(Math.min(rawDt, 0.5));      // 프레임이 느려도 맥박 간격 유지
+  updateDrip(dt);                            // 점적통 물방울
 
   // 활력징후(부드럽게 변화)
   const tg = targets();
