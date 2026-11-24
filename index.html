@@ -346,7 +346,8 @@ controls.maxPolarAngle = Math.PI * 0.62;
 controls.enableDamping = true;
 controls.update();
 
-scene.add(new THREE.HemisphereLight(0xfff6ea, 0xc9b89e, 1.25));
+const hemi = new THREE.HemisphereLight(0xfff6ea, 0xc9b89e, 1.25);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 1.4);
 sun.position.set(2, 3.2, 2.2);
 sun.castShadow = true;
@@ -498,10 +499,139 @@ wall(2.5 - DOOR_Z1, 2.6, 3, 1.3, (DOOR_Z1 + 2.5) / 2, -Math.PI / 2);            
 wall(DOOR_W, 2.6 - DOOR_H, 3, (DOOR_H + 2.6) / 2, DOOR_ZC, -Math.PI / 2);          // 문 위 벽
 wall(6, 2.6, 0, 1.3, 2.5, Math.PI);       // 앞벽
 wall(6, ROOM_D, 0, 2.6, ROOM_ZC, 0, Math.PI / 2, ceilMat);    // 천장
+const ceilLamps = [];
 for (const z of [-1, 1]) {
   const l = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.5), new THREE.MeshBasicMaterial({ color:0xffffff }));
-  l.rotation.x = Math.PI / 2; l.position.set(0, 2.59, z); world.add(skip(l));
+  l.rotation.x = Math.PI / 2; l.position.set(0, 2.59, z); world.add(skip(l)); ceilLamps.push(l);
 }
+
+// ── 화장실 칸 (뒤쪽 오른쪽 모서리) ──
+// 문 열고 들어와 오른쪽(뒷벽 쪽)에 있음. 문은 입구 쪽(+z)을 향하고, 침대 쪽(-x) 면은 민벽이라 침대에서는 화장실이 보이지 않음 (냉장고·보관장을 이 벽에 붙임)
+const BATH = { xw:1.95, zf:-0.25, t:0.1 };           // xw: 병실 쪽 벽면 x, zf: 입구 쪽 벽 가운데 z
+const BATH_DOOR = { x0:2.1, x1:2.9, h:2.1 };        // 화장실 문 틈 (폭 0.8)
+const BATH_ZB = BATH.zf - BATH.t / 2;                // 화장실 안쪽 면(입구 쪽 벽의 안쪽) z
+const bathZ0 = BACK_Z, bathZ1 = BATH_ZB;             // 화장실 안쪽 z 범위
+{
+  const tileMat = (w, h, base = '#eef1f2') => {
+    const t = canvasTex(256, 256, (c, ww, hh) => {
+      c.fillStyle = base; c.fillRect(0, 0, ww, hh);
+      c.strokeStyle = '#c3cacf'; c.lineWidth = 3;
+      for (let i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(i * ww / 4, 0); c.lineTo(i * ww / 4, hh); c.moveTo(0, i * hh / 4); c.lineTo(ww, i * hh / 4); c.stroke(); }
+    });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(w / 1.2, h / 1.2);
+    return new THREE.MeshStandardMaterial({ map:t, roughness:0.3 });
+  };
+  const box = (w, h, d, x, y, z, mats) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats);
+    m.position.set(x, y, z); m.receiveShadow = true; world.add(skip(m)); return m;
+  };
+  const Lz = bathZ1 - bathZ0;                          // 안쪽 깊이
+  // 왼쪽 벽 (침대를 보는 면 = 민벽, 안쪽 면 = 타일)
+  box(BATH.t, 2.6, Lz, BATH.xw + BATH.t / 2, 1.3, (bathZ0 + bathZ1) / 2, [tileMat(Lz, 2.6), wallMat, wallMat, wallMat, wallMat, wallMat]);
+  // 입구 쪽 벽: 문 틈 양옆 + 문 위
+  const fW = (x0, x1) => [wallMat, wallMat, wallMat, wallMat, wallMat, tileMat(x1 - x0, 2.6)];
+  box(BATH_DOOR.x0 - BATH.xw, 2.6, BATH.t, (BATH.xw + BATH_DOOR.x0) / 2, 1.3, BATH.zf, fW(BATH.xw, BATH_DOOR.x0));
+  box(3 - BATH_DOOR.x1, 2.6, BATH.t, (BATH_DOOR.x1 + 3) / 2, 1.3, BATH.zf, fW(BATH_DOOR.x1, 3));
+  box(BATH_DOOR.x1 - BATH_DOOR.x0, 2.6 - BATH_DOOR.h, BATH.t, (BATH_DOOR.x0 + BATH_DOOR.x1) / 2, (BATH_DOOR.h + 2.6) / 2, BATH.zf, fW(BATH_DOOR.x0, BATH_DOOR.x1));
+  // 안쪽 타일: 뒷벽·오른벽 덧댐 + 바닥
+  const mkPlane = (w, h, m, x, y, z, rx, ry) => { const o = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); o.position.set(x, y, z); o.rotation.set(rx, ry, 0); o.receiveShadow = true; world.add(skip(o)); return o; };
+  const bx0 = BATH.xw + BATH.t;                        // 안쪽 왼쪽 면 x
+  mkPlane(3 - bx0, 2.6, tileMat(3 - bx0, 2.6), (bx0 + 3) / 2, 1.3, BACK_Z + 0.004, 0, 0);
+  mkPlane(Lz, 2.6, tileMat(Lz, 2.6), 2.996, 1.3, (bathZ0 + bathZ1) / 2, 0, -Math.PI / 2);
+  mkPlane(3 - bx0, Lz, tileMat(3 - bx0, Lz, '#d9dcdc'), (bx0 + 3) / 2, 0.004, (bathZ0 + bathZ1) / 2, -Math.PI / 2, 0);
+  // 천장 등 + 안쪽 조명
+  const bl = mkPlane(0.5, 0.3, new THREE.MeshBasicMaterial({ color:0xffffff }), 2.52, 2.592, (bathZ0 + bathZ1) / 2, Math.PI / 2, 0);
+  const bathLight = new THREE.PointLight(0xfff1dc, 2.0, 4.5, 1.4);
+  bathLight.position.set(2.52, 2.3, (bathZ0 + bathZ1) / 2); world.add(bathLight);
+  window.__bath = { lamp:bl, light:bathLight };
+  // 변기 (뒷벽 쪽, 오른쪽 벽 가까이)
+  const white = new THREE.MeshStandardMaterial({ color:0xf7f8f8, roughness:0.2 });
+  const chrome = new THREE.MeshStandardMaterial({ color:0xcfd5d9, metalness:0.35, roughness:0.25 });
+  const tg = group(world, 2.55, 0, BACK_Z);
+  const bowl = add(tg, CYL(0.18, 0.40, 28), white, 0, 0.20, 0.42); bowl.scale.z = 1.35;
+  add(tg, B(0.40, 0.46, 0.18), white, 0, 0.62, 0.10);                                    // 물탱크
+  const seat = add(tg, CYL(0.19, 0.03, 28), mat(0xeceee9, { roughness:0.3 }), 0, 0.415, 0.42); seat.scale.z = 1.35;
+  add(tg, CYL(0.035, 0.012, 16), chrome, 0, 0.855, 0.10);                                // 물내림 버튼
+  tag(tg, '변기', () => '이동변기·화장실 이용 시 낙상 위험');
+  // 손잡이(안전바) 양쪽 벽
+  for (const [x, z0] of [[bx0 + 0.04, BACK_Z + 0.25], [2.955, BACK_Z + 0.25]]) {
+    const r = add(world, CYL(0.017, 0.7, 12), chrome, x, 0.8, z0 + 0.35); r.rotation.x = Math.PI / 2;
+    for (const dz of [0.05, 0.65]) add(world, B(0.025, 0.04, 0.03), chrome, x + (x < 2.5 ? -0.02 : 0.02), 0.8, z0 + dz);
+  }
+  // 비상호출 풀 코드 (빨강) + 화장지걸이 + 샤워기
+  add(world, B(0.1, 0.14, 0.03), mat(0xf4f4f0), 2.86, 1.2, BACK_Z + 0.015);
+  add(world, CYL(0.022, 0.012, 14), mat(0xd7261e), 2.86, 1.22, BACK_Z + 0.036).rotation.x = Math.PI / 2;
+  add(world, CYL(0.0035, 0.82, 6), mat(0xd7261e), 2.86, 0.77, BACK_Z + 0.04);
+  add(world, B(0.04, 0.05, 0.02), mat(0xd7261e), 2.86, 0.34, BACK_Z + 0.04);
+  add(world, B(0.14, 0.12, 0.1), white, 2.955 - 0.03, 0.72, BACK_Z + 0.62);             // 화장지 걸이
+  const sh = add(world, CYL(0.05, 0.015, 20), chrome, bx0 + 0.04, 1.95, BACK_Z + 1.1); sh.rotation.z = Math.PI / 2 - 0.5;
+  const shp = add(world, CYL(0.009, 0.3, 8), chrome, bx0 + 0.015, 2.1, BACK_Z + 1.1);
+  const dr = add(world, CYL(0.05, 0.006, 20), mat(0x6c757b, { metalness:0.4, roughness:0.4 }), 2.7, 0.008, BACK_Z + 1.2);   // 바닥 배수구
+  // 화장실 문 (경첩: 오른쪽 x 2.9, 안쪽(-z)으로 열림). 클릭하면 열고 닫음
+  const dg = group(world, BATH_DOOR.x1, 0, BATH.zf);
+  const dm = mat(0xece6d8, { roughness:0.5 });
+  const DW = BATH_DOOR.x1 - BATH_DOOR.x0 - 0.01;
+  add(dg, B(DW, BATH_DOOR.h - 0.03, 0.04), dm, -DW / 2 - 0.005, (BATH_DOOR.h - 0.03) / 2 + 0.015, 0);
+  add(dg, CYL(0.013, 0.16, 12), chrome, -DW + 0.06, 1.0, 0.05);                         // 손잡이(세로 바)
+  const sign = canvasTex(256, 128, (c, w, h) => {
+    c.fillStyle = '#2f6fa8'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.font = `bold 52px ${FONT}`; c.fillText('화장실', w / 2, 66);
+    c.font = `bold 28px ${FONT}`; c.fillText('Toilet', w / 2, 106);
+  });
+  const sm = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.13), new THREE.MeshStandardMaterial({ map:sign, roughness:0.5 }));
+  sm.position.set(-DW / 2 - 0.005, 1.65, 0.0215); dg.add(sm);
+  dg.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  tag(dg, '화장실 문', () => '클릭: 열기 / 닫기');
+  const bathDoor = { g:dg, t:0, target:0 };
+  dg.userData.action = () => { bathDoor.target = bathDoor.target ? 0 : 1; };
+  window.__bathDoor = bathDoor;
+  // 문 틀 + 문턱
+  add(world, B(0.1, BATH_DOOR.h, 0.03), mat(0xc7ccd0, { metalness:0.3, roughness:0.35 }), BATH_DOOR.x0 - 0.0, BATH_DOOR.h / 2, BATH.zf + 0.05);
+  add(world, B(BATH_DOOR.x1 - BATH_DOOR.x0, 0.012, 0.1), mat(0xb4b9bd, { roughness:0.4 }), (BATH_DOOR.x0 + BATH_DOOR.x1) / 2, 0.006, BATH.zf);
+}
+
+// 조명 스위치 (출입문 옆 벽, 2구): 병실 조명 / 화장실 조명. 클릭하면 켜고 끔
+const roomLight = { on:true };
+function setRoomLight(on) {
+  roomLight.on = on;
+  hemi.intensity = on ? 1.25 : 0.32; sun.intensity = on ? 1.4 : 0.22;
+  for (const l of ceilLamps) l.material.color.set(on ? 0xffffff : 0x4a4a4a);
+  for (const r of switchRockers.room) { r.rotation.x = on ? -0.22 : 0.22; }
+  switchLeds.room.material.color.set(on ? 0x34c759 : 0x3a3f43);
+}
+function setBathLight(on) {
+  window.__bath.light.intensity = on ? 2.0 : 0; window.__bath.lamp.material.color.set(on ? 0xffffff : 0x4a4a4a);
+  for (const r of switchRockers.bath) r.rotation.x = on ? -0.22 : 0.22;
+  switchLeds.bath.material.color.set(on ? 0x34c759 : 0x3a3f43);
+  window.__bath.on = on;
+}
+const switchRockers = { room:[], bath:[] }, switchLeds = {};
+{
+  const g = group(world, 2.985, 1.18, 2.22);
+  g.rotation.y = -Math.PI / 2;                              // 앞면이 방 안쪽(-x)
+  const plate = canvasTex(160, 220, (c, w, h) => {
+    c.fillStyle = '#f7f7f4'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#d3d6d2'; c.lineWidth = 4; c.strokeRect(2, 2, w - 4, h - 4);
+    c.fillStyle = '#4a5358'; c.font = `bold 22px ${FONT}`; c.textAlign = 'center';
+    c.fillText('병실', w * 0.27, 30); c.fillText('화장실', w * 0.73, 30);
+  });
+  g.scale.setScalar(1.3);                                     // 눈에 띄게 조금 크게
+  const em = (c) => new THREE.MeshStandardMaterial({ color:c, roughness:0.5, emissive:0xffffff, emissiveIntensity:0.32 });
+  const pm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.014), [em(0xf2f2ee), em(0xf2f2ee), em(0xf2f2ee), em(0xf2f2ee), new THREE.MeshStandardMaterial({ map:plate, roughness:0.5, emissive:0xffffff, emissiveMap:plate, emissiveIntensity:0.35 }), em(0xf2f2ee)]);
+  pm.position.z = 0.007; pm.castShadow = true; g.add(pm);
+  for (const [key, sx, label, fn] of [['room', -0.036, '병실 조명 스위치', () => { setRoomLight(!roomLight.on); toast(roomLight.on ? '💡 병실 불을 켰습니다.' : '💡 병실 불을 껐습니다.', '', 1500); }],
+                                       ['bath', 0.036, '화장실 조명 스위치', () => { setBathLight(!window.__bath.on); toast(window.__bath.on ? '💡 화장실 불을 켰습니다.' : '💡 화장실 불을 껐습니다.', '', 1500); }]]) {
+    const sg = group(g, sx, -0.01, 0.014);
+    const r = add(sg, B(0.05, 0.1, 0.012), new THREE.MeshStandardMaterial({ color:0xd5d9d3, roughness:0.4, emissive:0xffffff, emissiveIntensity:0.15 }), 0, 0, 0.004);
+    switchRockers[key].push(sg);
+    const led = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.004), new THREE.MeshBasicMaterial({ color:0x34c759 }));
+    led.position.set(0, 0.07, 0.027); sg.add(led); switchLeds[key] = led;
+    sg.userData.action = fn; tag(sg, label, () => '클릭: 켜기 / 끄기');
+  }
+  g.userData.action = () => {};
+  window.__switchPlate = g;
+}
+setRoomLight(true); setBathLight(true);
 
 // 창문 (왼벽)
 {
@@ -606,9 +736,9 @@ for (const z of [-1, 1]) {
   snow.rotation.y = Math.PI / 2; snow.position.set(0.0325, 0, 0); g.add(snow);
   tag(g, '크리스마스 장식', '');
 }
-// 출입문 (오른벽): 병원 병실의 옆으로 미는 슬라이딩 도어. 방 안쪽 벽면에 레일을 달고 문짝이 뒤쪽(-z) 벽 앞으로 밀려 열림
-// (열린 문짝이 가리는 벽 z -0.35~0.85 에는 세면대·소독제 등을 두지 않음)
-const doorSlide = group(world, 2.925, 0, DOOR_ZC);
+// 출입문 (오른벽): 병원 병실의 옆으로 미는 슬라이딩 도어. 문짝이 벽 속(복도 쪽 벽 안)으로 밀려 들어가 열림 (포켓형)
+// → 열려도 방 안 벽면을 가리지 않으므로 세면대·소독제·옷장 위치와 상관없음. 문짝 앞면(방 쪽)은 x≥3.005 라 벽 뒤에 가려짐
+const doorSlide = group(world, 3.03, 0, DOOR_ZC);
 {
   const PW = DOOR_W + 0.05;                                   // 문짝 폭 (양쪽으로 2.5 cm씩 겹침)
   const PH = DOOR_H - 0.03;
@@ -630,15 +760,11 @@ const doorSlide = group(world, 2.925, 0, DOOR_ZC);
   for (const [y, h] of [[WY0, 0.025], [WY1, 0.025]]) add(panel, B(0.05, h, WZ * 2 + 0.03), alu, 0, y, wzc);
   for (const dz of [-WZ, WZ]) add(panel, B(0.05, WY1 - WY0, 0.025), alu, 0, (WY0 + WY1) / 2, wzc + dz);
   // 손잡이: 방 안쪽 면에 세로 스테인리스 바 (닫을 때 만나는 쪽 = -z 가장자리)
-  for (const dy of [0.12, -0.12]) add(panel, B(0.03, 0.03, 0.03), alu, -0.04, 1.0 + dy * 3, -PW / 2 + 0.1);
-  add(panel, CYL(0.013, 0.5, 12), alu, -0.06, 1.0, -PW / 2 + 0.1);
+  add(panel, B(0.004, 0.5, 0.03), alu, -0.022, 1.0, -PW / 2 + 0.1);                       // 문짝 면에 파묻힌 세로 손잡이 홈 (벽 평면 뒤에 머물게 얕게)
+  add(panel, B(0.003, 0.46, 0.012), mat(0x6c757b, { roughness:0.4 }), -0.0235, 1.0, -PW / 2 + 0.1);
   // 문짝 위 걸이쇠(레일 연결)
-  for (const dz of [-PW / 2 + 0.2, PW / 2 - 0.2]) add(panel, B(0.03, 0.08, 0.05), alu, 0, PH + 0.06, dz);
-  // 레일 덮개 (문 위 → 뒤쪽으로 길게, 문짝 한 장 폭만큼 더)
-  const RZ0 = DOOR_Z0 - DOOR_W - 0.08, RZ1 = DOOR_Z1 + 0.04;
-  add(world, B(0.075, 0.09, RZ1 - RZ0), alu, 2.925, DOOR_H + 0.045 - 0.0, (RZ0 + RZ1) / 2);
-  // 바닥 가이드 (열림 방향 쪽까지)
-  add(world, B(0.03, 0.01, DOOR_W * 2 - 0.1), mat(0x9aa1a6, { roughness:0.5 }), 2.925, 0.005, (DOOR_Z0 - DOOR_W + DOOR_Z1) / 2 + 0.0);
+  
+  // 레일은 벽 속(복도 쪽)에 있어 보이지 않음
   // 문틀 (벽 구멍 둘레: 알루미늄 몰딩 + 문턱)
   add(world, B(0.1, DOOR_H, 0.04), alu, 2.98, DOOR_H / 2, DOOR_Z0 - 0.0);
   add(world, B(0.1, DOOR_H, 0.04), alu, 2.98, DOOR_H / 2, DOOR_Z1 + 0.0);
@@ -648,6 +774,7 @@ const doorSlide = group(world, 2.925, 0, DOOR_ZC);
 }
 const doorSt = { t:0 };            // 0 닫힘 ~ 1 열림
 function updateDoor(dt) {
+  { const bd = window.__bathDoor; if (bd) { const k = bd.target - bd.t; bd.t += Math.max(-dt / 0.7, Math.min(dt / 0.7, k)); const e = bd.t * bd.t * (3 - 2 * bd.t); bd.g.rotation.y = -1.75 * e; } }
   const gx = guardian.position.x;
   // 보호자가 복도에서 문을 지나는 동안만 열림 (도착하면 닫힘)
   const want = guardian.visible && guardianWalk >= 0 && guardianWalk < 1 && gx > 2.35 ? 1 : 0;
@@ -673,7 +800,7 @@ function updateDoor(dt) {
 }
 // 프라이버시 커튼: 침대 출입문 쪽(오른쪽)에 천장 레일 + 머리 쪽·발 쪽 두 장. 평소엔 양 끝에 모아 두고, 클릭하면 치거나 걷음
 const curtainSt = { s:0, target:0 };     // s: 0 걷음(모음) ~ 1 침 (가려짐)
-const CURT = { x:1.5, zHead:-1.28, zFoot:1.5, yTop:2.38, yBot:0.42 };   // 발 쪽 끝은 보호자가 지나는 길(z≈0.9)을 피해 문 쪽으로 더
+const CURT = { x:1.3, zHead:-0.2, zFoot:1.5, yTop:2.38, yBot:0.42 };   // 발 쪽 끝은 보호자가 지나는 길(z≈0.9)을 피해 문 쪽으로 더
 const curtainParts = [];
 {
   const g = group(world, CURT.x, 0, 0);
@@ -926,7 +1053,7 @@ const monTex = canvasTex(800, 480, (g, w, h) => drawMonitor(g, w, h));
 // 포터블 활력징후 모니터 (환자 왼쪽 머리 쪽, 바퀴 달린 스탠드): NIBP + SpO₂/PR + 체온
 // 심전도 전극이 없으므로 ECG 파형·HR 대신 SpO₂ 맥파와 PR(맥박수)을 표시. RR은 환자를 보고 직접 측정
 // 벽 콘센트(낮은 위치 2구): 침대 전원선과 모니터 전원선이 꽂힘. 뒷벽 위치(BACK_Z)를 따라감
-const OUTLET_BED = V(-0.80, 0.45, BACK_Z), OUTLET_MON = V(1.40, 0.45, BACK_Z);
+const OUTLET_BED = V(-0.80, 0.45, BACK_Z), OUTLET_MON = V(1.12, 0.45, BACK_Z);
 const plugGroups = [];
 for (const [pos, label] of [[OUTLET_BED, '침대 전원 콘센트'], [OUTLET_MON, '모니터 전원 콘센트']]) {
   const g = group(world, pos.x, pos.y, pos.z);
@@ -943,7 +1070,7 @@ for (const [pos, label] of [[OUTLET_BED, '침대 전원 콘센트'], [OUTLET_MON
   add(pl, B(0.016, 0.02, 0.02), mat(0x2b3136, { roughness:0.55 }), 0, -0.03, 0.02);   // 코드가 나오는 목은 아래쪽 (코드가 아래로 늘어짐)
   plugGroups.push(pl);
 }
-const monitorGroup = group(world, 1.05, 0, -1.45);   // 뒷벽을 당긴 만큼 앞으로 (바닥 받침이 벽·침대와 겹치지 않게)
+const monitorGroup = group(world, 0.92, 0, -1.45);   // 뒷벽을 당긴 만큼 앞으로 (바닥 받침이 벽·침대와 겹치지 않게)
 monitorGroup.rotation.y = -0.55;                     // 화면이 침대 발치 쪽을 보게
 const monPort = new THREE.Object3D();
 const monPwr = new THREE.Object3D();   // 모니터 뒷면 전원 코드 입구 (모델이 불러와지면 실제 뒷면 표면에 맞춤)
@@ -1025,7 +1152,7 @@ function drawMonitor(g, w, h) {
 // 손소독제, 손상성 폐기물 용기, 쓰레기통, 탁자, 보호자 소파 (정상 물품)
 // 세면대 (출입문 쪽 벽, 의료폐기물 용기 위): 벽걸이 도기 세면대 + 수전 + 배수관
 {
-  const g = group(world, 3, 0, -1.05);             // 열린 문짝이 지나가는 자리(z -0.35~0.85)를 피해 안쪽 구석으로
+  const g = group(world, 3, 0, 0.25);
   g.rotation.y = -Math.PI / 2;                     // 앞(+z)이 방 안쪽(-x)
   const white = new THREE.MeshStandardMaterial({ color: 0xf7f8f8, roughness: 0.25 });
   const chrome = new THREE.MeshStandardMaterial({ color: 0xcfd5d9, metalness: 0.35, roughness: 0.25 });   // 환경맵이 없어 금속도를 낮춰 은색으로 보이게
@@ -1062,7 +1189,7 @@ function drawMonitor(g, w, h) {
 
 // 페이퍼타올 디스펜서 (손소독제 옆, 세면대 위 벽)
 {
-  const g = group(world, 2.94, 1.42, -1.05);
+  const g = group(world, 2.94, 1.42, 0.25);
   g.rotation.y = -Math.PI / 2;
   const face = canvasTex(200, 240, (c, w, h) => {
     const grd = c.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#fbfcfd'); grd.addColorStop(1, '#e9edf0');
@@ -1083,7 +1210,7 @@ function drawMonitor(g, w, h) {
 
 // 벽걸이 손소독제 (출입문 옆): 흰 본체 + "Hand Clean GEL" 라벨 + 회색 창 + 아래 누름판
 {
-  const g = group(world, 2.94, 1.3, -0.55);
+  const g = group(world, 2.94, 1.3, 0.7);
   g.rotation.y = -Math.PI / 2;                     // 앞면이 방 안쪽(-x)을 보게
   const face = canvasTex(160, 256, (c, w, h) => {
     c.fillStyle = '#f6f7f6'; c.fillRect(0, 0, w, h);
@@ -1106,7 +1233,7 @@ function drawMonitor(g, w, h) {
 }
 // 의료폐기물 전용 용기 (병실 입구): 흰 골판지 상자 + 주황 비닐 + 투명 아크릴 뚜껑
 {
-  const g = group(world, 2.8, 0, -0.55);
+  const g = group(world, 2.8, 0, 0.45);
   g.rotation.y = -Math.PI / 2;                     // 라벨이 방 안쪽(-x)을 보게
   g.scale.setScalar(0.55);                         // 4 L 크기 (약 20 × 20 × 27 cm)
   const side = canvasTex(256, 320, (c, w, h) => {
@@ -1172,7 +1299,8 @@ function drawMonitor(g, w, h) {
 // 환자 옷장 (뒷벽·오른벽 모서리): 아래 2문 수납장 + 가운데 열린 선반 + 위 2문 수납장. 냉장고는 왼쪽에 독립형으로 따로 있음. 높이는 남은 시간 박스 윗단(2.28 m)에 맞춤
 {
   const W = 0.72, D = 0.56, H = 2.28;
-  const g = group(world, 3 - W / 2 - 0.01, 0, BACK_Z + D / 2 + 0.01);   // 앞면이 병실 쪽(+z)
+  const g = group(world, BATH.xw - D / 2 - 0.005, 0, BACK_Z + W / 2 + 0.02);   // 화장실 벽(침대 쪽 민벽)에 붙임, 앞면이 침대 쪽(-x)
+  g.rotation.y = -Math.PI / 2;
   const woodTex = canvasTex(256, 512, (c, w, h) => {
     c.fillStyle = '#e9e0d1'; c.fillRect(0, 0, w, h);     // 아이보리 톤 밝은 목재
     for (let i = 0; i < 70; i++) {                       // 세로 나뭇결 (옅게)
@@ -1221,7 +1349,8 @@ function drawMonitor(g, w, h) {
 // 독립형 냉장고 (은색 2도어: 위 냉동 / 아래 냉장): 옷장 왼쪽, 뒷벽에 붙임. 폭 0.70 · 깊이 0.68 · 높이 1.85 m
 {
   const FW = 0.70, FD = 0.68, FHt = 1.85;
-  const g = group(world, 3 - 0.72 - 0.02 - FW / 2, 0, BACK_Z + FD / 2 + 0.01);
+  const g = group(world, BATH.xw - FD / 2 - 0.005, 0, BACK_Z + 0.02 + 0.72 + 0.03 + FW / 2);   // 보관장 옆 같은 벽, 앞면이 침대 쪽(-x)
+  g.rotation.y = -Math.PI / 2;
   const steel = new THREE.MeshStandardMaterial({ color:0xdfe3e5, metalness:0.12, roughness:0.35 });
   add(g, B(FW, FHt, FD), mat(0xcdd2d4, { metalness:0.1, roughness:0.45 }), 0, FHt / 2, 0);        // 본체
   add(g, B(FW - 0.1, 0.05, FD - 0.06), mat(0x6f777b, { roughness:0.7 }), 0, 0.025, 0.02);         // 아래 그릴(받침)
@@ -2728,7 +2857,7 @@ let pBubbleTTL = 0;
 let guardianWalk = -1;          // 0~1: 걸어 들어오는 진행도, 1이면 도착
 // 걷는 길: 문(오른벽) 앞에서 방 안으로 몇 걸음 → 침대 오른쪽(환자 Lt. 쪽) 옆으로 곡선 (2차 베지어)
 // 복도(x 4.3)에서 시작 → 열린 문(x 3, z 1.4)을 똑바로 지나 → 침대 옆 (3차 베지어)
-const GPATH = [new THREE.Vector2(4.3, 1.4), new THREE.Vector2(2.6, 1.4), new THREE.Vector2(1.75, 1.1), new THREE.Vector2(1.2, 0.22)];
+const GPATH = [new THREE.Vector2(4.3, 1.4), new THREE.Vector2(2.6, 1.4), new THREE.Vector2(1.6, 1.1), new THREE.Vector2(0.95, 0.2)];
 const gpAt = u => { const a = 1 - u; return new THREE.Vector2(
   a * a * a * GPATH[0].x + 3 * a * a * u * GPATH[1].x + 3 * a * u * u * GPATH[2].x + u * u * u * GPATH[3].x,
   a * a * a * GPATH[0].y + 3 * a * a * u * GPATH[1].y + 3 * a * u * u * GPATH[2].y + u * u * u * GPATH[3].y); };
