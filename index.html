@@ -3217,7 +3217,7 @@ function onSelect(o) {
   }
   if (id && state.found.has(id)) { toast(ERR[id].id + ' 은(는) 이미 확인했습니다.', '', 1500); return; }
   if (id && state.wrong.has(id)) { toast('이 항목은 이미 판단을 기록했습니다.', '', 1600); return; }
-  if (id === 'E5' && !state.pcaTold) { state.pcaTold = true; patientSay(PATIENT_LINE.pcaNoEffect, 6); }   // PCA 확인 시 호소
+  if (id === 'E5' && !state.pcaTold) { state.pcaTold = true; patientSay(PATIENT_LINE.pcaNoEffect, 7); }   // PCA 확인 시 호소
   openJudge(o);
 }
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
@@ -3476,7 +3476,7 @@ function foundError(id) {
   const e = ERR[id];
   toast(`✔ ${e.id} ${e.title}\n${e.fix}`, 'good', 3800);
   feed(`✔ ${e.id} ${e.title}`, 'good');
-  if (id === 'E5') patientSay(PATIENT_LINE.pcaFixed, 6, 1.5);   // PCA 교정 후 반응
+  if (id === 'E5') patientSay(PATIENT_LINE.pcaFixed, 7, 1.5);   // PCA 교정 후 반응
   if (id === 'E8' && state.fallRisk) {                          // 낙상 위험 상황에서 대응
     state.fallRiskFixed = true;
     feed('✔ 낙상 위험 상황 대응: 난간을 올리고 콜벨을 손 닿는 곳에 두었습니다.', 'good');
@@ -3551,6 +3551,13 @@ if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};   // 음
 // 파일 이름 규칙: p_ 환자 / g_ 보호자 / d_ 담당의. 새 파일을 넣으면 여기에 한 줄 추가
 const VOICE_FILES = {
   [PATIENT_LINE.enter]: 'voice/p_enter.mp3',
+  [PATIENT_LINE.worse]: 'voice/p_worse.mp3',
+  [PATIENT_LINE.repeat[0]]: 'voice/p_repeat1.mp3',
+  [PATIENT_LINE.repeat[1]]: 'voice/p_repeat2.mp3',
+  [PATIENT_LINE.repeat[2]]: 'voice/p_repeat3.mp3',
+  [PATIENT_LINE.pcaNoEffect]: 'voice/p_pca_noeffect.mp3',
+  [PATIENT_LINE.pcaFixed]: 'voice/p_pca_fixed.mp3',
+  [PATIENT_LINE.getUp]: 'voice/p_bell.mp3',
   // 담당의 되묻기·보고 완료 (파일이 아직 없으면 기본 음성으로 읽음)
   [SBAR_ASK.id]:    'voice/d_ask_id.mp3',
   [SBAR_ASK.sit]:   'voice/d_ask_sit.mp3',
