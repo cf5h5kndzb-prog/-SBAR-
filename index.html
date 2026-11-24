@@ -1251,9 +1251,31 @@ function drawMonitor(g, w, h) {
   tag(g, '세면대', () => '손 씻기 · 물비누·페이퍼타올 사용');
 }
 
+// 세면대 거울 (세면대 바로 위) + 거울에 붙인 올바른 손위생 방법 안내문
+{
+  const MW = 0.6, MH = 0.72;
+  const g = group(world, 2.1, 1.39, 2.495);
+  g.rotation.y = Math.PI;
+  const tex = canvasTex(256, 300, (c, w, h) => {
+    const grd = c.createLinearGradient(0, 0, w, h); grd.addColorStop(0, '#dfeaee'); grd.addColorStop(0.5, '#c4d3da'); grd.addColorStop(1, '#d6e2e7');
+    c.fillStyle = grd; c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(255,255,255,0.35)';                                  // 비스듬한 반사광
+    c.beginPath(); c.moveTo(w * 0.1, 0); c.lineTo(w * 0.32, 0); c.lineTo(w * 0.06, h); c.lineTo(-w * 0.16, h); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(w * 0.42, 0); c.lineTo(w * 0.5, 0); c.lineTo(w * 0.24, h); c.lineTo(w * 0.16, h); c.closePath(); c.fill();
+  });
+  add(g, B(MW + 0.03, MH + 0.03, 0.02), mat(0xb9c0c5, { metalness:0.4, roughness:0.4 }), 0, 0, 0.01);      // 알루미늄 틀
+  const mir = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), new THREE.MeshStandardMaterial({ map:tex, metalness:0.55, roughness:0.12, emissive:0x9fb3bb, emissiveIntensity:0.25 }));
+  mir.position.z = 0.0215; g.add(mir);
+  const PWd = 0.34, PHt = PWd * 228 / 254;
+  const ptex = new THREE.TextureLoader().load('notices/n_hand.jpg'); ptex.colorSpace = THREE.SRGBColorSpace; ptex.anisotropy = 8;
+  const poster = new THREE.Mesh(new THREE.PlaneGeometry(PWd, PHt), new THREE.MeshStandardMaterial({ map:ptex, roughness:0.45 }));
+  poster.position.set(0, 0.02, 0.0225); g.add(poster);
+  tag(g, '세면대 거울', () => '올바른 손위생 방법 안내문이 붙어 있음');
+}
+
 // 페이퍼타올 디스펜서 (손소독제 옆, 세면대 위 벽)
 {
-  const g = group(world, 2.1, 1.42, 2.44);
+  const g = group(world, 2.62, 1.3, 2.44);
   g.rotation.y = Math.PI;
   const face = canvasTex(200, 240, (c, w, h) => {
     const grd = c.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#fbfcfd'); grd.addColorStop(1, '#e9edf0');
@@ -1274,7 +1296,7 @@ function drawMonitor(g, w, h) {
 
 // 벽걸이 손소독제 (출입문 옆): 흰 본체 + "Hand Clean GEL" 라벨 + 회색 창 + 아래 누름판
 {
-  const g = group(world, 2.66, 1.3, 2.44);
+  const g = group(world, 2.9, 1.3, 2.44);
   g.rotation.y = Math.PI;                          // 앞면이 방 안쪽(-z)을 보게
   const face = canvasTex(160, 256, (c, w, h) => {
     c.fillStyle = '#f6f7f6'; c.fillRect(0, 0, w, h);
@@ -1313,7 +1335,7 @@ function drawMonitor(g, w, h) {
     c.font = `15px ${FONT}`;
     c.beginPath(); c.moveTo(22, 242); c.lineTo(w - 22, 242); c.moveTo(22, 272); c.lineTo(w - 22, 272); c.moveTo(w / 2, 242); c.lineTo(w / 2, 304); c.stroke();
     c.fillText('용기 용량 4 L', w / 4 + 11, 262); c.fillText('봉투: 의료폐기물', w * 3 / 4 - 11, 262);
-    c.fillText('사용 개시일', w / 4 + 11, 293); c.fillText('2025. 10. 31.', w * 3 / 4 - 11, 293);
+    c.fillText('사용 개시일', w / 4 + 11, 293); c.fillText('2026. 10. 31.', w * 3 / 4 - 11, 293);
   });
   const boxMat = new THREE.MeshStandardMaterial({ map: side, roughness: 0.9 });
   const plain = mat(0xf2f1ec, { roughness: 0.9 });
@@ -1427,10 +1449,53 @@ function drawMonitor(g, w, h) {
   add(g, B(W, 0.06, D - 0.04), woodDark, 0, 0.03, -0.02);   // 걸레받이
   // 아래: 2문 수납장 (냉장고는 옆에 독립형으로 따로 둠)
   const FH = 0.84;
+  // 안쪽: 바닥판·중간 선반 + 개인 물품 (문을 열면 보임)
+  add(g, B(W - 2 * T, T, D - 0.05), wood, 0, 0.07, -0.01);
+  add(g, B(W - 2 * T, T, D - 0.05), wood, 0, 0.48, -0.01);
+  add(g, B(0.32, 0.12, 0.26), mat(0x8fb0cf, { roughness:0.95 }), -0.16, 0.14, -0.02);     // 갈아입을 옷
+  add(g, B(0.3, 0.1, 0.24), mat(0xe6d9c4, { roughness:0.95 }), -0.16, 0.25, -0.02);
+  add(g, B(0.26, 0.2, 0.2), mat(0x5b6b7a, { roughness:0.8 }), 0.17, 0.59, -0.02);          // 가방
+  add(g, B(0.22, 0.08, 0.16), mat(0xf4efe6, { roughness:0.9 }), 0.17, 0.12, -0.02);       // 수건
+  // 아래 2문: 경첩 문. 번호키 잠금장치로 잠그고 풀 수 있음 (잠겨 있으면 안 열림)
+  const wLock = { locked:true, open:false, busy:false };
+  const lowerDoors = [];
+  const dw = (W - 0.03) / 2;
+  const metalM = mat(0xb8b2a6, { metalness:0.4, roughness:0.4 });
   for (const sx of [-1, 1]) {
-    const dw = (W - 0.03) / 2;
-    add(g, B(dw - 0.004, FH - 0.02, 0.022), doorM, sx * (dw / 2 + 0.003), 0.06 + FH / 2, D / 2 - 0.011);
-    add(g, B(0.014, 0.16, 0.018), mat(0xb8b2a6, { metalness:0.4, roughness:0.4 }), sx * 0.03, 0.06 + FH * 0.72, D / 2 + 0.008);
+    const piv = group(g, sx * (dw + 0.001), 0.06 + FH / 2, D / 2 - 0.011);                 // 경첩(바깥쪽 가장자리)
+    add(piv, B(dw - 0.004, FH - 0.02, 0.022), doorM, -sx * (dw / 2 - 0.002), 0, 0);
+    add(piv, B(0.014, 0.16, 0.018), metalM, -sx * (dw - 0.029), FH * 0.22, 0.019);
+    lowerDoors.push({ piv, sx, ang:0 });
+    piv.userData.action = () => {
+      if (wLock.busy) return;
+      if (wLock.locked) { toast('🔒 옷장이 잠겨 있습니다. 번호키 잠금장치를 눌러 푸세요.', '', 1800); return; }
+      wLock.open = !wLock.open; wLock.busy = true;
+      const from = lowerDoors[0].ang, to = wLock.open ? 1.7 : 0;
+      tween(0.7, p => { const a = from + (to - from) * ease(p); for (const d of lowerDoors) { d.ang = a; d.piv.rotation.y = d.sx * a; } }, () => { wLock.busy = false; });
+    };
+    tag(piv, sx < 0 ? '옷장 아래 문 (왼쪽)' : '옷장 아래 문 (오른쪽)', () => wLock.locked ? '잠김 · 번호키 잠금장치로 풀기' : (wLock.open ? '열림 · 클릭: 닫기' : '클릭: 열기'));
+    if (sx > 0) {                                                                           // 번호키 잠금장치 (오른쪽 문, 닫히는 쪽 가장자리)
+      const lk = group(piv, -(dw - 0.07), FH * 0.12, 0.011);
+      const silver = new THREE.MeshStandardMaterial({ color:0xcfcbb8, metalness:0.5, roughness:0.35 });
+      add(lk, B(0.056, 0.125, 0.012), silver, 0, 0, 0.006);
+      add(lk, CYL(0.021, 0.006, 24), mat(0xb7b4a4, { metalness:0.5, roughness:0.4 }), 0, 0.037, 0.0145).rotation.x = Math.PI / 2;
+      const tab = group(lk, 0, 0.037, 0.0185);
+      add(tab, B(0.034, 0.011, 0.004), mat(0x2f4a8f, { roughness:0.4 }), 0.004, 0, 0);          // 손잡이(Keyas)
+      add(tab, B(0.01, 0.011, 0.0045), mat(0xe8e8e8), -0.01, 0, 0);
+      const keyM = mat(0x23262a, { roughness:0.4 });
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) add(lk, B(0.0135, 0.0095, 0.005), keyM, (c - 1) * 0.0165, 0.004 - r * 0.0135, 0.0145);   // 숫자 키패드
+      const led = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.004, 0.003), new THREE.MeshBasicMaterial({ color:0xe03a2f }));
+      led.position.set(-0.019, 0.056, 0.0135); lk.add(led);
+      const setLockLook = () => { tab.rotation.z = wLock.locked ? 0.55 : -0.55; led.material.color.set(wLock.locked ? 0xe03a2f : 0x34c759); };
+      setLockLook();
+      lk.userData.action = () => {
+        if (wLock.busy) return;
+        if (!wLock.locked && wLock.open) { toast('문을 닫은 뒤에 잠가 주세요.', '', 1600); return; }
+        wLock.locked = !wLock.locked; setLockLook();
+        toast(wLock.locked ? '🔒 옷장을 잠갔습니다.' : '🔓 옷장 잠금을 풀었습니다.', '', 1500);
+      };
+      tag(lk, '옷장 번호키 잠금장치', () => wLock.locked ? '잠김 · 클릭: 풀기' : '열림 · 클릭: 잠그기');
+    }
   }
   // 가운데: 상판 + 열린 선반 칸
   const TOP = 0.06 + FH + 0.04;
