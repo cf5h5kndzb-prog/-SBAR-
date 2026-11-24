@@ -2676,12 +2676,12 @@ function setupPatient(gltf) {
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
   function upperArm(side) {
     const s = J(side + 'Arm'), e = J(side + 'ForeArm');
-    return anchor(side + 'Arm', lerp(s, e, 0.6), frameQ(e.clone().sub(s), up));   // 어깨를 내린 뒤 소매가 커프를 뚫지 않도록 팔꿈치 쪽으로 조금 내림
+    return anchor(side + 'Arm', lerp(s, e, 0.3), frameQ(e.clone().sub(s), up));   // 어깨를 내린 뒤 소매가 커프를 뚫지 않도록 팔꿈치 쪽으로 조금 내림
   }
   rig.cuffL = upperArm('Left');
   rig.cuffR = upperArm('Right');
   (cuff.userData.side === 'R' ? rig.cuffR : rig.cuffL).attach(cuff);
-  cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.set(1.2, 1.2, 0.8);   // 환의 소매 위로 위팔(어깨~팔꿈치 약 17 cm)을 감는 커프 (소매가 뚫고 나오지 않도록 굵게)
+  cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.set(1.4, 1.4, 0.9);   // 환의 소매 위로 위팔(어깨~팔꿈치 약 17 cm)을 감는 커프 (소매가 뚫고 나오지 않도록 굵게)
   // IV 카테터: Rt. 손목 등쪽 (복부 oozing을 가리지 않게 손등 대신 손목). Lt. arm은 save(유방절제술)
   {
     const hand = J('RightHand'), fore = J('RightForeArm');
@@ -2874,17 +2874,32 @@ function updateUnrest(r, dt) {
   const painOn = state.painUnrest && !state.found.has('E5');
   const tgtLevel = live && (state.severeOn || painOn) && tt >= 480 ? 1 : 0;
   const tgtTry = live && state.severeOn && tt >= 482 ? 1 : 0;      // 화면 알림·대사와 함께 손을 뻗기 시작
+  // 통증 호소(3분~) : PCA 오류가 남아 있으면 힘들어하며 고개를 절레절레 흔듦 (7초마다 3초 정도 크게, 사이사이는 작게)
+  const tgtShake = live && tt >= 180 && !state.found.has('E5') ? 1 : 0;
+  r.shake = (r.shake || 0) + (tgtShake - (r.shake || 0)) * Math.min(1, dt * 1.5);
   const k = Math.min(1, dt * 1.2);
   unrest.level += (tgtLevel - unrest.level) * k;
   unrest.sit += ((blocked ? 0 : tgtTry) - unrest.sit) * Math.min(1, dt * 0.6);
   unrest.reach += ((blocked ? 0 : tgtTry) - unrest.reach) * Math.min(1, dt * 0.8);
-  if (unrest.level < 0.002 && unrest.sit < 0.002) return 0;
+  const shakeAng = () => {
+    r.shakeT = (r.shakeT || 0) + dt;
+    const ph = (r.shakeT % 7) / 7, burst = ph < 0.42 ? Math.sin(Math.PI * ph / 0.42) : 0;
+    return r.shake * (0.34 * burst * Math.sin(r.shakeT * 6.2) + 0.05 * Math.sin(r.shakeT * 1.3));
+  };
+  if (unrest.level < 0.002 && unrest.sit < 0.002) {
+    if (r.shake > 0.002) {                                // 뒤척임 전: 머리만 흔듦
+      r.bones.Head.quaternion.copy(r.unrestBase.Head);
+      boneWorldRot(r, 'Head', V(0, 0, 1), shakeAng());
+      r.shaking = true;
+    } else if (r.shaking) { r.bones.Head.quaternion.copy(r.unrestBase.Head); r.shaking = false; }
+    return 0;
+  }
   unrest.t += dt;
   for (const [n, q] of Object.entries(r.unrestBase)) r.bones[n].quaternion.copy(q);
   const L = unrest.level, S = smooth01(unrest.sit), R = smooth01(unrest.reach), t = unrest.t;
   const AX = V(0, 0, 1), AY = V(0, 1, 0), AXx = V(1, 0, 0);
   // 머리 좌우로 뒤척임 (불안), 콜벨을 찾을 때는 Rt. 쪽(난간 쪽)을 봄
-  boneWorldRot(r, 'Head', AX, L * (0.42 * Math.sin(t * 1.7) + 0.12 * Math.sin(t * 4.3)) * (1 - 0.6 * R) - 0.35 * R);
+  boneWorldRot(r, 'Head', AX, L * (0.42 * Math.sin(t * 1.7) + 0.12 * Math.sin(t * 4.3)) * (1 - 0.6 * R) - 0.35 * R + shakeAng() * (1 - R));
   // 배 위 오른손: 움켜쥐었다 놓았다 (아래팔 굽힘) / 콜벨을 찾을 땐 팔을 Rt. 바깥(침대 밖)으로 뻗음
   boneWorldRot(r, 'RightForeArm', AXx, L * (1 - R) * 0.4 * (0.5 + 0.5 * Math.sin(t * 2.6)));
   boneWorldRot(r, 'LeftForeArm', AXx, L * 0.3 * (0.5 + 0.5 * Math.sin(t * 2.1 + 2)));          // 왼손도 배 쪽으로 움찔
