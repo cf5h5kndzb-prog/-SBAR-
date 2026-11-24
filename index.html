@@ -1366,6 +1366,30 @@ function drawMonitor(g, w, h) {
   }
   tag(g, '보호자 소파 (3인용)', '');
 }
+// 병원 안내문 6장 (앞벽 왼쪽, TV 옆): 클립보드형 안내문이 2줄 × 3열로 붙어 있음. 사진은 notices/ 폴더
+{
+  const NOTICES = [
+    ['n_visit', 454, 644, '방문객 출입 안내', '출입증 소지한 입원환자·보호자 1인만 출입 가능'],
+    ['n_wifi',  454, 650, 'Guest WiFi 연결 방법 안내', '모바일 Guest WiFi 연결 방법'],
+    ['n_life',  454, 672, '병원 생활 안내', '입원환자 보호자 및 간병인을 위한 병원 생활 안내'],
+    ['n_fee',   454, 630, '진료비 안내문', '병실료 안내 (본인부담금 기준)'],
+    ['n_park',  454, 694, '주차 요금 안내', '일반주차장 요금 및 감면 내역'],
+    ['n_food',  454, 684, '환자 급식 원산지 안내', '환자식 식재료 원산지']
+  ];
+  const PW = 0.42, XS = [-2.42, -1.8, -1.18], TOPS = [2.28, 1.56];
+  const loader = new THREE.TextureLoader();
+  NOTICES.forEach(([file, tw, th, label, read], i) => {
+    const h = PW * th / tw, cx = XS[i % 3], top = TOPS[Math.floor(i / 3)];
+    const g = group(world, cx, top - h / 2, 2.495);
+    g.rotation.y = Math.PI;                              // 앞면이 방 안쪽(-z)
+    g.rotation.z = (i % 2 ? 1 : -1) * 0.008;             // 손으로 붙인 듯 아주 살짝 기울임
+    const tex = loader.load('notices/' + file + '.jpg');
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, h), new THREE.MeshStandardMaterial({ map:tex, roughness:0.55 }));
+    m.receiveShadow = true; g.add(m);
+    tag(g, '안내문', () => label + ' · ' + read);
+  });
+}
 // 천장 연기감지기
 {
   const g = group(world, -1.5, 2.6, 1.0);
