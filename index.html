@@ -457,28 +457,26 @@ function screenMesh(parent, tex, w, h, x, y, z, ry = 0) {
 const wallMat = mat(0xf4eee3, { roughness:0.95 });
 const ceilMat = mat(0xfbf8f2, { roughness:0.95 });
 const accentMat = null;
-// 바닥: 나무결 데코타일 (폭 15 cm 판, 판마다 색이 조금씩 다르고 이음매가 엇갈림)
+// 바닥: 연베이지 석재 무늬 데코타일 (60 x 60 cm, 은은한 마블 결 + 가는 줄눈) — 병동 리모델링·1인실에서 흔한 바닥
 const floorTex = canvasTex(512, 512, (g, w, h) => {
-  const rows = 8, ph = h / rows, base = new THREE.Color('#d9bc94'), hsl = {};
-  base.getHSL(hsl);
-  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  for (let r = 0; r < rows; r++) {
-    const off = (r % 2 ? 0.5 : 0) * w + rnd() * 60;
-    for (let k = -1; k < 2; k++) {
-      const x0 = off + k * w;
-      const c = new THREE.Color().setHSL(hsl.h + (rnd() - 0.5) * 0.012, hsl.s * (0.9 + rnd() * 0.2), hsl.l * (0.94 + rnd() * 0.1));
-      g.fillStyle = '#' + c.getHexString(); g.fillRect(x0, r * ph, w, ph);
-      g.globalAlpha = 0.18; g.strokeStyle = '#b8976c'; g.lineWidth = 1.2;     // 나무결
-      for (let i = 0; i < 7; i++) {
-        const y = r * ph + 4 + rnd() * (ph - 8);
-        g.beginPath(); g.moveTo(x0, y);
-        for (let x = 0; x <= w; x += 32) g.lineTo(x0 + x, y + Math.sin(x / 40 + i) * 1.5);
-        g.stroke();
-      }
-      g.globalAlpha = 1;
-      g.fillStyle = '#b8976c'; g.fillRect(x0, r * ph, 2, ph);                  // 판 끝 이음매
+  let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const tiles = 2, ts = w / tiles;                    // 텍스처 한 장 = 1.2 m → 타일 60 cm
+  for (let r = 0; r < tiles; r++) for (let c = 0; c < tiles; c++) {
+    const l = 0.84 + rnd() * 0.03;                   // 타일마다 밝기를 조금씩 다르게
+    g.fillStyle = `hsl(38, 16%, ${l * 100}%)`; g.fillRect(c * ts, r * ts, ts, ts);
+    g.save(); g.beginPath(); g.rect(c * ts, r * ts, ts, ts); g.clip();
+    for (let i = 0; i < 9; i++) {                    // 마블 결
+      g.globalAlpha = 0.07 + rnd() * 0.06; g.strokeStyle = rnd() < 0.5 ? '#b9ab96' : '#f4efe6'; g.lineWidth = 1 + rnd() * 3;
+      g.beginPath(); let x = c * ts + rnd() * ts, y = r * ts; g.moveTo(x, y);
+      for (let k = 0; k < 10; k++) { x += (rnd() - 0.4) * 40; y += ts / 9; g.lineTo(x, y); }
+      g.stroke();
     }
-    g.fillStyle = '#b8976c'; g.fillRect(0, r * ph, w, 2);                        // 판 사이 줄
+    for (let i = 0; i < 900; i++) {                  // 잔 점무늬
+      g.globalAlpha = 0.12; g.fillStyle = rnd() < 0.5 ? '#c4b8a4' : '#efe9de';
+      g.fillRect(c * ts + rnd() * ts, r * ts + rnd() * ts, 2, 2);
+    }
+    g.restore(); g.globalAlpha = 1;
+    g.fillStyle = '#c6baa6'; g.fillRect(c * ts, r * ts, ts, 2); g.fillRect(c * ts, r * ts, 2, ts);   // 줄눈
   }
 });
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
