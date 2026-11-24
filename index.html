@@ -2431,7 +2431,7 @@ function rebuildTubes() {
   const port = monPort.getWorldPosition(new THREE.Vector3());
   const hgAt = (x, y, z) => headGroup.localToWorld(V(x, y - HINGE.y - BED_LIFT, z - HINGE.z));          // 평평할 때의 월드 좌표 → 침상 머리와 함께 움직이는 점
   if (cuff.userData.side === 'L') setTube(cuffTube, [cp, hgAt(0.41, 0.95, -1.18), V(0.48, 1.165, -1.2), V(0.56, 1.1, -1.24), V(0.64, 0.98, -1.34), V(0.78, 0.95, -1.5), port]);   // Lt. 침상 난간(윗면 y≈1.08) 위로 넘어 바깥으로 내려감
-  else setTube(cuffTube, [cp, V(-0.25, 1.0 + BED_LIFT, -1.75), V(0.4, 1.05 + BED_LIFT, -1.8), V(0.7, 1.15, -1.7), port]);
+  else setTube(cuffTube, [cp, hgAt(-0.25, 0.97, -1.7), hgAt(0.4, 0.97, -1.75), V(0.7, 1.15, -1.7), port]);   // 침상 머리를 올려도(E7) 매트리스·베개를 뚫지 않게 침상 머리 따라 올라감
   // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
   if (patientRig && patientRig.spo2) {
     const r = patientRig;
