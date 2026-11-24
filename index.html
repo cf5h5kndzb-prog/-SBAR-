@@ -1266,10 +1266,47 @@ function drawMonitor(g, w, h) {
   add(g, B(MW + 0.03, MH + 0.03, 0.02), mat(0xb9c0c5, { metalness:0.4, roughness:0.4 }), 0, 0, 0.01);      // 알루미늄 틀
   const mir = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), new THREE.MeshStandardMaterial({ map:tex, metalness:0.55, roughness:0.12, emissive:0x9fb3bb, emissiveIntensity:0.25 }));
   mir.position.z = 0.0215; g.add(mir);
-  const PWd = 0.34, PHt = PWd * 228 / 254;
-  const ptex = new THREE.TextureLoader().load('notices/n_hand.jpg'); ptex.colorSpace = THREE.SRGBColorSpace; ptex.anisotropy = 8;
+  // 올바른 손위생 방법 안내문: 직접 새로 그린 포스터 (똑바로, 거울 오른쪽 아래, 기존 0.34 m의 1/2 크기)
+  const ptex = canvasTex(480, 528, (c, w, h) => {
+    c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#1b4f9c'; c.fillRect(0, 0, w, 78);
+    c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.font = `bold 40px ${FONT}`; c.fillText('올바른 손위생 방법', w / 2, 52);
+    c.fillStyle = '#1b4f9c'; c.font = `bold 19px ${FONT}`; c.fillText('비누와 물 40~60초 · 알코올 손소독제 20~30초', w / 2, 108);
+    const hand = (cx, cy, k, rot, col) => {                                 // 단순한 손 모양
+      c.save(); c.translate(cx, cy); c.rotate(rot); c.scale(k, k); c.fillStyle = col; c.strokeStyle = '#a9743f'; c.lineWidth = 1.5;
+      const rr = (x, y, ww, hh, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + ww, y, x + ww, y + hh, r); c.arcTo(x + ww, y + hh, x, y + hh, r); c.arcTo(x, y + hh, x, y, r); c.arcTo(x, y, x + ww, y, r); c.closePath(); c.fill(); c.stroke(); };
+      rr(-17, -6, 34, 34, 8);                                                // 손바닥
+      [[-15, -36, 8, 34], [-5, -42, 8, 40], [5, -40, 8, 38], [14, -33, 7.5, 31]].forEach(f => rr(f[0] - f[2] / 2, f[1], f[2], f[3], 4));   // 손가락
+      c.save(); c.translate(-19, 8); c.rotate(-0.8); rr(-4, -22, 9, 24, 4); c.restore();   // 엄지
+      c.restore();
+    };
+    const steps = ['손바닥을 마주 대고\n문지르기', '손등과 손바닥을\n번갈아 문지르기', '손바닥을 마주 대고\n손깍지 끼고 문지르기', '손가락을 마주 잡고\n문지르기', '엄지손가락을 다른 손\n으로 돌려 문지르기', '손끝을 반대 손바닥에\n놓고 문지르기'];
+    const cw = 150, ch = 180, gx = 12, x0 = (w - 3 * cw - 2 * gx) / 2, y0 = 130, gy = 12;
+    steps.forEach((t, i) => {
+      const x = x0 + (i % 3) * (cw + gx), y = y0 + Math.floor(i / 3) * (ch + gy);
+      c.fillStyle = '#eef4fb'; c.fillRect(x, y, cw, ch); c.strokeStyle = '#b9cde6'; c.lineWidth = 2; c.strokeRect(x, y, cw, ch);
+      const cx = x + cw / 2, cy = y + 78;
+      const skin = '#f2c9a0', skin2 = '#e8b98c';
+      if (i === 0) { hand(cx - 22, cy, 0.85, 0.5, skin); hand(cx + 22, cy, 0.85, -0.5, skin2); }
+      else if (i === 1) { hand(cx - 20, cy + 6, 0.85, 0.2, skin); hand(cx + 14, cy - 6, 0.85, -0.9, skin2); }
+      else if (i === 2) { hand(cx - 16, cy, 0.85, 0.35, skin); hand(cx + 16, cy, 0.85, -0.35, skin2); }
+      else if (i === 3) { hand(cx - 18, cy + 4, 0.85, 1.3, skin); hand(cx + 18, cy - 4, 0.85, -1.9, skin2); }
+      else if (i === 4) { hand(cx - 6, cy + 8, 0.85, 0.15, skin); hand(cx + 8, cy - 8, 0.7, -0.5, skin2); }
+      else { hand(cx - 8, cy + 14, 0.85, 0.05, skin); hand(cx + 14, cy - 8, 0.65, 3.0, skin2); }
+      c.fillStyle = '#1b4f9c'; c.beginPath(); c.arc(x + 20, y + 20, 15, 0, 7); c.fill();
+      c.fillStyle = '#fff'; c.font = `bold 20px ${FONT}`; c.textAlign = 'center'; c.fillText(String(i + 1), x + 20, y + 27);
+      c.fillStyle = '#222'; c.font = `bold 14px ${FONT}`;
+      t.split('\n').forEach((ln, k) => c.fillText(ln, cx, y + 140 + k * 19, cw - 8));
+    });
+    c.strokeStyle = '#1b4f9c'; c.lineWidth = 4; c.strokeRect(2, 2, w - 4, h - 4);
+  });
+  const PWd = 0.17, PHt = PWd * 528 / 480;
   const poster = new THREE.Mesh(new THREE.PlaneGeometry(PWd, PHt), new THREE.MeshStandardMaterial({ map:ptex, roughness:0.45 }));
-  poster.position.set(0, 0.02, 0.0225); g.add(poster);
+  poster.position.set(MW / 2 - 0.035 - PWd / 2, -MH / 2 + 0.035 + PHt / 2, 0.0225); g.add(poster);   // 거울 오른쪽 아래 (방 안에서 볼 때)
+  for (const dx of [-1, 1]) {                                              // 투명 테이프
+    const tp = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.012), new THREE.MeshBasicMaterial({ color:0xf3eed8, transparent:true, opacity:0.7 }));
+    tp.position.set(poster.position.x + dx * (PWd / 2 - 0.012), poster.position.y + PHt / 2 - 0.002, 0.0228); g.add(tp);
+  }
   tag(g, '세면대 거울', () => '올바른 손위생 방법 안내문이 붙어 있음');
 }
 
