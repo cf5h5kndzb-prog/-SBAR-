@@ -1366,39 +1366,6 @@ function drawMonitor(g, w, h) {
   }
   tag(g, '보호자 소파 (3인용)', '');
 }
-// 환자 안내 화이트보드 (앞벽 왼쪽, TV 옆 빈 벽): 병실 입원 환자 안내판 + 마커 받침
-{
-  const BW = 1.2, BH = 0.8;
-  const g = group(world, -1.85, 1.5, 2.5);
-  g.rotation.y = Math.PI;                                // 앞면이 방 안쪽(-z)
-  const tex = canvasTex(960, 640, (c, w, h) => {
-    c.fillStyle = '#fbfcfc'; c.fillRect(0, 0, w, h);
-    c.fillStyle = '#1b4f8a'; c.fillRect(0, 0, w, 84);
-    c.fillStyle = '#ffffff'; c.font = `bold 44px ${FONT}`; c.textAlign = 'left'; c.fillText('환자 안내판', 36, 58);
-    c.textAlign = 'right'; c.font = `28px ${FONT}`; c.fillText('1인실', w - 36, 56);
-    const row = (y, k, v, col = '#222') => {
-      c.fillStyle = '#6b7780'; c.font = `bold 30px ${FONT}`; c.textAlign = 'left'; c.fillText(k, 40, y);
-      c.fillStyle = col; c.font = `38px ${FONT}`; c.fillText(v, 280, y);
-      c.strokeStyle = '#d5dbe0'; c.lineWidth = 2; c.beginPath(); c.moveTo(36, y + 22); c.lineTo(w - 36, y + 22); c.stroke();
-    };
-    row(150, '환자', '나예민 (F/60)');
-    row(228, '담당 의료진', '외과 주치의 · 당직의');
-    row(306, '담당 간호사', '병동 담당 간호사');
-    row(384, '낙상 주의', '침대 난간 올림 · 이동 시 호출', '#c0392b');
-    row(462, '호출', '콜벨(NURSE CALL)을 눌러 주세요');
-    c.fillStyle = '#8a949b'; c.font = `26px ${FONT}`; c.fillText('※ 통증이 심하거나 불편하면 바로 알려 주세요.', 40, 540);
-    c.strokeStyle = '#2b6cb0'; c.lineWidth = 5; c.lineCap = 'round';                                   // 손으로 그은 밑줄
-    c.beginPath(); c.moveTo(280, 394); c.bezierCurveTo(420, 400, 560, 388, 700, 396); c.stroke();
-  });
-  add(g, B(BW + 0.04, BH + 0.04, 0.03), mat(0xb9c0c5, { metalness:0.4, roughness:0.4 }), 0, 0, 0.015);   // 알루미늄 틀
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(BW, BH), new THREE.MeshStandardMaterial({ map:tex, roughness:0.35 }));
-  board.position.z = 0.0305; g.add(board);
-  add(g, B(0.5, 0.025, 0.05), mat(0xb9c0c5, { metalness:0.4, roughness:0.4 }), 0, -BH / 2 - 0.03, 0.045);    // 마커 받침
-  for (const [x, col] of [[-0.1, 0x1f4fb4], [0.0, 0xc0392b], [0.1, 0x222222]]) {
-    const m = add(g, CYL(0.009, 0.12, 12), mat(col), x, -BH / 2 - 0.012, 0.06); m.rotation.z = Math.PI / 2;
-  }
-  tag(g, '환자 안내 화이트보드', '');
-}
 // 천장 연기감지기
 {
   const g = group(world, -1.5, 2.6, 1.0);
@@ -2685,12 +2652,12 @@ function setupPatient(gltf) {
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
   function upperArm(side) {
     const s = J(side + 'Arm'), e = J(side + 'ForeArm');
-    return anchor(side + 'Arm', lerp(s, e, 0.8), frameQ(e.clone().sub(s), up));   // 어깨를 내린 뒤 소매가 커프를 뚫지 않도록 팔꿈치 쪽으로 조금 내림
+    return anchor(side + 'Arm', lerp(s, e, 0.6), frameQ(e.clone().sub(s), up));   // 어깨를 내린 뒤 소매가 커프를 뚫지 않도록 팔꿈치 쪽으로 조금 내림
   }
   rig.cuffL = upperArm('Left');
   rig.cuffR = upperArm('Right');
   (cuff.userData.side === 'R' ? rig.cuffR : rig.cuffL).attach(cuff);
-  cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.setScalar(1.05);
+  cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.set(1.2, 1.2, 0.8);   // 환의 소매 위로 위팔(어깨~팔꿈치 약 17 cm)을 감는 커프 (소매가 뚫고 나오지 않도록 굵게)
   // IV 카테터: Rt. 손목 등쪽 (복부 oozing을 가리지 않게 손등 대신 손목). Lt. arm은 save(유방절제술)
   {
     const hand = J('RightHand'), fore = J('RightForeArm');
