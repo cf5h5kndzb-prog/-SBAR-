@@ -1039,10 +1039,10 @@ function drawFallPlate(c, w, h, FONT) {
       c.fillStyle = '#3a4146'; c.beginPath(); c.arc(x - 12, y, 6, 0, Math.PI * 2); c.arc(x + 12, y, 6, 0, Math.PI * 2); c.fill();
     }
     c.fillStyle = '#6b7378'; c.fillText('220V', 432, 178);
-    // 조명 스위치 (2구)
+    // 조명 스위치 (2구, 위아래)
     c.fillStyle = '#f4f6f7'; c.strokeStyle = '#b9c0c4'; c.lineWidth = 3;
-    c.beginPath(); c.roundRect(560, 52, 130, 96, 10); c.fill(); c.stroke();
-    for (const x of [592, 658]) { c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(x - 26, 60, 52, 80, 6); c.fill(); c.stroke(); c.fillStyle = '#9aa3a8'; c.fillRect(x - 10, 70, 20, 4); }
+    c.beginPath(); c.roundRect(585, 52, 80, 96, 10); c.fill(); c.stroke();
+    for (const y of [58, 102]) { c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(593, y, 64, 40, 6); c.fill(); c.stroke(); c.fillStyle = '#9aa3a8'; c.fillRect(615, y + 6, 20, 4); }   // 스위치 2개가 위아래
     c.fillStyle = '#6b7378'; c.fillText('조명', 625, 178);
     // 콜벨 (빨강)
     c.fillStyle = '#f4f6f7'; c.beginPath(); c.roundRect(730, 52, 110, 96, 10); c.fill(); c.stroke();
@@ -1366,6 +1366,48 @@ function drawMonitor(g, w, h) {
   }
   tag(g, '보호자 소파 (3인용)', '');
 }
+// 환자 안내 화이트보드 (앞벽 왼쪽, TV 옆 빈 벽): 병실 입원 환자 안내판 + 마커 받침
+{
+  const BW = 1.2, BH = 0.8;
+  const g = group(world, -1.85, 1.5, 2.5);
+  g.rotation.y = Math.PI;                                // 앞면이 방 안쪽(-z)
+  const tex = canvasTex(960, 640, (c, w, h) => {
+    c.fillStyle = '#fbfcfc'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#1b4f8a'; c.fillRect(0, 0, w, 84);
+    c.fillStyle = '#ffffff'; c.font = `bold 44px ${FONT}`; c.textAlign = 'left'; c.fillText('환자 안내판', 36, 58);
+    c.textAlign = 'right'; c.font = `28px ${FONT}`; c.fillText('1인실', w - 36, 56);
+    const row = (y, k, v, col = '#222') => {
+      c.fillStyle = '#6b7780'; c.font = `bold 30px ${FONT}`; c.textAlign = 'left'; c.fillText(k, 40, y);
+      c.fillStyle = col; c.font = `38px ${FONT}`; c.fillText(v, 280, y);
+      c.strokeStyle = '#d5dbe0'; c.lineWidth = 2; c.beginPath(); c.moveTo(36, y + 22); c.lineTo(w - 36, y + 22); c.stroke();
+    };
+    row(150, '환자', '나예민 (F/60)');
+    row(228, '담당 의료진', '외과 주치의 · 당직의');
+    row(306, '담당 간호사', '병동 담당 간호사');
+    row(384, '낙상 주의', '침대 난간 올림 · 이동 시 호출', '#c0392b');
+    row(462, '호출', '콜벨(NURSE CALL)을 눌러 주세요');
+    c.fillStyle = '#8a949b'; c.font = `26px ${FONT}`; c.fillText('※ 통증이 심하거나 불편하면 바로 알려 주세요.', 40, 540);
+    c.strokeStyle = '#2b6cb0'; c.lineWidth = 5; c.lineCap = 'round';                                   // 손으로 그은 밑줄
+    c.beginPath(); c.moveTo(280, 394); c.bezierCurveTo(420, 400, 560, 388, 700, 396); c.stroke();
+  });
+  add(g, B(BW + 0.04, BH + 0.04, 0.03), mat(0xb9c0c5, { metalness:0.4, roughness:0.4 }), 0, 0, 0.015);   // 알루미늄 틀
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(BW, BH), new THREE.MeshStandardMaterial({ map:tex, roughness:0.35 }));
+  board.position.z = 0.0305; g.add(board);
+  add(g, B(0.5, 0.025, 0.05), mat(0xb9c0c5, { metalness:0.4, roughness:0.4 }), 0, -BH / 2 - 0.03, 0.045);    // 마커 받침
+  for (const [x, col] of [[-0.1, 0x1f4fb4], [0.0, 0xc0392b], [0.1, 0x222222]]) {
+    const m = add(g, CYL(0.009, 0.12, 12), mat(col), x, -BH / 2 - 0.012, 0.06); m.rotation.z = Math.PI / 2;
+  }
+  tag(g, '환자 안내 화이트보드', '');
+}
+// 천장 연기감지기
+{
+  const g = group(world, -1.5, 2.6, 1.0);
+  const d = add(g, CYL(0.055, 0.025, 24), mat(0xf4f5f2, { roughness:0.5 }), 0, -0.0125, 0);
+  add(g, CYL(0.02, 0.008, 16), mat(0xc9cdd0), 0, -0.029, 0);
+  add(g, B(0.012, 0.004, 0.012), new THREE.MeshBasicMaterial({ color:0xe03a2f }), 0.035, -0.027, 0);
+  tag(g, '연기감지기', '');
+}
+
 // 환자 옷장 (뒷벽·오른벽 모서리): 아래 2문 수납장 + 가운데 열린 선반 + 위 2문 수납장. 냉장고는 왼쪽에 독립형으로 따로 있음. 높이는 남은 시간 박스 윗단(2.28 m)에 맞춤
 {
   const W = 0.72, D = 0.56, H = 2.28;
@@ -2276,7 +2318,7 @@ function rebuildTubes() {
   }
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
   const port = monPort.getWorldPosition(new THREE.Vector3());
-  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, V(0.6, 0.85 + BED_LIFT, -1.25), V(0.75, 0.95, -1.5), port]);
+  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, V(0.41, 1.12, -1.18), V(0.48, 1.165, -1.2), V(0.56, 1.1, -1.24), V(0.64, 0.98, -1.34), V(0.78, 0.95, -1.5), port]);   // Lt. 침상 난간(윗면 y≈1.08) 위로 넘어 바깥으로 내려감
   else setTube(cuffTube, [cp, V(-0.25, 1.0 + BED_LIFT, -1.75), V(0.4, 1.05 + BED_LIFT, -1.8), V(0.7, 1.15, -1.7), port]);
   // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
   if (patientRig && patientRig.spo2) {
@@ -2315,7 +2357,8 @@ function rebuildTubes() {
    - 손목밴드(E1)·혈압 커프(E6)·IV 카테터·복부 dressing(E2)은 뼈에 붙여 몸을 따라 움직이게 함 */
 const PATIENT_URL = 'patient.glb';
 const PATIENT_SCALE = 0.93;                          // 원본 키 1.69 m → 약 1.57 m
-const SHOULDER_DROP_DEG = 22;                         // 어깨(쇄골)를 내리는 각도
+const SHOULDER_DROP_DEG = 22;
+const HAND_RAISE_DEG = 8;                             // 손(위팔)을 머리 쪽으로 올리는 각도                         // 어깨(쇄골)를 내리는 각도
 const POSE_DEG = 20.5;                               // 원본 자세(Lie_on_Chair)의 상체 각도
 let patientRig = null;
 
@@ -2474,7 +2517,7 @@ function setupPatient(gltf) {
       const ang = THREE.MathUtils.degToRad(SHOULDER_DROP_DEG);
       boneWorldRot(rig, side + 'Shoulder', axis, ang);
       root.updateMatrixWorld(true);
-      boneWorldRot(rig, side + 'Arm', axis, -ang);
+      boneWorldRot(rig, side + 'Arm', axis, -ang - THREE.MathUtils.degToRad(HAND_RAISE_DEG));   // 어깨를 내리면서 손이 같이 내려온 만큼 위팔을 머리 쪽으로 들어 올림
       root.updateMatrixWorld(true);
     }
   }
@@ -2642,7 +2685,7 @@ function setupPatient(gltf) {
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
   function upperArm(side) {
     const s = J(side + 'Arm'), e = J(side + 'ForeArm');
-    return anchor(side + 'Arm', lerp(s, e, 0.45), frameQ(e.clone().sub(s), up));
+    return anchor(side + 'Arm', lerp(s, e, 0.8), frameQ(e.clone().sub(s), up));   // 어깨를 내린 뒤 소매가 커프를 뚫지 않도록 팔꿈치 쪽으로 조금 내림
   }
   rig.cuffL = upperArm('Left');
   rig.cuffR = upperArm('Right');
