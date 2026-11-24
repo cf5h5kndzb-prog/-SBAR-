@@ -102,7 +102,9 @@
   #sbar label.opt{display:flex;gap:8px;align-items:flex-start;padding:5px 4px;font-size:14px;line-height:1.45;cursor:pointer;border-radius:6px}
   #sbar label.opt input{margin-top:3px;flex:none}
   #sbar label.opt.bad{background:#ffe3e3;color:#a61e1e}
-  #sbar .vs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 8px}
+  #sbar .vs{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:6px 0 8px;max-width:50%}
+  #sbar .vshead{font-size:12px;color:var(--muted);margin:4px 0 2px}
+  #sbar #sbarVsSet label.opt{font-variant-numeric:tabular-nums}
   #sbar .vs label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
   #sbar .vs input{font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;width:100%;box-sizing:border-box}
   #sbar .vs input.ok{border-color:var(--ok);background:#effaf4}
@@ -166,7 +168,7 @@
     <div class="r"><span id="sbarClock">0:00</span><button id="sbarClose">닫기</button></div>
   </div>
   <div class="sbody">
-    <div class="jnote">담당의에게 보고할 내용을 단계별로 고르고, 활력징후·통증·배액량은 <b>지금 직접 확인한 값</b>을 입력하세요. 입력값은 보고 시점의 모니터 수치와 비교합니다. 1분 이내 보고를 목표로 합니다.</div>
+    <div class="jnote">담당의에게 보고할 내용을 단계별로 고르고, 활력징후·통증은 <b>지금 모니터에 보이는 값</b>을 고르고, JP 배액량은 직접 입력하세요. 1분 이내 보고를 목표로 합니다.</div>
     <div id="sbarForm"></div>
     <div class="doc" id="sbarDoc" hidden></div>
   </div>
@@ -3271,15 +3273,34 @@ const SBAR_Q = {
     { t:'출혈이 의심되니 제가 먼저 수액 속도를 올려 두겠습니다.', ok:false }
   ]}
 };
+// A(사정): 활력징후·통증은 '수치 묶음' 중 하나를 고르고(1분 안에 보고하도록), JP 배액량만 직접 입력
+// 묶음은 보고 창을 열 때마다 그 순간 모니터 값(정답)으로 새로 만듦. 오답: 병동 도착 시 기준값, 정답에서 몇 가지만 바꾼 값
 const SBAR_VS = [
-  { k:'sbp',   label:'BP 수축기 (mmHg)', tol:5 },
-  { k:'dbp',   label:'BP 이완기 (mmHg)', tol:5 },
-  { k:'hr',    label:'PR (회/분)', tol:5 },
-  { k:'rr',    label:'RR (회/분)', tol:2 },
-  { k:'spo2',  label:'SpO₂ (%)', tol:1 },
-  { k:'pain',  label:'통증 NRS (0~10)', tol:0 },
   { k:'drain', label:'JP 배액량 (mL)', tol:10 }
 ];
+const VS_ARRIVAL = { sbp:140, dbp:80, hr:88, rr:18, spo2:96, pain:6 };   // 0분 기준값 (시나리오 3-5)
+const vsText = v => `BP ${v.sbp}/${v.dbp} · PR ${v.hr} · RR ${v.rr} · SpO₂ ${v.spo2}% · NRS ${v.pain}`;
+function renderVsSet() {
+  const box = $('sbarVsSet'); if (!box) return;
+  const cur = sbar.snap;
+  const clampV = v => ({ sbp:v.sbp, dbp:Math.min(v.dbp, v.sbp - 20), hr:v.hr, rr:Math.max(10, v.rr), spo2:Math.min(100, v.spo2), pain:Math.max(0, Math.min(10, v.pain)) });
+  const cands = [
+    clampV({ ...VS_ARRIVAL }),                                                                           // 인계 받은 값을 그대로 보고
+    clampV({ sbp:cur.sbp + 16, dbp:cur.dbp + 10, hr:cur.hr - 14, rr:cur.rr - 4, spo2:cur.spo2, pain:cur.pain - 1 }),   // 출혈 징후가 없는 쪽으로 틀린 값
+    clampV({ sbp:cur.sbp - 12, dbp:cur.dbp - 8, hr:cur.hr + 12, rr:cur.rr + 4, spo2:cur.spo2 - 2, pain:cur.pain + 1 })    // 과장된 값
+  ];
+  const seen = new Set([vsText(cur)]), opts = [{ v:cur, ok:true }];
+  for (let c of cands) {
+    while (seen.has(vsText(c))) c = { ...c, sbp:c.sbp + 6, hr:c.hr + 6 };   // 정답·다른 보기와 같으면 조금 바꿈
+    seen.add(vsText(c)); opts.push({ v:c, ok:false });
+  }
+  box.innerHTML = '';
+  shuffle(opts).forEach((o, i) => {
+    const l = document.createElement('label'); l.className = 'opt';
+    l.innerHTML = '<input type="radio" name="sbarVs" value="' + i + '"' + (o.ok ? ' data-ok="1"' : '') + '><span>' + escapeHtml(vsText(o.v)) + '</span>';
+    box.appendChild(l);
+  });
+}
 const DRAIN_ML = 110;                        // E3에서 bulb를 비울 때 계량컵 배액량
 // 담당의 되묻기 (시나리오 3-7)
 const SBAR_ASK = {
@@ -3305,6 +3326,9 @@ function buildSbar() {
     const fs = document.createElement('fieldset'); fs.dataset.sec = sec;
     fs.innerHTML = '<legend>' + q.title + '</legend>';
     if (q.vitals) {
+      const vh = document.createElement('div'); vh.className = 'vshead'; vh.textContent = '현재 활력징후·통증 (모니터를 보고 고르세요)';
+      fs.appendChild(vh);
+      const vset = document.createElement('div'); vset.id = 'sbarVsSet'; fs.appendChild(vset);
       const g = document.createElement('div'); g.className = 'vs';
       for (const f of SBAR_VS) {
         const l = document.createElement('label');
@@ -3332,6 +3356,7 @@ function openSbar() {
   sbar.openAt = performance.now();
   if (sbar.firstAt == null) sbar.firstAt = sbar.openAt;
   sbar.snap = vitSnap();
+  renderVsSet();                                   // 열 때마다 그 순간 모니터 값으로 활력징후 보기를 새로 만듦
   $('sbar').hidden = false;
   tickSbarClock();
 }
@@ -3371,8 +3396,17 @@ function sendSbar() {
     const anyKey = q.opts.find(o => o.any)?.any;
     if (anyKey && !q.opts.some((o, i) => o.any && picked.has(i))) { ask.add(anyKey); secBad.add(sec); }
   }
-  // 수치 채점: 창을 연 시점 또는 지금의 모니터 값과 허용 오차 이내면 정답
+  // 활력징후 묶음 채점: 창을 연 순간의 모니터 값을 골랐는지
   const vsRes = {};
+  {
+    const pick = form.querySelector('input[name="sbarVs"]:checked');
+    const ok = !!(pick && pick.dataset.ok);
+    form.querySelectorAll('input[name="sbarVs"]').forEach(r => r.closest('label').classList.remove('bad'));
+    if (pick && !ok) pick.closest('label').classList.add('bad');
+    vsRes.vs = { v:pick ? pick.nextElementSibling.textContent : '', ok, ans:vsText(sbar.snap) };
+    if (!ok) { ask.add('vs'); secBad.add('A'); }
+  }
+  // 배액량 채점: 창을 연 시점 또는 지금 값과 허용 오차 이내면 정답
   for (const f of SBAR_VS) {
     const inp = form.querySelector('input[data-k="' + f.k + '"]');
     const raw = inp.value.trim(), v = Number(raw);
@@ -3771,7 +3805,9 @@ function end(reason) {
     else html += '담당의에게 보고하지 않았습니다. 출혈이 의심되면 활력징후·통증·배액량을 재사정한 뒤 즉시 SBAR로 보고합니다.';
     if (sbar.asked.length) html += '<div style="font-size:13px;color:#5d6d77">담당의가 되물은 내용: ' + escapeHtml([...new Set(sbar.asked)].join(' / ')) + '</div>';
     if (sbar.last) {
-      const vs = SBAR_VS.map(f => { const r = sbar.last.vsRes[f.k]; return (r.ok ? '✔' : '✘') + ' ' + f.label.replace(/ \(.*\)/, '') + ' ' + (r.v || '–') + (r.ok ? '' : ' (모니터 ' + r.ans + ')'); });
+      const rv = sbar.last.vsRes.vs;
+      const vs = [(rv.ok ? '✔ 활력징후 ' : '✘ 활력징후 ') + (rv.v || '고르지 않음') + (rv.ok ? '' : ' (모니터: ' + rv.ans + ')')]
+        .concat(SBAR_VS.map(f => { const r = sbar.last.vsRes[f.k]; return (r.ok ? '✔' : '✘') + ' ' + f.label.replace(/ \(.*\)/, '') + ' ' + (r.v || '–') + (r.ok ? '' : ' (모니터 ' + r.ans + ')'); }));
       html += '<div style="font-size:13px;color:#5d6d77">마지막 보고 수치: ' + escapeHtml(vs.join(' · ')) + '</div>';
     }
     d.innerHTML = html;
