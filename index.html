@@ -168,7 +168,7 @@
     <div class="r"><span id="sbarClock">0:00</span><button id="sbarClose">닫기</button></div>
   </div>
   <div class="sbody">
-    <div class="jnote">담당의에게 보고할 내용을 단계별로 고르고, 활력징후·통증은 <b>지금 모니터에 보이는 값</b>을 고르고, JP 배액량은 직접 입력하세요. 1분 이내 보고를 목표로 합니다.</div>
+    <div class="jnote">담당의에게 보고할 내용을 단계별로 고르고, 활력징후·통증은 <b>지금 모니터와 환자 관찰로 확인한 값</b>을 고르고, JP 배액량은 직접 입력하세요. 1분 이내 보고를 목표로 합니다.</div>
     <div id="sbarForm"></div>
     <div class="doc" id="sbarDoc" hidden></div>
   </div>
@@ -195,6 +195,7 @@
     </div>
     <p style="font-size:13px;color:#5d6d77;margin:0">
       PC: 마우스로 장면을 돌려 보고 의심 가는 물체를 클릭한 뒤 <b>판단 근거</b>를 고르세요 · VR: 화면 오른쪽 아래 <b>ENTER VR</b> 버튼 후 컨트롤러 트리거로 선택.<br>
+      활력징후는 <b>모니터</b>에서, 호흡수와 통증 점수는 <b>환자를 관찰</b>해서(환자에게 마우스를 올려) 확인하세요.<br>
       오답 클릭·틀린 근거 선택은 −2점, 힌트는 −3점입니다.
     </p>
     <div class="row"><button class="primary" id="startBtn">시작하기</button></div>
@@ -3326,7 +3327,7 @@ function buildSbar() {
     const fs = document.createElement('fieldset'); fs.dataset.sec = sec;
     fs.innerHTML = '<legend>' + q.title + '</legend>';
     if (q.vitals) {
-      const vh = document.createElement('div'); vh.className = 'vshead'; vh.textContent = '현재 활력징후·통증 (모니터를 보고 고르세요)';
+      const vh = document.createElement('div'); vh.className = 'vshead'; vh.textContent = '현재 활력징후·통증 (모니터와 환자 관찰로 확인한 값을 고르세요)';
       fs.appendChild(vh);
       const vset = document.createElement('div'); vset.id = 'sbarVsSet'; fs.appendChild(vset);
       const g = document.createElement('div'); g.className = 'vs';
