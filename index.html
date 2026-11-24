@@ -606,31 +606,30 @@ function setBathLight(on) {
   window.__bath.on = on;
 }
 const switchRockers = { room:[], bath:[] }, switchLeds = {};
-{
-  const g = group(world, 2.985, 1.18, 2.22);
-  g.rotation.y = -Math.PI / 2;                              // 앞면이 방 안쪽(-x)
-  const plate = canvasTex(160, 220, (c, w, h) => {
+function makeSwitch(x, y, z, rotY, scale, key, label, tip, fn) {   // 1구 스위치 (판 + 흔들이 + 상태 LED)
+  const g = group(world, x, y, z);
+  g.rotation.y = rotY; g.scale.setScalar(scale);
+  const plate = canvasTex(160, 266, (c, w, h) => {
     c.fillStyle = '#f7f7f4'; c.fillRect(0, 0, w, h);
     c.strokeStyle = '#d3d6d2'; c.lineWidth = 4; c.strokeRect(2, 2, w - 4, h - 4);
-    c.fillStyle = '#4a5358'; c.font = `bold 22px ${FONT}`; c.textAlign = 'center';
-    c.fillText('병실', w * 0.27, 30); c.fillText('화장실', w * 0.73, 30);
+    c.fillStyle = '#4a5358'; c.font = `bold 30px ${FONT}`; c.textAlign = 'center';
+    c.fillText(label, w / 2, 40);
   });
-  g.scale.setScalar(1.3);                                     // 눈에 띄게 조금 크게
   const em = (c) => new THREE.MeshStandardMaterial({ color:c, roughness:0.5, emissive:0xffffff, emissiveIntensity:0.32 });
-  const pm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.014), [em(0xf2f2ee), em(0xf2f2ee), em(0xf2f2ee), em(0xf2f2ee), new THREE.MeshStandardMaterial({ map:plate, roughness:0.5, emissive:0xffffff, emissiveMap:plate, emissiveIntensity:0.35 }), em(0xf2f2ee)]);
+  const pm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.15, 0.014), [em(0xf2f2ee), em(0xf2f2ee), em(0xf2f2ee), em(0xf2f2ee), new THREE.MeshStandardMaterial({ map:plate, roughness:0.5, emissive:0xffffff, emissiveMap:plate, emissiveIntensity:0.35 }), em(0xf2f2ee)]);
   pm.position.z = 0.007; pm.castShadow = true; g.add(pm);
-  for (const [key, sx, label, fn] of [['room', -0.036, '병실 조명 스위치', () => { setRoomLight(!roomLight.on); toast(roomLight.on ? '💡 병실 불을 켰습니다.' : '💡 병실 불을 껐습니다.', '', 1500); }],
-                                       ['bath', 0.036, '화장실 조명 스위치', () => { setBathLight(!window.__bath.on); toast(window.__bath.on ? '💡 화장실 불을 켰습니다.' : '💡 화장실 불을 껐습니다.', '', 1500); }]]) {
-    const sg = group(g, sx, -0.01, 0.014);
-    const r = add(sg, B(0.05, 0.1, 0.012), new THREE.MeshStandardMaterial({ color:0xd5d9d3, roughness:0.4, emissive:0xffffff, emissiveIntensity:0.15 }), 0, 0, 0.004);
-    switchRockers[key].push(sg);
-    const led = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.004), new THREE.MeshBasicMaterial({ color:0x34c759 }));
-    led.position.set(0, 0.07, 0.027); sg.add(led); switchLeds[key] = led;
-    sg.userData.action = fn; tag(sg, label, () => '클릭: 켜기 / 끄기');
-  }
+  const sg = group(g, 0, -0.012, 0.014);
+  add(sg, B(0.05, 0.09, 0.012), new THREE.MeshStandardMaterial({ color:0xd5d9d3, roughness:0.4, emissive:0xffffff, emissiveIntensity:0.15 }), 0, 0, 0.004);
+  switchRockers[key].push(sg);
+  const led = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.004), new THREE.MeshBasicMaterial({ color:0x34c759 }));
+  led.position.set(0, 0.062, 0.027); sg.add(led); switchLeds[key] = led;
+  sg.userData.action = fn; tag(sg, tip, () => '클릭: 켜기 / 끄기');
   g.userData.action = () => {};
-  window.__switchPlate = g;
+  return g;
 }
+// 병실 조명: 출입문 옆 벽 / 화장실 조명: 화장실 문 왼쪽 벽(들어가기 전에 누름)
+window.__switchPlate = makeSwitch(2.985, 1.18, 2.22, -Math.PI / 2, 0.87, 'room', '병실', '병실 조명 스위치', () => { setRoomLight(!roomLight.on); toast(roomLight.on ? '💡 병실 불을 켰습니다.' : '💡 병실 불을 껐습니다.', '', 1500); });
+makeSwitch(2.0, 1.18, BATH.zf + BATH.t / 2, 0, 0.85, 'bath', '화장실', '화장실 조명 스위치', () => { setBathLight(!window.__bath.on); toast(window.__bath.on ? '💡 화장실 불을 켰습니다.' : '💡 화장실 불을 껐습니다.', '', 1500); });
 setRoomLight(true); setBathLight(true);
 
 // 창문 (왼벽)
@@ -750,7 +749,7 @@ const doorSlide = group(world, 3.03, 0, DOOR_ZC);
   g.userData.panel = panel;
   // 문짝 (유리창 자리는 비우고 4조각으로 짜서 투명창이 보이게)
   const WY0 = 1.05, WY1 = 1.85, WZ = 0.11;                      // 시야창: 높이 1.05~1.85, 폭 0.22 (문짝 앞쪽 가장자리 쪽)
-  const wzc = PW / 2 - 0.2;                                     // 창 가운데(문짝 가운데 기준 +z 쪽)
+  const wzc = PW / 2 - 0.27;                                    // 창 가운데(문짝 가운데 기준 +z 쪽)
   add(panel, B(0.04, PH, PW / 2 + wzc - WZ), panelM, 0, 0.02 + PH / 2, (-PW / 2 + (wzc - WZ)) / 2);
   add(panel, B(0.04, PH, PW / 2 - wzc - WZ), panelM, 0, 0.02 + PH / 2, (wzc + WZ + PW / 2) / 2);
   add(panel, B(0.04, WY0 - 0.02, WZ * 2), panelM, 0, 0.02 + (WY0 - 0.02) / 2, wzc);
@@ -760,8 +759,8 @@ const doorSlide = group(world, 3.03, 0, DOOR_ZC);
   for (const [y, h] of [[WY0, 0.025], [WY1, 0.025]]) add(panel, B(0.05, h, WZ * 2 + 0.03), alu, 0, y, wzc);
   for (const dz of [-WZ, WZ]) add(panel, B(0.05, WY1 - WY0, 0.025), alu, 0, (WY0 + WY1) / 2, wzc + dz);
   // 손잡이: 방 안쪽 면에 세로 스테인리스 바 (닫을 때 만나는 쪽 = -z 가장자리)
-  add(panel, B(0.004, 0.5, 0.03), alu, -0.022, 1.0, -PW / 2 + 0.1);                       // 문짝 면에 파묻힌 세로 손잡이 홈 (벽 평면 뒤에 머물게 얕게)
-  add(panel, B(0.003, 0.46, 0.012), mat(0x6c757b, { roughness:0.4 }), -0.0235, 1.0, -PW / 2 + 0.1);
+  add(panel, B(0.004, 0.5, 0.03), alu, -0.022, 1.0, PW / 2 - 0.085);                       // 문짝 면에 파묻힌 세로 손잡이 홈 (창이 있는 쪽 가장자리, 벽 평면 뒤에 머물게 얕게)
+  add(panel, B(0.003, 0.46, 0.012), mat(0x6c757b, { roughness:0.4 }), -0.0235, 1.0, PW / 2 - 0.085);
   // 문짝 위 걸이쇠(레일 연결)
   
   // 레일은 벽 속(복도 쪽)에 있어 보이지 않음
@@ -817,7 +816,7 @@ const curtainParts = [];
     const geo = new THREE.PlaneGeometry(L, h, 70, 1);            // 길이 방향 = 로컬 x
     const m = new THREE.Mesh(geo, matr);
     m.castShadow = true; m.receiveShadow = true;
-    const holder = group(g, 0, yTop - h / 2, anchorZ);
+    const holder = group(g, 0, yTop - h / 2, anchorZ - L / 2);   // 평면이 가운데 기준이라 고정 끝이 레일 발 쪽 끝(anchorZ)에 오도록 이동
     holder.rotation.y = -Math.PI / 2 * dir;                      // 로컬 x → 월드 ±z
     holder.add(m);
     curtainParts.push({ geo, base:geo.attributes.position.array.slice(), L });
@@ -826,8 +825,11 @@ const curtainParts = [];
   mk(CURT.zFoot, -1, cloth, CURT.yTop - NH, H);
   mk(CURT.zFoot, -1, netM, CURT.yTop, NH);
   // 클릭 면
-  g.userData.action = () => { curtainSt.target = curtainSt.target ? 0 : 1; toast(curtainSt.target ? '🪟 프라이버시 커튼을 쳤습니다.' : '🪟 커튼을 걷었습니다.', '', 1600); };
-  tag(g, '프라이버시 커튼', () => '클릭: 치기 / 걷기');
+  g.userData.action = () => {                          // 누를 때마다 걷음 → 반쯤 → 끝까지 → 걷음
+    curtainSt.target = curtainSt.target < 0.25 ? 0.5 : curtainSt.target < 0.75 ? 1 : 0;
+    toast(curtainSt.target === 0.5 ? '🪟 커튼을 반쯤 쳤습니다.' : curtainSt.target === 1 ? '🪟 커튼을 끝까지 쳤습니다.' : '🪟 커튼을 걷었습니다.', '', 1600);
+  };
+  tag(g, '프라이버시 커튼', () => '클릭: 반쯤 → 끝까지 → 걷기');
 }
 function updateCurtain(dt) {
   const k = curtainSt.target - curtainSt.s;
@@ -899,6 +901,7 @@ let tvUpdate = null;
   const TW = 0.99, TH = 0.57, TD = 0.035;               // 가로 99 cm
   const g = group(world, 0.15, 1.8, 2.5);
   g.rotation.y = Math.PI;                               // 화면이 방 안쪽(-z)·침대를 보게
+  g.scale.setScalar(1.6);                               // 병실 크기에 맞게 3/5 키움 (가로 약 158 cm)
   const black = mat(0x1a1d20, { roughness:0.45, metalness:0.2 });
   // 벽 브래킷 (본체 뒤, 벽에 붙음)
   add(g, B(0.4, 0.3, 0.03), mat(0x2b3034, { roughness:0.6, metalness:0.3 }), 0, 0, 0.015);
@@ -1333,54 +1336,35 @@ function drawMonitor(g, w, h) {
   add(g, B(0.12, 0.04, 0.08), mat(0xf5f5f5), 0.1, 0.77, 0.04);
   tag(g, '침상 옆 탁자', () => '물컵, 휴지');
 }
-// 보호자 소파 (창가 벽, 창문 아래): 2인용 고급형. 코냑 베이지 가죽 + 다이아몬드 단추 누빔 등받이 + 말린 팔걸이 + 분리 좌석 쿠션 + 쿠션 2개 + 호두 다리(황동 캡)
+// 보호자 소파 (창가 벽, 창문 아래): 3인용. 무늬 없는 남색 가죽 + 말린 팔걸이 + 좌석·등받이 쿠션 3열 + 호두 다리(황동 캡)
 {
-  const SW = 1.5, SD = 0.76;                             // 폭 1.5 m · 깊이 0.76 m
-  const g = group(world, -3 + SD / 2 + 0.02, 0, -0.25);  // 등받이가 왼벽에 붙음
+  const SW = 2.15, SD = 0.8;                             // 폭 2.15 m · 깊이 0.8 m
+  const g = group(world, -3 + SD / 2 + 0.02, 0, -0.35);  // 등받이가 왼벽에 붙음
   g.rotation.y = Math.PI / 2;                            // 앞(+z)이 방 안쪽(+x)
   const RB = (w, h, d, r) => new RoundedBoxGeometry(w, h, d, 5, r);
-  const leather = new THREE.MeshStandardMaterial({ color:0xa68a6b, roughness:0.42, metalness:0.03 });   // 코냑 베이지 가죽
-  const leatherD = new THREE.MeshStandardMaterial({ color:0x8f7458, roughness:0.45 });
-  const walnut = new THREE.MeshStandardMaterial({ color:0x5b3b25, roughness:0.45 });
+  const navy = new THREE.MeshStandardMaterial({ color:0x24344f, roughness:0.4, metalness:0.03 });
+  const navyD = new THREE.MeshStandardMaterial({ color:0x1d2a41, roughness:0.45 });
+  const walnut = new THREE.MeshStandardMaterial({ color:0x4a3020, roughness:0.45 });
   const brass = new THREE.MeshStandardMaterial({ color:0xd8b765, metalness:0.35, roughness:0.3 });
   const AW = 0.18, LEG = 0.14;
-  // 단추 누빔 무늬 (마름모 + 단추)
-  const tuftTex = canvasTex(512, 256, (c, w, h) => {
-    c.fillStyle = '#b09274'; c.fillRect(0, 0, w, h);
-    c.strokeStyle = 'rgba(70,48,28,0.55)'; c.lineWidth = 3;
-    const step = 64;
-    for (let i = -4; i <= 12; i++) { c.beginPath(); c.moveTo(i * step, 0); c.lineTo(i * step + h, h); c.moveTo(i * step, h); c.lineTo(i * step + h, 0); c.stroke(); }
-    for (let i = 0; i <= 8; i++) for (let j = 0; j <= 4; j++) {
-      const x = i * step + (j % 2 ? 0 : 0), y = j * step;
-      c.fillStyle = '#d8b765'; c.beginPath(); c.arc(x, y, 6, 0, Math.PI * 2); c.fill();
-      c.fillStyle = 'rgba(60,40,20,0.35)'; c.beginPath(); c.arc(x, y, 9, 0, Math.PI * 2); c.stroke();
-    }
-  });
-  tuftTex.wrapS = tuftTex.wrapT = THREE.RepeatWrapping;
-  // 좌석 받침 + 좌석 쿠션 2개 (좌면 높이 약 0.46 m)
-  add(g, RB(SW - 2 * AW + 0.02, 0.2, SD - 0.04, 0.04), leatherD, 0, LEG + 0.1, 0.01);
-  const cw = (SW - 2 * AW) / 2 - 0.005;
-  for (const sx of [-1, 1]) add(g, RB(cw, 0.14, SD - 0.18, 0.06), leather, sx * (cw / 2 + 0.003), LEG + 0.27, 0.07);
-  // 팔걸이: 낮은 몸통 + 위에 눕힌 원통(말린 팔걸이)
-  for (const sx of [-1, 1]) {
-    add(g, RB(AW, 0.34, SD, 0.05), leather, sx * (SW / 2 - AW / 2), LEG + 0.17, 0);
-    const roll = add(g, new THREE.CylinderGeometry(0.1, 0.1, SD - 0.02, 24), leather, sx * (SW / 2 - AW / 2), LEG + 0.38, 0);
+  add(g, RB(SW - 2 * AW + 0.02, 0.2, SD - 0.04, 0.04), navyD, 0, LEG + 0.1, 0.01);                 // 좌석 받침
+  const cw = (SW - 2 * AW) / 3 - 0.006;                                                           // 3열 좌석 쿠션
+  for (const i of [-1, 0, 1]) {
+    add(g, RB(cw, 0.14, SD - 0.2, 0.06), navy, i * (cw + 0.006), LEG + 0.27, 0.07);
+    const bc = add(g, RB(cw, 0.46, 0.15, 0.07), navy, i * (cw + 0.006), LEG + 0.55, -SD / 2 + 0.2);   // 등받이 쿠션
+    bc.rotation.x = -0.14;
+  }
+  add(g, RB(SW - 2 * AW + 0.06, 0.66, 0.14, 0.06), navyD, 0, LEG + 0.58, -SD / 2 + 0.09);          // 등받이 뒤판
+  for (const sx of [-1, 1]) {                                                                     // 팔걸이: 몸통 + 말린 윗부분
+    add(g, RB(AW, 0.34, SD, 0.05), navy, sx * (SW / 2 - AW / 2), LEG + 0.17, 0);
+    const roll = add(g, new THREE.CylinderGeometry(0.1, 0.1, SD - 0.02, 24), navy, sx * (SW / 2 - AW / 2), LEG + 0.38, 0);
     roll.rotation.x = Math.PI / 2;
   }
-  // 등받이: 가죽 몸통 + 앞면 단추 누빔 패널
-  const back = add(g, RB(SW - 2 * AW + 0.06, 0.66, 0.17, 0.07), leather, 0, LEG + 0.6, -SD / 2 + 0.1);
-  back.rotation.x = -0.1;
-  const panel = new THREE.Mesh(new THREE.PlaneGeometry(SW - 2 * AW - 0.02, 0.56), new THREE.MeshStandardMaterial({ map:tuftTex, roughness:0.45 }));
-  panel.position.set(0, LEG + 0.6, -SD / 2 + 0.1 + 0.088); panel.rotation.x = -0.1; panel.receiveShadow = true; g.add(panel);
-  // 쿠션 2개 (크림 / 네이비), 등받이에 기댐
-  const pill = (x, color, ry) => { const m = add(g, RB(0.34, 0.34, 0.1, 0.045), new THREE.MeshStandardMaterial({ color, roughness:0.8 }), x, LEG + 0.5, -SD / 2 + 0.28); m.rotation.set(-0.35, ry, 0); return m; };
-  pill(-SW / 2 + AW + 0.26, 0xefe6d2, 0.2); pill(SW / 2 - AW - 0.26, 0x2f4660, -0.2);
-  // 호두 다리 4개 (아래로 가늘어짐) + 황동 캡
-  for (const [x, z] of [[-SW / 2 + 0.1, -SD / 2 + 0.1], [SW / 2 - 0.1, -SD / 2 + 0.1], [-SW / 2 + 0.1, SD / 2 - 0.1], [SW / 2 - 0.1, SD / 2 - 0.1]]) {
+  for (const [x, z] of [[-SW / 2 + 0.1, -SD / 2 + 0.1], [SW / 2 - 0.1, -SD / 2 + 0.1], [-SW / 2 + 0.1, SD / 2 - 0.1], [SW / 2 - 0.1, SD / 2 - 0.1], [0, -SD / 2 + 0.1], [0, SD / 2 - 0.1]]) {
     add(g, new THREE.CylinderGeometry(0.034, 0.022, LEG, 16), walnut, x, LEG / 2, z);
     add(g, new THREE.CylinderGeometry(0.024, 0.024, 0.014, 16), brass, x, 0.007, z);
   }
-  tag(g, '보호자 소파', '');
+  tag(g, '보호자 소파 (3인용)', '');
 }
 // 환자 옷장 (뒷벽·오른벽 모서리): 아래 2문 수납장 + 가운데 열린 선반 + 위 2문 수납장. 냉장고는 왼쪽에 독립형으로 따로 있음. 높이는 남은 시간 박스 윗단(2.28 m)에 맞춤
 {
@@ -2200,6 +2184,7 @@ const cordTube = makeTube(0xd8d2c0, 0.004, 'Call bell 줄', 'E8', () => bell.use
 const spo2Tube = makeTube(0xf4f4f2, 0.003, 'SpO₂ 케이블', null, () => 'Lt. 검지 SpO₂ 센서 → 모니터');
 const monPwrTube = makeTube(0x2b3136, 0.0055, '모니터 전원선', null, () => '모니터 뒷면 → 벽 콘센트 (연결됨)');
 const bedPwrTube = makeTube(0x2b3136, 0.0055, '침대 전원선', null, () => '침대 머리 쪽 → 벽 콘센트 (연결됨)');
+{ const cn = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.045, 0.05), new THREE.MeshStandardMaterial({ color:0x2b3136, roughness:0.55 })); cn.position.set(-0.178, 0.36, -1.72); world.add(cn); }   // 침대 전동 장치 옆면 전원 커넥터
 for (const t of [ivTube, ivTube2, ivSetTube, pcaTube, jpTube, cuffTube, cordTube, monPwrTube, bedPwrTube]) t.castShadow = false;
 
 const _v = new THREE.Vector3();
@@ -2319,7 +2304,7 @@ function rebuildTubes() {
   const m3 = m2.clone().lerp(pm, 0.55); m3.y = Math.min(m3.y, pm.y + 0.2) - 0.1;
   setTube(monPwrTube, [pwIn, m1, m2, m3, pm.clone().add(V(0, -0.1, 0.06)), pm.clone().add(V(0, -0.03, 0.02)), pm]);
   const pb = plugOf(0);
-  setTube(bedPwrTube, [V(-0.3, 0.34, -1.925), V(-0.42, 0.3, -1.945), V(-0.56, 0.24, BACK_Z + 0.05), pb.clone().add(V(0.12, -0.2, 0.05)), pb.clone().add(V(0.02, -0.1, 0.05)), pb.clone().add(V(0, -0.03, 0.02)), pb]);
+  setTube(bedPwrTube, [V(-0.165, 0.36, -1.72), V(-0.24, 0.33, -1.75), V(-0.38, 0.26, -1.84), V(-0.56, 0.24, BACK_Z + 0.05), pb.clone().add(V(0.12, -0.2, 0.05)), pb.clone().add(V(0.02, -0.1, 0.05)), pb.clone().add(V(0, -0.03, 0.02)), pb]);
   tubesDirty = false;
 }
 
@@ -4115,10 +4100,10 @@ function ttsSpeak(text, { pitch = 0.85, rate = 1.0, female = false } = {}) {
 function patientSay(text, ttl = 7, delay = 0) {
   setTimeout(() => {
     if (state.phase !== 'running') return;
-    pBubbleText = text; paint(pBubbleTex);
-    const _f = VOICE_FILES[text], _a = _f && voiceCache[_f];
-    const _dur = _a && isFinite(_a.duration) ? _a.duration + 0.4 : 0;   // 녹음이 말풍선 시간보다 길면 음성이 끝날 때까지 말풍선 유지
-    pBubble.visible = true; pBubbleTTL = Math.max(ttl, _dur);
+    if (!VOICE_FILES[text]) {                         // 녹음된 대사는 말풍선 없이 목소리만, 녹음이 없는 대사만 말풍선 표시
+      pBubbleText = text; paint(pBubbleTex);
+      pBubble.visible = true; pBubbleTTL = ttl;
+    }
     feed('환자: "' + text + '"', 'alert');
     speak(text, { female:true, pitch:0.75, rate:0.82 });
   }, delay * 1000);
@@ -4130,6 +4115,7 @@ function guardianSay(text, ttl = 9, delay = 0) {
   feed('보호자: "' + text + '"', 'alert');
   setTimeout(() => { if (state.phase === 'running') speak(text); }, delay * 1000);
 }
+let guardianSayPending = null;
 function evGuardian() {
   guardian.visible = true; guardianWalk = 0; gState.dist = 0; curtainSt.target = 0;   // 커튼이 쳐져 있으면 걷음
   { const p = gpAt(0), q = gpAt(0.05); gState.yaw = yawTo(p.x, p.y, q.x, q.y); guardian.position.set(p.x, 0, p.y); guardian.rotation.set(0, gState.yaw, 0); }
@@ -4139,7 +4125,7 @@ function evGuardian() {
     feed('보호자 방문', 'alert');
     return;
   }
-  guardianSay(GUARDIAN_ASK, 10, 2.0);                     // 문으로 들어와 침대 옆에 다다를 즈음 말함
+  guardianSayPending = { text:GUARDIAN_ASK, t:0 };        // 문을 지나 병실에 들어온 뒤 1.5초 후에 말함 (updateProps 쪽에서 셈)
 }
 // 반복 질문: PCA 오류가 아직 그대로면 1분마다 다시 물음 (3분 10초 · 4분 10초)
 function evGuardianAsk() {
@@ -4281,7 +4267,7 @@ function start() {
   Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fallRisk:false, fallRiskFixed:false, severeOn:false, painUnrest:false, bleedHold:null });
   state.found.clear(); state.wrong.clear(); closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
   guardian.visible = false; guardianWalk = -1; guardianPoint = 0; bubble.visible = false; bubbleTTL = 0;   // 다시 시작하면 보호자는 아직 안 옴
-  doorSt.t = 0; doorSlide.userData.panel.position.z = 0; curtainSt.target = 0;
+  doorSt.t = 0; doorSlide.userData.panel.position.z = 0; curtainSt.target = 0; guardianSayPending = null;
   $('feed').innerHTML = '';
   $('startOv').hidden = true; $('endOv').hidden = true;
   $('hintBtn').disabled = false; $('giveUpBtn').disabled = false;
@@ -4488,6 +4474,10 @@ function frame() {
     guardianWalk = gState.dist / GP_LEN;
     if (GW.mixer) GW.walk.setEffectiveTimeScale(v / GW.speed);
     if (guardianWalk >= 1 && GW.mixer) GW.walk.crossFadeTo(GW.idle.setEffectiveWeight(1), 0.45, false);   // 걷기 → 서 있기
+  }
+  if (guardianSayPending && guardian.visible) {                   // 병실 안(문 안쪽 x<2.9)에 들어선 뒤 1.5초 후 대사
+    if (guardian.position.x < 2.9) guardianSayPending.t += dt;
+    if (guardianSayPending.t >= 1.5) { const tx = guardianSayPending.text; guardianSayPending = null; if (!state.found.has('E5')) guardianSay(tx, 10); }
   }
   if (GW.mixer && guardian.visible) GW.mixer.update(dt);
   if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
