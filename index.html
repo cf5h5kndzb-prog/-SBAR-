@@ -2159,18 +2159,18 @@ lateLoad('ivbag.glb', sc => {
 });
 
 // 점적통 (수액 백 아래): 투명 점적통 안에서 처방/펌프 속도에 맞춰 물방울이 한 방울씩 떨어짐
-const DRIP = { x:-0.683, z:-1.335, y0:1.285, y1:1.405, GTT_PER_ML:20, phase:0 };   // 일반 수액세트 20방울 = 1 mL
+const DRIP = { x:-0.680, z:-1.395, y0:1.255, y1:1.385, GTT_PER_ML:20, phase:0 };   // 일반 수액세트 20방울 = 1 mL
 const dripG = group(world, DRIP.x, (DRIP.y0 + DRIP.y1) / 2, DRIP.z);
 const dripH = DRIP.y1 - DRIP.y0;
-const dripDrop = new THREE.Mesh(new THREE.SphereGeometry(0.0032, 14, 10), new THREE.MeshStandardMaterial({ color:0xcfeaf6, transparent:true, opacity:0.85, roughness:0.1, metalness:0.1 }));
-const dripPool = new THREE.Mesh(new THREE.CylinderGeometry(0.0116, 0.0116, 0.03, 20), new THREE.MeshStandardMaterial({ color:0xbfe3f2, transparent:true, opacity:0.55, roughness:0.15 }));
-const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.0005, 6, 20), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0 }));
+const dripDrop = new THREE.Mesh(new THREE.SphereGeometry(0.0042, 14, 10), new THREE.MeshStandardMaterial({ color:0xcfeaf6, transparent:true, opacity:0.85, roughness:0.1, metalness:0.1 }));
+const dripPool = new THREE.Mesh(new THREE.CylinderGeometry(0.0172, 0.0172, 0.03, 20), new THREE.MeshStandardMaterial({ color:0xbfe3f2, transparent:true, opacity:0.55, roughness:0.15 }));
+const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0006, 6, 20), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0 }));
 {
-  add(dripG, new THREE.CylinderGeometry(0.0125, 0.0125, dripH - 0.012, 24, 1, true), new THREE.MeshStandardMaterial({ color:0xe8f4f8, transparent:true, opacity:0.22, roughness:0.05, side:THREE.DoubleSide, depthWrite:false }));
+  add(dripG, new THREE.CylinderGeometry(0.0185, 0.0185, dripH - 0.012, 24, 1, true), new THREE.MeshStandardMaterial({ color:0xe8f4f8, transparent:true, opacity:0.22, roughness:0.05, side:THREE.DoubleSide, depthWrite:false }));
   const capM = mat(0xaeb5b8, { roughness:0.5 });
-  add(dripG, CYL(0.0142, 0.008, 24), capM, 0, dripH / 2 - 0.004, 0);
-  add(dripG, CYL(0.0142, 0.008, 24), capM, 0, -dripH / 2 + 0.004, 0);
-  add(dripG, CYL(0.0032, 0.022, 10), mat(0xe9eff1, { roughness:0.4 }), 0, dripH / 2 - 0.019, 0);         // 점적 노즐
+  add(dripG, CYL(0.0205, 0.008, 24), capM, 0, dripH / 2 - 0.004, 0);
+  add(dripG, CYL(0.0205, 0.008, 24), capM, 0, -dripH / 2 + 0.004, 0);
+  add(dripG, CYL(0.0045, 0.022, 10), mat(0xe9eff1, { roughness:0.4 }), 0, dripH / 2 - 0.019, 0);         // 점적 노즐
   dripPool.position.y = -dripH / 2 + 0.008 + 0.015; dripG.add(dripPool);
   dripRing.rotation.x = Math.PI / 2; dripRing.position.y = dripPool.position.y + 0.0152; dripG.add(dripRing);
   dripDrop.visible = false; dripG.add(dripDrop);
@@ -2183,7 +2183,7 @@ function updateDrip(dt) {
   const topY = dripH / 2 - 0.03, surf = dripPool.position.y + 0.015;
   if (ph < 1 - FALL) {                                              // 노즐 끝에서 방울이 점점 커짐
     const k = ph / (1 - FALL); const r = 0.35 + 0.65 * k;
-    dripDrop.visible = true; dripDrop.scale.set(r, r * (1 + 0.35 * k * k), r); dripDrop.position.y = topY - 0.0032 * r * (1 + 0.35 * k * k);
+    dripDrop.visible = true; dripDrop.scale.set(r, r * (1 + 0.35 * k * k), r); dripDrop.position.y = topY - 0.0042 * r * (1 + 0.35 * k * k);
     if (ph >= 0.12) dripRing.material.opacity = 0;
   } else {                                                          // 떨어짐 → 수면에 닿으면 파문
     const f = (ph - (1 - FALL)) / FALL;
