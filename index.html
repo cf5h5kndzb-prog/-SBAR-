@@ -3487,7 +3487,30 @@ function pickVoice(female = false) {
   return ko.find(isMaleVoice) || ko[0] || null;
 }
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};   // 음성 목록 미리 불러오기
-function speak(text, { pitch = 0.85, rate = 1.0, female = false } = {}) {
+// 녹음 음성 파일(Typecast로 제작, voice/ 폴더): 대사 문장 → 파일. 파일이 있는 대사는 녹음으로, 없는 대사는 브라우저 기본 음성으로 읽음
+// 파일 이름 규칙: p_ 환자 / g_ 보호자 / d_ 담당의. 새 파일을 넣으면 여기에 한 줄 추가
+const VOICE_FILES = {
+  [PATIENT_LINE.enter]: 'voice/p_enter.mp3'
+};
+const voiceCache = {};
+let curVoice = null;
+for (const f of Object.values(VOICE_FILES)) { const a = new Audio(f); a.preload = 'auto'; voiceCache[f] = a; }   // 미리 불러오기
+function stopVoice() {
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  if (curVoice) { curVoice.pause(); curVoice = null; }
+}
+function speak(text, opts = {}) {
+  stopVoice();
+  const f = VOICE_FILES[text];
+  if (f) {
+    const a = voiceCache[f] || (voiceCache[f] = new Audio(f));
+    a.currentTime = 0; curVoice = a;
+    a.play().catch(() => { curVoice = null; ttsSpeak(text, opts); });   // 재생 실패 시 기본 음성
+    return;
+  }
+  ttsSpeak(text, opts);
+}
+function ttsSpeak(text, { pitch = 0.85, rate = 1.0, female = false } = {}) {
   if (!window.speechSynthesis) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -3660,7 +3683,7 @@ $('soundBtn').addEventListener('click', () => {
 
 function start() {
   initMonSound();
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  stopVoice();
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
   Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fallRisk:false, fallRiskFixed:false, severeOn:false, painUnrest:false, bleedHold:null });
   state.found.clear(); state.wrong.clear(); closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
@@ -3681,7 +3704,7 @@ function calcScore() {
 function end(reason) {
   if (state.phase !== 'running') return;
   state.phase = 'ended';
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  stopVoice();
   $('hintBtn').disabled = true; $('giveUpBtn').disabled = true;
   hideTip(); closeJudge(); closeSbar();
   for (const e of ERRORS) if (!state.found.has(e.id)) addHint(e.id, 3600, true);
