@@ -1812,11 +1812,22 @@ dressG.userData.err = 'E2'; dressG.userData.label = '복부 dressing';
 dressG.userData.read = () => stain.userData.fixed ? 'dressing 교체 · 압박 중' : 'dressing에 선홍색 혈액 번짐';
 
 // BP 커프 (E6): 처음에는 Lt. arm
+const CUFF_R = 0.039, CUFF_LEN = 0.085;
 const cuff = group(headGroup, 0.33, 0.05, -0.55);
 {
-  const c = add(cuff, CYL(0.062, 0.13, 20), mat(0x24485a));
+  // 측정 중이 아닐 때의 커프는 부풀지 않은 얇은 천: 팔에 밀착하는 얇은 원통(두께 ≈ 3 mm)
+  const cuffM = new THREE.MeshStandardMaterial({ color:0x24485a, roughness:0.85, side:THREE.DoubleSide });
+  const c = add(cuff, new THREE.CylinderGeometry(CUFF_R, CUFF_R, CUFF_LEN, 28, 1, true), cuffM);
   c.rotation.x = Math.PI / 2;
-  add(cuff, B(0.035, 0.006, 0.12), mat(0x1c3a49), 0, 0.064, 0);   // 커프 겹치는 부분(찍찍이), 커프와 같은 남색 계열
+  const edgeM = mat(0x1c3a49, { roughness:0.8 });
+  const rims = [-1, 1].map(sz => add(cuff, new THREE.TorusGeometry(CUFF_R, 0.0018, 6, 28), edgeM, 0, 0, sz * CUFF_LEN / 2));
+  const vel = add(cuff, B(0.028, 0.0035, CUFF_LEN * 0.7), edgeM, 0, CUFF_R + 0.0012, 0);   // 겹쳐진 부분(찍찍이)
+  // 팔(소매) 굵기에 딱 맞게 반지름을 바꿈: 환의 소매 위에 얇은 천이 밀착
+  cuff.userData.setRadius = r => {
+    c.geometry.dispose(); c.geometry = new THREE.CylinderGeometry(r, r, CUFF_LEN, 28, 1, true);
+    rims.forEach(m => { m.geometry.dispose(); m.geometry = new THREE.TorusGeometry(r, 0.0018, 6, 28); });
+    vel.position.y = r + 0.0012;
+  };
   hitSphere(cuff, 0, 0.02, 0, 0.1, '혈압 커프', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
   cuff.userData.side = 'L';
   cuff.userData.err = 'E6'; cuff.userData.label = '혈압 커프';
@@ -2445,8 +2456,21 @@ function rebuildTubes() {
   // 라인은 공중에 뜨지 않고 매트리스 위에 늘어져 있다가 팔 바깥쪽에서 팔 위로 걸쳐 올라 IV 부위로 이어짐 (침상 머리를 올려도 매트리스 면을 따라감)
   const onMat = (p, lift = 0.014) => { const l = headGroup.worldToLocal(p.clone()); l.y = lift; return headGroup.localToWorld(l); };
   const ivMid = onMat(V((tOut.x + siteLead.x) / 2, (tOut.y + siteLead.y) / 2, (tOut.z + siteLead.z) / 2));
-  const ivEdge = onMat(siteLead.clone().add(V(-0.05, 0, 0.01)));
-  setTube(ivTube2, [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, ivEdge, siteLead, site]);
+  let ivPath;
+  if (patientRig && patientRig.bones && patientRig.bones.RightForeArm) {
+    // 팔 단면을 따라: 팔 바깥쪽 매트리스 → 팔 옆면을 타고 올라가 → 팔 위(IV 부위)로 걸침. 팔을 뚫지 않음
+    const bl = n => headGroup.worldToLocal(patientRig.bones[n].getWorldPosition(new THREE.Vector3()));
+    const e = bl('RightForeArm'), w = bl('RightHand'), L = headGroup.worldToLocal(siteLead.clone());
+    const t = Math.max(0, Math.min(1, (L.z - e.z) / ((w.z - e.z) || 1)));
+    const xc = e.x + (w.x - e.x) * t, yc = e.y + (w.y - e.y) * t, zc = L.z;
+    const R = 0.036;                                                // 팔 반지름 + 라인 반지름
+    const arc = d => { const a = d * Math.PI / 180; return V(xc - R * Math.sin(a), Math.max(0.006, yc + R * Math.cos(a)), zc); };
+    const loc = [V(xc - R - 0.07, 0.006, zc + 0.05), V(xc - R - 0.02, 0.006, zc + 0.015), arc(105), arc(80), arc(55), arc(30), arc(10), V(L.x, L.y, L.z)];
+    ivPath = [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, ...loc.map(q => headGroup.localToWorld(q)), site];
+  } else {
+    ivPath = [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, onMat(siteLead.clone().add(V(-0.05, 0, 0.01))), siteLead, site];
+  }
+  setTube(ivTube2, ivPath);
   // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
   const pcaPts = [pA, V(POLE.x - 0.24, 1.22, POLE.z + 0.18), V(POLE.x - 0.02, 0.98, POLE.z + 0.26),
@@ -2516,9 +2540,12 @@ function rebuildTubes() {
     spo2Tube.visible = true;
     const sp = r.spo2Pts ? r.spo2Pts.map(a => a.getWorldPosition(new THREE.Vector3())) : [r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3())];
     const last = sp[sp.length - 1];
-    // 아래팔 끝에서 Lt. 침상 난간(윗면 y≈1.05) 위로 넘어가 바깥으로 내려가 모니터 포트로
-    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), ...sp, last.clone().add(V(0.05, 0.03, -0.02)), V(0.36, last.y + 0.1, last.z - 0.05), V(0.45, 1.1, last.z - 0.07),
-      V(0.52, 1.125, last.z - 0.09), V(0.6, 1.06, last.z - 0.16), V(0.66, 0.97, -1.2), V(0.78, 0.93, -1.48), port]);
+    // 아래팔 피부 위를 따라 팔꿈치까지 → 몸 옆 매트리스에 걸쳐 놓이고 → Lt. 침상 난간 안쪽 면을 타고 올라 넘어가 → 바깥으로 내려가 모니터 포트로 (공중에 뜨지 않음)
+    const mz = last.z;
+    const ex = headGroup.worldToLocal(last.clone());
+    const lift = (x, dz) => headGroup.localToWorld(V(x, 0.014, ex.z + dz));
+    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), ...sp, last.clone().add(V(0.035, -0.05, 0)), lift(last.x + 0.1, -0.01), lift(0.42, -0.08),
+      V(0.462, 0.98, mz - 0.12), V(0.49, 1.13, mz - 0.15), V(0.6, 1.06, mz - 0.2), V(0.66, 0.97, -1.2), V(0.78, 0.93, -1.48), port]);
   } else spo2Tube.visible = false;
   // call bell 줄: 벽 패널 NURSE CALL 잭 → 벽을 타고 내려와 침대 머리 쪽 → Rt. 매트리스 옆 클립 → call bell 코일 끝
   // 매트리스 옆 클립·침대 머리 쪽 지점은 침상 머리(headGroup)를 따라 움직인다 (E7로 30° 올려도 매트리스에 묻히지 않게)
@@ -2848,6 +2875,7 @@ function setupPatient(gltf) {
       }
     }
     rig.armPoseDone = true;
+    rig.handBaseR = bones.RightHand.quaternion.clone();   // 침상 머리를 올릴 때 경첩을 넘은 오른손이 매트리스 아래로 꺼지지 않게 보정하는 기준 자세
   }
   // 베개: 뒤통수에 닿도록 위치와 높이 맞춤
   {
@@ -2981,19 +3009,34 @@ function setupPatient(gltf) {
         return hit ? hit.point.clone().add(V(0, 0.0028, 0)) : p.clone().add(V(0, 0.02, 0)); };
       const st = [[s0.clone().lerp(h, 0.3), 'LeftHand'], [s0.clone().lerp(h, 0.65), 'LeftHand'], [h.clone(), 'LeftHand'],
         [h.clone().addScaledVector(d2, -0.025), 'LeftHand'], [h.clone().addScaledVector(d2, -0.045), 'LeftHand'], [h.clone().addScaledVector(d2, -0.065), 'LeftForeArm'],
-        [h.clone().addScaledVector(d2, -0.085), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.105), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.125), 'LeftForeArm']];
+        [h.clone().addScaledVector(d2, -0.085), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.105), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.125), 'LeftForeArm'],
+        [h.clone().addScaledVector(d2, -0.15), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.175), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.2), 'LeftForeArm']];
       rig.spo2Pts = st.map(([p, bn]) => anchor(bn, skin(p), frameQ(d2, up)));
     }
   }
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
   function upperArm(side) {
     const s = J(side + 'Arm'), e = J(side + 'ForeArm');
-    return anchor(side + 'Arm', lerp(s, e, 0.3), frameQ(e.clone().sub(s), up));   // 어깨를 내린 뒤 소매가 커프를 뚫지 않도록 팔꿈치 쪽으로 조금 내림
+    return anchor(side + 'Arm', lerp(s, e, 0.62), frameQ(e.clone().sub(s), up));   // 어깨를 내린 뒤 소매가 커프를 뚫지 않도록 팔꿈치 쪽으로 조금 내림
   }
   rig.cuffL = upperArm('Left');
   rig.cuffR = upperArm('Right');
+  // 커프 위치(위팔 62 %)의 소매 바깥 반지름을 측정해 커프를 거기에 밀착시킴
+  {
+    const rcC = new THREE.Raycaster(); const rs = [];
+    for (const side of ['Left', 'Right']) {
+      const s0 = J(side + 'Arm'), e0 = J(side + 'ForeArm'), u = e0.clone().sub(s0).normalize(), c0 = lerp(s0, e0, 0.62);
+      const a1 = new THREE.Vector3().crossVectors(u, V(0, 1, 0)).normalize(), a2 = new THREE.Vector3().crossVectors(u, a1).normalize();
+      for (let k = 0; k < 12; k++) {
+        const th = k / 12 * Math.PI * 2, dir = a1.clone().multiplyScalar(Math.cos(th)).addScaledVector(a2, Math.sin(th));
+        rcC.set(c0.clone().addScaledVector(dir, 0.2), dir.clone().negate()); rcC.far = 0.25;
+        const h = rcC.intersectObject(root, true)[0]; if (h) rs.push(0.2 - h.distance);
+      }
+    }
+    if (rs.length) { rs.sort((a, b) => a - b); cuff.userData.setRadius(Math.min(0.07, Math.max(0.034, rs[Math.floor(rs.length * 0.6)] + 0.003))); }
+  }
   (cuff.userData.side === 'R' ? rig.cuffR : rig.cuffL).attach(cuff);
-  cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.set(1.4, 1.4, 0.9);   // 환의 소매 위로 위팔(어깨~팔꿈치 약 17 cm)을 감는 커프 (소매가 뚫고 나오지 않도록 굵게)
+  cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.set(1, 1, 1);   // 소매 끝 아래 맨팔 위팔에 얇은 천 커프를 밀착
   // IV 카테터: Rt. 손목 등쪽 (복부 oozing을 가리지 않게 손등 대신 손목). Lt. arm은 save(유방절제술)
   {
     const hand = J('RightHand'), fore = J('RightForeArm');
@@ -3158,6 +3201,11 @@ function setUpper(angle) {
   r.angle = angle;
   const d = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), angle - THREE.MathUtils.degToRad(POSE_DEG) + r.offset);
   r.bones.Spine.quaternion.copy(r.hipsQi).multiply(d).multiply(r.hipsQ).multiply(r.spineBase);
+  // 몸을 따라 기울면 경첩 너머(발 쪽)에 놓인 오른손이 매트리스를 뚫고 내려감 → 손만 반대로 꺾어 아래쪽 평평한 매트리스 위에 눕힘
+  if (r.handBaseR && r.bones.RightHand) {
+    r.bones.RightHand.quaternion.copy(r.handBaseR);
+    if (angle > 0.01) boneWorldRot(r, 'RightHand', V(1, 0, 0), -angle * 0.95);
+  }
 }
 
 /* 8분 중증 악화(출혈 E2 미조치일 때만): 아프고 어지러워 일어날 힘은 없음 → 누운 채 머리 좌우로 뒤척이고 배를 움켜쥠,
