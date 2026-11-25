@@ -1651,7 +1651,7 @@ function drawMonitor(g, w, h) {
 
 // ── 벽시계 (왼벽, 달력 바로 위): 둥근 아날로그 시계, TV·폰과 같은 시뮬 시각 (14:50 → 15:00) ──
 {
-  const g = group(world, -3 + 0.006, 2.26, 1.39);   // 달력 바로 위 (냉장고가 벽에 붙어도 가리지 않게)
+  const g = group(world, -3 + 0.006, 2.26, 1.36);   // 달력 바로 위 (냉장고가 벽에 붙어도 가리지 않게)
   g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
   const R = 0.15;
   add(g, CYL(R + 0.014, 0.014, 40), mat(0x25292d, { roughness:0.4, metalness:0.3 }), 0, 0, 0.007).rotation.x = Math.PI / 2;   // 테
@@ -1681,7 +1681,7 @@ function drawMonitor(g, w, h) {
 
 // ── 벽 달력 (왼벽, 3단 달력: 2026년 11월 · 12월 · 2027년 1월 / 가운데가 이번 달) ──
 {
-  const g = group(world, -3 + 0.006, 1.5, 1.39);   // 냉장고(z 2.13~)와 창문(~z 0.65) 사이 가운데
+  const g = group(world, -3 + 0.006, 1.5, 1.36);   // 냉장고(z 2.07~)와 창문(~z 0.65) 사이 가운데
   g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
   g.scale.setScalar(5 / 3);                                    // 크기 2/3 키움
   const CW = 0.3, CH = 0.66;
@@ -1954,7 +1954,7 @@ function drawMonitor(g, w, h) {
 // 독립형 냉장고 (은색 2도어: 위 냉동 / 아래 냉장): 왼벽(시계·달력 벽) 앞쪽 모서리에 붙임. 폭 0.70 · 깊이 0.68 · 높이 1.85 m
 {
   const FW = 0.70, FD = 0.68, FHt = 1.85;
-  const FS = 0.48;                                         // 크기: 2/5 줄여 60% → 다시 현재의 1/5 더 줄여 48%
+  const FS = 0.576;                                        // 크기: 48%에서 1/5 키움 → 57.6%
   const g = group(world, -3 + FS * FD / 2 + 0.005, 0, 2.5 - FS * FW / 2 - 0.03);   // 시계·달력이 있는 왼벽(창문 벽) 앞쪽 모서리, 앞면이 방 안쪽(+x)
   g.rotation.y = Math.PI / 2; g.scale.setScalar(FS);
   const steel = new THREE.MeshStandardMaterial({ color:0xdfe3e5, metalness:0.12, roughness:0.35 });
