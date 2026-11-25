@@ -819,6 +819,7 @@ const curtainParts = [];
     const geo = new THREE.PlaneGeometry(L, h, 70, 1);            // 길이 방향 = 로컬 x
     const m = new THREE.Mesh(geo, matr);
     m.castShadow = true; m.receiveShadow = true;
+    m.frustumCulled = false;   // 정점을 매 프레임 움직이는데 경계구는 처음(모인 상태) 크기로 굳어 있어, 커튼을 치고 시점을 돌리면 사라지던 문제
     const holder = group(g, 0, yTop - h / 2, anchorZ - L / 2);   // 평면이 가운데 기준이라 고정 끝이 레일 발 쪽 끝(anchorZ)에 오도록 이동
     holder.rotation.y = -Math.PI / 2 * dir;                      // 로컬 x → 월드 ±z
     holder.add(m);
@@ -1748,7 +1749,7 @@ const saveBandG = group(headGroup, 0.34, 0.045, -0.3);
 const IV_R = 0.032;
 const ivCathG = group(headGroup, -0.35, 0.085, -0.15);
 const ivSite = new THREE.Object3D(), ivSiteLead = new THREE.Object3D();   // IV 라인이 이어지는 커넥터 끝 / 그 앞 방향점
-ivSite.position.set(0, 0.008, -0.042); ivSiteLead.position.set(0, 0.016, -0.075);
+ivSite.position.set(0, 0.0045, -0.072); ivSiteLead.position.set(0, 0.0055, -0.09);   // 라인은 파란 커넥터 팔꿈치 쪽 끝으로 들어가 팔을 따라 쭉 이어짐
 ivCathG.add(ivSite, ivSiteLead);
 {
   const yS = x => Math.sqrt(IV_R * IV_R - x * x) - IV_R;   // 곡면 높이 (가운데 0)
@@ -1785,17 +1786,18 @@ ivCathG.add(ivSite, ivSiteLead);
     P(0.019, -0.008, 0.003), P(0.009, -0.024, 0.003), P(0.002, -0.036, 0.003), P(0, -0.052, 0.003), P(0, -0.066, 0.0035)]);
   ivCathG.add(new THREE.Mesh(new THREE.TubeGeometry(loop, 60, 0.0016, 8, false), new THREE.MeshStandardMaterial({ color:0xeef3f5, roughness:0.2, transparent:true, opacity:0.85 })));
   // 연장선 고정 테이프 (홈 바로 아래): IV 삽입 날짜·게이지를 볼펜으로 적음
-  const tapeTex = canvasTex(320, 128, (g, w, h) => {
+  const tapeTex = canvasTex(320, 192, (g, w, h) => {
     g.fillStyle = '#fbfbf8'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#1d2f8c'; g.font = `bold 62px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.translate(w / 2, h / 2); g.rotate(Math.PI);                       // 침대 옆에서 볼 때 바로 읽히게
-    g.fillText('12/15, 20G', 0, 2);
-  });
-  const tape = curved(0.034, 0.013, -0.045, new THREE.MeshStandardMaterial({ map:tapeTex, roughness:0.8 }), 0.0055);
+    g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4);
+    g.fillStyle = '#1d2f8c'; g.font = `bold 76px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('11/12', w / 2, h * 0.30);                               // IV 삽입일 = 수술 당일(2026-11-12)
+    g.fillText('20G', w / 2, h * 0.74);
+  }, 2);
+  const tape = curved(0.04, 0.024, -0.047, new THREE.MeshStandardMaterial({ map:tapeTex, roughness:0.8 }), 0.0055);
   // 파란 커넥터 + 흰 클램프
   add(ivCathG, CYL(0.0036, 0.016, 14), mat(0x1f5fd1, { roughness:0.35 }), 0, 0.004, -0.073).rotation.x = Math.PI / 2;
   add(ivCathG, B(0.009, 0.004, 0.006), mat(0xf5f5f2), 0, 0.0045, -0.062);
-  tag(ivCathG, 'IV 카테터 (Rt. wrist)', () => 'Rt. 손목 IV 20G (12/15 삽입) 유지 중 · 투명 드레싱 깨끗함');
+  tag(ivCathG, 'IV 카테터 (Rt. wrist)', () => 'Rt. 손목 IV 20G (11/12 삽입) 유지 중 · 투명 드레싱 깨끗함');
 }
 
 // 복부 dressing (E2) — JP 삽입 부위 (환자 오른쪽 = -x)
@@ -1816,7 +1818,7 @@ const CUFF_R = 0.039, CUFF_LEN = 0.085;
 const cuff = group(headGroup, 0.33, 0.05, -0.55);
 {
   // 측정 중이 아닐 때의 커프는 부풀지 않은 얇은 천: 팔에 밀착하는 얇은 원통(두께 ≈ 3 mm)
-  const cuffM = new THREE.MeshStandardMaterial({ color:0x24485a, roughness:0.85, side:THREE.DoubleSide });
+  const cuffM = new THREE.MeshStandardMaterial({ color:0x24485a, roughness:0.85, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 });
   const c = add(cuff, new THREE.CylinderGeometry(CUFF_R, CUFF_R, CUFF_LEN, 28, 1, true), cuffM);
   c.rotation.x = Math.PI / 2;
   const edgeM = mat(0x1c3a49, { roughness:0.8 });
@@ -2461,21 +2463,27 @@ function rebuildTubes() {
     // 팔 단면을 따라: 팔 바깥쪽 매트리스 → 팔 옆면을 타고 올라가 → 팔 위(IV 부위)로 걸침. 팔을 뚫지 않음
     const bl = n => headGroup.worldToLocal(patientRig.bones[n].getWorldPosition(new THREE.Vector3()));
     const e = bl('RightForeArm'), w = bl('RightHand'), L = headGroup.worldToLocal(siteLead.clone());
-    const t = Math.max(0, Math.min(1, (L.z - e.z) / ((w.z - e.z) || 1)));
-    const xc = e.x + (w.x - e.x) * t, yc = e.y + (w.y - e.y) * t, zc = L.z;
+    const sg = Math.sign(e.z - w.z) || -1;                         // 팔꿈치 쪽 방향(머리 쪽 = -z)
+    const axisAt = z => { const t = (z - e.z) / ((w.z - e.z) || 1); return V(e.x + (w.x - e.x) * t, e.y + (w.y - e.y) * t, z); };
     // 팔 표면(피부/소매)까지의 실제 거리를 각도별로 재서 그 바깥으로 라인을 지나가게 함 → 팔 속으로 파묻히지 않음
     const inCath = o => { for (let q = o; q; q = q.parent) if (q === ivCathG) return true; return false; };
     const rc = new THREE.Raycaster(); rc.far = 0.3;
-    const axisW = headGroup.localToWorld(V(xc, yc, zc));
-    const surf = d => {
+    const surf = (d, z) => {
+      const c = axisAt(z), axisW = headGroup.localToWorld(c.clone());
       const a = d * Math.PI / 180, dirW = V(-Math.sin(a), Math.cos(a), 0).transformDirection(headGroup.matrixWorld);
       rc.set(axisW.clone().addScaledVector(dirW, 0.15), dirW.clone().negate());
       const h = rc.intersectObject(patientRig.root, true).filter(q => !inCath(q.object))[0];
       return h ? Math.min(0.09, Math.max(0.025, 0.15 - h.distance)) : 0.045;
     };
-    const arc = d => { const a = d * Math.PI / 180, R = surf(d) + 0.007; return V(xc - R * Math.sin(a), Math.max(0.006, yc + R * Math.cos(a)), zc); };
-    const R0 = surf(100) + 0.007;
-    const loc = [V(xc - R0 - 0.07, 0.006, zc + 0.05), V(xc - R0 - 0.02, 0.006, zc + 0.015), arc(105), arc(80), arc(55), arc(30), arc(10), V(L.x, L.y, L.z)];
+    const onArm = (d, z) => { const c = axisAt(z), a = d * Math.PI / 180, R = surf(d, z) + 0.0065; return V(c.x - R * Math.sin(a), Math.max(0.006, c.y + R * Math.cos(a)), z); };
+    // 팔 위: 커넥터에서 팔 방향(팔꿈치 쪽)으로 꺾임 없이 쭉 피부 위를 따라감 → 팔꿈치 부근에서 팔 바깥 옆면으로 내려와 매트리스 → 3-way
+    const zs = s => L.z + sg * s;
+    const loc = [];
+    const cEnd = axisAt(zs(0.19)), Rb = surf(100, zs(0.16)) + 0.007;
+    loc.push(V(cEnd.x - Rb - 0.09, 0.006, zs(0.24)), V(cEnd.x - Rb - 0.03, 0.006, zs(0.195)));
+    [[105, 0.165], [80, 0.155], [55, 0.145], [30, 0.135], [10, 0.125]].forEach(([d, sv]) => loc.push(onArm(d, zs(sv))));
+    [0.10, 0.075, 0.05, 0.03].forEach(sv => loc.push(onArm(0, zs(sv))));
+    loc.push(V(L.x, L.y, L.z));
     ivPath = [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, ...loc.map(q => headGroup.localToWorld(q)), site];
   } else {
     ivPath = [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, onMat(siteLead.clone().add(V(-0.05, 0, 0.01))), siteLead, site];
@@ -2864,15 +2872,38 @@ function setupPatient(gltf) {
     aim('RightForeArm', 'RightHand', V(-0.14, -0.02, 1));
     palmDown('Right', ARM_PALM_SIGN.Right);
     aim('RightHand', 'RightHandMiddle1', V(-0.14, -0.03, 1));
-    // 왼팔(환자 Lt, +x): 아래팔을 배 위로 비스듬히 가로질러 올리고 손은 힘을 뺀 채 얹음
-    aim('LeftArm', 'LeftForeArm', V(0.38, 0.45, 0.8));
-    aim('LeftForeArm', 'LeftHand', V(-0.55, 0.42, 0.72));
-    palmDown('Left', ARM_PALM_SIGN.Left);
-    aim('LeftHand', 'LeftHandMiddle1', V(-0.52, -0.05, 0.8));
-    // 팔 전체를 어깨 기준으로 돌려 매트리스(오른팔)/배(왼팔)에 살짝 닿는 높이로 맞춤
+    // 왼팔(환자 Lt, +x): 위팔은 몸 옆 매트리스에 얹고(팔꿈치가 매트리스에 닿음), 아래팔만 배 쪽으로 올려 손바닥을 가운 위에 툭 얹음
     const rcB = new THREE.Raycaster();
     const surf = (x, z) => { rcB.set(V(x, 2, z), V(0, -1, 0)); const h = rcB.intersectObject(root, true)[0]; return h ? h.point.y : NaN; };
-    for (const side of ['Right', 'Left']) {
+    // 팔을 놓기 전, 배(가운) 윗면 높이를 격자로 재 둠 (손이 그 아래로 파묻히지 않게)
+    const bellyTab = {};
+    for (const gx of [0, 0.05, 0.1, 0.15, 0.2, 0.25]) for (const gz of [-1.0, -0.9, -0.8, -0.7, -0.6]) bellyTab[gx + '_' + gz] = surf(gx, gz);
+    const bellyAt = (x, z) => {
+      const gx = Math.max(0, Math.min(0.25, Math.round(x / 0.05) * 0.05)), gz = Math.max(-1.0, Math.min(-0.6, Math.round(z / 0.1) * 0.1));
+      const v = bellyTab[(+gx.toFixed(2)) + '_' + (+gz.toFixed(1))]; return isFinite(v) ? v : 0.88;
+    };
+    aim('LeftArm', 'LeftForeArm', V(0.14, -0.08, 0.99));
+    for (let it = 0; it < 8; it++) {                                      // 팔꿈치(중심)가 매트리스 위 5.5 cm에 놓이도록 위팔을 어깨 기준으로 회전
+      const el = wp('LeftForeArm'), sh = wp('LeftArm'), dy = 0.805 - el.y;
+      if (Math.abs(dy) < 0.003) break;
+      boneWorldRot(rig, 'LeftArm', Xa, -Math.atan2(dy, Math.max(0.1, Math.hypot(el.z - sh.z, el.y - sh.y))) * 0.9); root.updateMatrixWorld(true);
+    }
+    const el0 = wp('LeftForeArm');
+    aim('LeftForeArm', 'LeftHand', V(0.17, bellyAt(0.17, -0.76) + 0.01, -0.74).sub(el0));   // 출혈(오른쪽 윗배)에서 먼 아랫배 쪽
+    palmDown('Left', ARM_PALM_SIGN.Left);
+    // 손(손목·손가락 중간)이 가운 윗면 아래로 파묻히면 아래팔을 조금씩 더 들어 올림
+    for (let it = 0; it < 14; it++) {
+      const pts = ['LeftHand', 'LeftHandMiddle1'].map(wp);
+      const clear = Math.min(...pts.map(q => q.y - bellyAt(q.x, q.z)));
+      if (clear >= 0.012) break;
+      const fd = wp('LeftHand').sub(wp('LeftForeArm')).normalize(), ax = new THREE.Vector3().crossVectors(fd, Ya).normalize();
+      const y0 = wp('LeftHand').y;
+      boneWorldRot(rig, 'LeftForeArm', ax, THREE.MathUtils.degToRad(3)); root.updateMatrixWorld(true);
+      if (wp('LeftHand').y < y0) { boneWorldRot(rig, 'LeftForeArm', ax, THREE.MathUtils.degToRad(-6)); root.updateMatrixWorld(true); }
+    }
+    { const fd = wp('LeftHand').sub(wp('LeftForeArm')).normalize(); aim('LeftHand', 'LeftHandMiddle1', V(fd.x, fd.y * 0.15, fd.z)); }
+    // 오른팔 전체를 어깨 기준으로 돌려 매트리스에 살짝 닿는 높이로 맞춤
+    for (const side of ['Right']) {
       for (let it = 0; it < 8; it++) {
         const pts = ['ForeArm', 'Hand', 'HandMiddle1'].map(n => wp(side + n));
         const sh = wp(side + 'Arm');
@@ -3031,19 +3062,26 @@ function setupPatient(gltf) {
   }
   rig.cuffL = upperArm('Left');
   rig.cuffR = upperArm('Right');
-  // 커프 위치(위팔 62 %)의 소매 바깥 반지름을 측정해 커프를 거기에 밀착시킴
+  // 커프가 놓이는 위팔 구간의 소매/피부 바깥 반지름을 팔마다(Lt/Rt) 따로 측정 → 어느 쪽 팔에 감겨도 소매에 파묻히거나 지글거리지 않고 밀착
   {
-    const rcC = new THREE.Raycaster(); const rs = [];
+    const rcC = new THREE.Raycaster(); rig.cuffRad = {};
     for (const side of ['Left', 'Right']) {
-      const s0 = J(side + 'Arm'), e0 = J(side + 'ForeArm'), u = e0.clone().sub(s0).normalize(), c0 = lerp(s0, e0, 0.62);
+      const s0 = J(side + 'Arm'), e0 = J(side + 'ForeArm'), u = e0.clone().sub(s0).normalize();
       const a1 = new THREE.Vector3().crossVectors(u, V(0, 1, 0)).normalize(), a2 = new THREE.Vector3().crossVectors(u, a1).normalize();
-      for (let k = 0; k < 12; k++) {
-        const th = k / 12 * Math.PI * 2, dir = a1.clone().multiplyScalar(Math.cos(th)).addScaledVector(a2, Math.sin(th));
-        rcC.set(c0.clone().addScaledVector(dir, 0.2), dir.clone().negate()); rcC.far = 0.25;
-        const h = rcC.intersectObject(root, true)[0]; if (h) rs.push(0.2 - h.distance);
+      const rs = [];
+      for (const dz of [-CUFF_LEN / 2, 0, CUFF_LEN / 2]) {
+        const c0 = lerp(s0, e0, 0.62).addScaledVector(u, dz);
+        for (let k = 0; k < 20; k++) {
+          const th = k / 20 * Math.PI * 2, dir = a1.clone().multiplyScalar(Math.cos(th)).addScaledVector(a2, Math.sin(th));
+          rcC.set(c0.clone().addScaledVector(dir, 0.11), dir.clone().negate()); rcC.far = 0.11;
+          const h = rcC.intersectObject(root, true).filter(q => !(q.object.parent === cuff || q.object === cuff))[0]; if (h) rs.push(0.11 - h.distance);
+        }
       }
+      rs.sort((x, y) => x - y);
+      rig.cuffRad[side] = rs.length ? Math.min(0.065, Math.max(0.034, rs[Math.floor(rs.length * 0.88)] + 0.005)) : CUFF_R;
     }
-    if (rs.length) { rs.sort((a, b) => a - b); cuff.userData.setRadius(Math.min(0.07, Math.max(0.034, rs[Math.floor(rs.length * 0.6)] + 0.003))); }
+    cuff.userData.fitRadius = () => cuff.userData.setRadius(rig.cuffRad[cuff.userData.side === 'R' ? 'Right' : 'Left']);
+    cuff.userData.fitRadius();
   }
   (cuff.userData.side === 'R' ? rig.cuffR : rig.cuffL).attach(cuff);
   cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.scale.set(1, 1, 1);   // 소매 끝 아래 맨팔 위팔에 얇은 천 커프를 밀착
@@ -4027,6 +4065,7 @@ const FIX = {
     cuff.userData.side = 'R';
     if (patientRig) {   // 3D 환자: 오른팔(위팔)로 옮겨 감기
       patientRig.cuffR.attach(cuff);
+      if (cuff.userData.fitRadius) cuff.userData.fitRadius();   // 오른팔 굵기에 맞춰 다시 밀착
       const a = cuff.position.clone(), qa = cuff.quaternion.clone(), qb = new THREE.Quaternion();
       tween(0.9, p => { const e = ease(p); cuff.position.lerpVectors(a, V(0, 0, 0), e); cuff.position.y += 0.14 * Math.sin(Math.PI * e); cuff.quaternion.slerpQuaternions(qa, qb, e); tubesDirty = true; }, () => { cuff.position.set(0, 0, 0); cuff.quaternion.identity(); tubesDirty = true; });
       return;
