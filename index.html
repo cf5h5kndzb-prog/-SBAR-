@@ -2936,11 +2936,14 @@ function rebuildTubes() {
   const Zw = twSideW.clone().sub(threeWay.position).normalize();
   // IV 라인: 펌프 아래 → (짧게 늘어짐) → 3-way → Rt. 손목 IV
   const ivA = ivOut.getWorldPosition(new THREE.Vector3());
-  setTube(ivTube, [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.max(Math.min(ivA.y, tIn.y) - 0.02, (ivA.y + tIn.y) / 2 - 0.06), (ivA.z + tIn.z) / 2 + 0.03),
-    tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn]);
+  // 폴대에서 내려온 라인은 허공을 건너지 않고 Rt. 사이드 레일 윗면에 걸쳐 놓인 뒤 3-way로 이어짐 (레일을 내리거나 침상 머리를 올려도 레일 따라감)
+  const railTop = (dz) => headGroup.localToWorld(V(-0.52, 1.1 + railR.position.y * 0.72 - HINGE.y - BED_LIFT - 0.018, -1.25 + dz - HINGE.z));
+  const rP1 = railTop(-0.16), rP0 = V(-0.52, 1.1 + railR.position.y * 0.72 - 0.018, -1.55);   // rP0: 고정된 레일 윗면(침상 머리를 올려도 그대로) → 거기서 3-way 쪽으로 이어 올라감
+  const sagAt = (t, d) => { const p = ivA.clone().lerp(rP0, t); p.y -= d; return p; };
+  const ivPts = [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), sagAt(0.55, 0.1), sagAt(0.86, 0.03), rP0, rP1, tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn];
+  setTube(ivTube, ivPts);
   {
-    const pts = [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.max(Math.min(ivA.y, tIn.y) - 0.02, (ivA.y + tIn.y) / 2 - 0.06), (ivA.z + tIn.z) / 2 + 0.03), tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn];
-    const cv = new THREE.CatmullRomCurve3(pts), tp = cv.getPointAt(0.16), tt = cv.getTangentAt(0.16).normalize();
+    const cv = new THREE.CatmullRomCurve3(ivPts), tp = cv.getPointAt(0.12), tt = cv.getTangentAt(0.12).normalize();
     regClamp.position.copy(tp); regClamp.quaternion.setFromUnitVectors(V(0, 1, 0), tt);
   }
   // 라인은 공중에 뜨지 않고 매트리스 위에 늘어져 있다가 팔 바깥쪽에서 팔 위로 걸쳐 올라 IV 부위로 이어짐 (침상 머리를 올려도 매트리스 면을 따라감)
