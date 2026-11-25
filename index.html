@@ -1748,7 +1748,7 @@ const saveBandG = group(headGroup, 0.34, 0.045, -0.3);
 const IV_R = 0.032;
 const ivCathG = group(headGroup, -0.35, 0.085, -0.15);
 const ivSite = new THREE.Object3D(), ivSiteLead = new THREE.Object3D();   // IV 라인이 이어지는 커넥터 끝 / 그 앞 방향점
-ivSite.position.set(0, 0.008, -0.042); ivSiteLead.position.set(0, 0.04, -0.085);
+ivSite.position.set(0, 0.008, -0.042); ivSiteLead.position.set(0, 0.016, -0.075);
 ivCathG.add(ivSite, ivSiteLead);
 {
   const yS = x => Math.sqrt(IV_R * IV_R - x * x) - IV_R;   // 곡면 높이 (가운데 0)
@@ -2442,7 +2442,11 @@ function rebuildTubes() {
   const ivA = ivOut.getWorldPosition(new THREE.Vector3());
   setTube(ivTube, [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.min(ivA.y, tIn.y) - 0.08, (ivA.z + tIn.z) / 2 + 0.03),
     tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn]);
-  setTube(ivTube2, [tOut, tOut.clone().add(X.clone().multiplyScalar(0.05)), V((tOut.x + siteLead.x) / 2, Math.max(tOut.y, siteLead.y) - 0.01, (tOut.z + siteLead.z) / 2), siteLead, site]);
+  // 라인은 공중에 뜨지 않고 매트리스 위에 늘어져 있다가 팔 바깥쪽에서 팔 위로 걸쳐 올라 IV 부위로 이어짐 (침상 머리를 올려도 매트리스 면을 따라감)
+  const onMat = (p, lift = 0.014) => { const l = headGroup.worldToLocal(p.clone()); l.y = lift; return headGroup.localToWorld(l); };
+  const ivMid = onMat(V((tOut.x + siteLead.x) / 2, (tOut.y + siteLead.y) / 2, (tOut.z + siteLead.z) / 2));
+  const ivEdge = onMat(siteLead.clone().add(V(-0.05, 0, 0.01)));
+  setTube(ivTube2, [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, ivEdge, siteLead, site]);
   // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
   const pcaPts = [pA, V(POLE.x - 0.24, 1.22, POLE.z + 0.18), V(POLE.x - 0.02, 0.98, POLE.z + 0.26),
@@ -2670,7 +2674,7 @@ function updateMouth(dt) {
 // 누운 환자 배 납작하게: 원본 모델은 배가 크게 솟아 있어(복수 찬 것처럼) 옆에서 보면 허리가 휜 듯 보임 → 몸통 가운데 배 부분만 눌러 평평하게.
 // 스킨 메시의 현재(누운) 자세에서 월드 좌표로 배 부분 정점을 아래로 눌러, 그 변위를 바인드 좌표로 되돌려 지오메트리에 영구 반영
 // (이후 침상 머리를 올려도 몸통을 따라 자연스럽게 움직임)
-const ARM_PALM_SIGN = { Left: 1, Right: 1 };
+const ARM_PALM_SIGN = { Left: -1, Right: 1 };   // 좌우 대칭이라 손바닥 법선 부호가 반대
 function flattenBelly(mesh, opts = {}) {
   const { yKnee = 0.9, press = 0.55, zFull = [-1.0, -0.6], zFade = [-1.14, -0.46], xHalf = 0.27 } = opts;
   mesh.updateWorldMatrix(true, false); mesh.skeleton.update();
@@ -2809,25 +2813,25 @@ function setupPatient(gltf) {
     };
     // 손바닥이 아래를 향하도록 손 뼈를 손가락 축 둘레로 회전
     const palmDown = (side, sgn) => {
-      const axis = wp(side + 'HandMiddle1').sub(wp(side + 'Hand')).normalize();
+      const axis = wp(side + 'Hand').sub(wp(side + 'ForeArm')).normalize();   // 아래팔 축 둘레로 돌려(회내) 손목이 꺾이지 않게 함
       let best = 0, bd = -Infinity, cur = 0; const D = THREE.MathUtils.degToRad(10);
       for (let k = 0; k < 36; k++) {
-        boneWorldRot(rig, side + 'Hand', axis, k ? D : 0); root.updateMatrixWorld(true);
+        boneWorldRot(rig, side + 'ForeArm', axis, k ? D : 0); root.updateMatrixWorld(true);
         const h = wp(side + 'Hand'), n = new THREE.Vector3().crossVectors(wp(side + 'HandIndex1').sub(h), wp(side + 'HandPinky1').sub(h)).normalize();
         const sc = -n.y * sgn; if (sc > bd) { bd = sc; best = k; }
       }
-      boneWorldRot(rig, side + 'Hand', axis, (best - 35) * D); root.updateMatrixWorld(true);
+      boneWorldRot(rig, side + 'ForeArm', axis, (best - 35) * D); root.updateMatrixWorld(true);
     };
     // 오른팔(환자 Rt, −x): 몸 옆으로 쭉 내려 매트리스에 얹음
     aim('RightArm', 'RightForeArm', V(-0.16, -0.22, 0.96));
     aim('RightForeArm', 'RightHand', V(-0.14, -0.02, 1));
-    aim('RightHand', 'RightHandMiddle1', V(-0.12, -0.06, 1));
     palmDown('Right', ARM_PALM_SIGN.Right);
+    aim('RightHand', 'RightHandMiddle1', V(-0.14, -0.03, 1));
     // 왼팔(환자 Lt, +x): 아래팔을 배 위로 비스듬히 가로질러 올리고 손은 힘을 뺀 채 얹음
     aim('LeftArm', 'LeftForeArm', V(0.38, 0.45, 0.8));
     aim('LeftForeArm', 'LeftHand', V(-0.55, 0.42, 0.72));
-    aim('LeftHand', 'LeftHandMiddle1', V(-0.45, -0.18, 0.88));
     palmDown('Left', ARM_PALM_SIGN.Left);
+    aim('LeftHand', 'LeftHandMiddle1', V(-0.52, -0.05, 0.8));
     // 팔 전체를 어깨 기준으로 돌려 매트리스(오른팔)/배(왼팔)에 살짝 닿는 높이로 맞춤
     const rcB = new THREE.Raycaster();
     const surf = (x, z) => { rcB.set(V(x, 2, z), V(0, -1, 0)); const h = rcB.intersectObject(root, true)[0]; return h ? h.point.y : NaN; };
