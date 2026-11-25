@@ -2894,6 +2894,23 @@ for (const t of [ivTube, ivTube2, ivSetTube, pcaTube, jpTube, cuffTube, cordTube
 
 const _v = new THREE.Vector3();
 function hg(x, y, z) { return headGroup.localToWorld(_v.set(x, y, z).clone()); }
+const _spoP = new THREE.Vector3();
+function rebuildSpo2() {
+  const port = monPort.getWorldPosition(new THREE.Vector3());
+  // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
+  if (patientRig && patientRig.spo2) {
+    const r = patientRig;
+    spo2Tube.visible = true;
+    const sp = (r.spo2Pts ? r.spo2Pts.map(a => a.getWorldPosition(new THREE.Vector3())) : [r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3())]).concat((r.spo2Drop || []).map(a => a.getWorldPosition(new THREE.Vector3())));
+    const last = sp[sp.length - 1];
+    // 아래팔 피부 위를 따라 팔꿈치까지 → 몸 옆 매트리스에 걸쳐 놓이고 → Lt. 침상 난간 안쪽 면을 타고 올라 넘어가 → 바깥으로 내려가 모니터 포트로 (공중에 뜨지 않음)
+    const mz = last.z;
+    const ex = headGroup.worldToLocal(last.clone());
+    const lift = (x, dz) => headGroup.localToWorld(V(x, 0.014, ex.z + dz));
+    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), ...sp, lift(last.x + 0.07, -0.015), lift(0.42, -0.08),
+      V(0.462, 0.98, mz - 0.12), V(0.49, 1.13, mz - 0.15), V(0.6, 1.06, mz - 0.2), V(0.66, 0.97, -1.2), V(0.78, 0.93, -1.48), port]);
+  } else spo2Tube.visible = false;
+}
 function rebuildTubes() {
   headGroup.updateMatrixWorld(true);
   cuff.updateMatrixWorld(true);
@@ -3035,24 +3052,14 @@ function rebuildTubes() {
       setTube(cuffTube, pl.map((q, i) => q.clone().lerp(pr[i], sw)));
     }
   }   // 침상 머리를 올려도(E7) 매트리스·베개를 뚫지 않게 침상 머리 따라 올라감
-  // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
-  if (patientRig && patientRig.spo2) {
-    const r = patientRig;
-    spo2Tube.visible = true;
-    const sp = (r.spo2Pts ? r.spo2Pts.map(a => a.getWorldPosition(new THREE.Vector3())) : [r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3())]).concat((r.spo2Drop || []).map(a => a.getWorldPosition(new THREE.Vector3())));
-    const last = sp[sp.length - 1];
-    // 아래팔 피부 위를 따라 팔꿈치까지 → 몸 옆 매트리스에 걸쳐 놓이고 → Lt. 침상 난간 안쪽 면을 타고 올라 넘어가 → 바깥으로 내려가 모니터 포트로 (공중에 뜨지 않음)
-    const mz = last.z;
-    const ex = headGroup.worldToLocal(last.clone());
-    const lift = (x, dz) => headGroup.localToWorld(V(x, 0.014, ex.z + dz));
-    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), ...sp, lift(last.x + 0.07, -0.015), lift(0.42, -0.08),
-      V(0.462, 0.98, mz - 0.12), V(0.49, 1.13, mz - 0.15), V(0.6, 1.06, mz - 0.2), V(0.66, 0.97, -1.2), V(0.78, 0.93, -1.48), port]);
-  } else spo2Tube.visible = false;
+  rebuildSpo2();
   // call bell 줄: 벽 패널 NURSE CALL 잭 → 벽을 타고 내려와 침대 머리 쪽 → Rt. 매트리스 옆 클립 → call bell 코일 끝
   // 매트리스 옆 클립·침대 머리 쪽 지점은 침상 머리(headGroup)를 따라 움직인다 (E7로 30° 올려도 매트리스에 묻히지 않게)
   const clip = hg(-0.5, 0.02, -0.45);
   const bp = bellCordEnd.getWorldPosition(new THREE.Vector3());
-  const toWall = [hg(-0.52, 0.12, -1.0), V(-0.5, 0.9, BACK_Z + 0.2), V(-0.3, 1.0, BACK_Z + 0.07), V(0.12, 1.25, BACK_Z + 0.07), CALL_JACK.clone().add(V(0, -0.06, 0.006)), CALL_JACK];
+  // 줄은 잭에서 벽을 타고 곧게 내려와(공중에 뜨지 않음) 침대 틀 옆 아래쪽을 지나 클립으로 이어짐 (HOB를 올려도 머리 쪽 점에 끌려 올라가지 않음)
+  const J = CALL_JACK, WZ = BACK_Z + 0.03;
+  const toWall = [V(-0.6, 0.5, -1.45), V(-0.62, 0.48, -1.78), V(-0.56, 0.6, WZ + 0.03), V(-0.36, 0.84, WZ + 0.012), V(J.x - 0.04, J.y - 0.32, WZ + 0.008), V(J.x - 0.005, J.y - 0.12, J.z + 0.004), J.clone().add(V(0, -0.05, 0.006)), J];
   setTube(cordTube, bell.userData.fixed
     ? [bp, hg(-0.5, 0.04, -0.25), clip, ...toWall]
     : [bp, V(-0.62, 0.3, -1.25), clip, ...toWall]);
@@ -3933,6 +3940,12 @@ function updatePatient(dt) {
   const sitUp = updateUnrest(r, dt);
   setUpper(headGroup.rotation.x + sitUp);
   if (sitUp || unrest.level > 0.002) { unrest.tubeT += dt; if (unrest.tubeT > 0.12) { unrest.tubeT = 0; tubesDirty = true; } }
+  // 환자 손(SpO₂ 센서)이 움직이는 동안(팔 들춤·복귀, 몸부림)은 매 프레임 SpO₂ 케이블을 다시 그려 손에 딱 붙어 따라오게 함
+  if (r.spo2) {
+    const sq = r.spo2.getWorldPosition(_spoP);
+    if (!r._spoLast) r._spoLast = new THREE.Vector3(1e9, 0, 0);
+    if (r._spoLast.distanceToSquared(sq) > 1e-8) { r._spoLast.copy(sq); headGroup.updateMatrixWorld(true); rebuildSpo2(); }
+  }
   // 숨쉬기: 호흡수에 맞춰 가슴을 1.5% 정도 부풀림 (목·어깨는 원래 크기 유지)
   r.breath += dt * (vit.rr / 60) * Math.PI * 2;
   const k = 1 + 0.015 * (0.5 - 0.5 * Math.cos(r.breath));
