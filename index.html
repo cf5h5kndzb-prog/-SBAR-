@@ -1426,6 +1426,171 @@ function drawMonitor(g, w, h) {
   g.traverse(m => { if (m.isMesh) m.receiveShadow = false; });   // 등받이에 얼룩처럼 맺히던 그림자 제거
   tag(g, '보호자 소파 (3인용)', '');
 }
+
+// ── 침상 옆 탁자 위: 충전 중인 접힌 폴더블폰 + 방금 벗어 둔 돋보기 안경 ──
+{
+  const TX = -1.5, TZ = BACK_Z + 0.28, TOP = 0.745;                  // 탁자 좌표(위 탁자 블록과 동일), 탁자 윗면 높이
+  // (1) 환자와 탁자 사이 벽 콘센트(침대 전원 콘센트)의 빈 위쪽 소켓에 휴대폰 충전기(5핀 USB 어댑터) 꽂음
+  const ch = group(world, OUTLET_BED.x, OUTLET_BED.y + 0.032, OUTLET_BED.z + 0.0185);
+  const blk = new THREE.MeshStandardMaterial({ color:0x15171a, roughness:0.32, metalness:0.05 });
+  for (const px of [-0.008, 0.008]) add(ch, CYL(0.0022, 0.012, 10), mat(0xb9bdc0, { metalness:0.8, roughness:0.3 }), px, 0, -0.002).rotation.x = Math.PI / 2;   // 플러그 핀
+  add(ch, new RoundedBoxGeometry(0.046, 0.046, 0.03, 3, 0.006), blk, 0, 0, 0.015);                        // 충전기 몸통
+  add(ch, B(0.002, 0.0125, 0.0058), mat(0x9fa4a8, { metalness:0.7, roughness:0.35 }), -0.0235, 0, 0.015);   // 옆면 USB-A 포트(-x, 탁자 쪽)
+  // USB-A 플러그: 금속 + 검은 몰드(충전기 옆면에서 탁자 쪽으로 꽂힘)
+  add(ch, B(0.012, 0.0115, 0.0046), mat(0xc4c8cb, { metalness:0.85, roughness:0.25 }), -0.0295, 0, 0.015);
+  add(ch, new RoundedBoxGeometry(0.028, 0.0155, 0.0105, 3, 0.0025), blk, -0.0415 - 0.003, 0, 0.015);
+  // (2) 접힌 폴더블폰(커버 화면이 위): 탁자 오른쪽 안쪽, 충전 포트가 벽 쪽
+  const ph = group(world, TX + 0.21, TOP + 0.00625, TZ);
+  {
+    const W = 0.0675, T = 0.0125, Ln = 0.158;
+    const frameM = new THREE.MeshStandardMaterial({ color:0x4f5a6b, metalness:0.75, roughness:0.32 });
+    add(ph, new RoundedBoxGeometry(W, T, Ln, 4, 0.0055), frameM, 0, 0, 0);
+    const scrTex = canvasTex(328, 804, (g, w, h) => {
+      g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h);
+      const gr = g.createRadialGradient(w / 2, h * 0.28, 10, w / 2, h * 0.28, h * 0.7); gr.addColorStop(0, 'rgba(48,82,140,0.55)'); gr.addColorStop(1, 'rgba(5,7,10,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `300 150px Arial, Helvetica, sans-serif`; g.fillText('10', w / 2, h * 0.24); g.fillText('00', w / 2, h * 0.38);
+      g.font = `32px ${FONT}`; g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillText('11월 12일 목요일', w / 2, h * 0.50);
+      // 배터리 + 번개: 충전 중
+      const bx = w / 2 - 44, by = h * 0.66;
+      g.strokeStyle = '#7dffb0'; g.lineWidth = 6; g.strokeRect(bx, by, 80, 40); g.fillStyle = '#7dffb0'; g.fillRect(bx + 80, by + 11, 8, 18);
+      g.fillRect(bx + 6, by + 6, 38, 28);
+      g.fillStyle = '#05070a'; g.beginPath(); g.moveTo(bx + 52, by + 3); g.lineTo(bx + 34, by + 24); g.lineTo(bx + 46, by + 24); g.lineTo(bx + 38, by + 38); g.lineTo(bx + 60, by + 15); g.lineTo(bx + 48, by + 15); g.closePath(); g.fill();
+      g.fillStyle = '#7dffb0'; g.font = `bold 34px ${FONT}`; g.fillText('충전 중 · 47%', w / 2, h * 0.76);
+      g.fillStyle = 'rgba(255,255,255,0.6)'; g.font = `26px ${FONT}`; g.fillText('고속 충전 중 · 약 45분 남음', w / 2, h * 0.81);
+      g.fillStyle = '#0c0f14'; g.beginPath(); g.arc(w / 2, 34, 11, 0, 7); g.fill(); g.strokeStyle = '#2b3340'; g.lineWidth = 3; g.stroke();   // 전면 카메라 구멍
+    });
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.0042, Ln - 0.0042), new THREE.MeshBasicMaterial({ map:scrTex, toneMapped:false }));
+    scr.rotation.x = -Math.PI / 2; scr.position.y = T / 2 + 0.0004; ph.add(scr);
+    add(ph, B(0.0016, 0.007, 0.024), frameM, W / 2 + 0.0004, 0, 0.022);      // 옆면 버튼
+    add(ph, B(0.0016, 0.012, 0.012), frameM, W / 2 + 0.0004, 0, 0.04);
+    // USB-C 플러그: 몸체 -z 끝(벽 쪽)에 꽂힘
+    add(ph, B(0.0083, 0.0026, 0.007), mat(0xc9cdd0, { metalness:0.85, roughness:0.25 }), 0, 0, -Ln / 2 - 0.0033);
+    add(ph, new RoundedBoxGeometry(0.0125, 0.0072, 0.019, 3, 0.002), blk, 0, 0, -Ln / 2 - 0.0095 - 0.007);
+    tag(ph, '스마트폰 (폴더블, 접힌 상태 · 충전 중)', () => '벽 콘센트 충전기에 연결되어 충전 중 (47%)');
+  }
+  // (3) 충전 케이블: 충전기 → 벽을 따라 늘어졌다가 → 탁자 모서리를 넘어 → 폰 포트
+  {
+    const z0 = ch.position.z + 0.015, ez = TZ - 0.079 - 0.0095 - 0.007 - 0.019 / 2 - 0.0005;   // 케이블이 몰드 끝에 이어짐
+    const pts = [V(-0.866 - 0.0, ch.position.y, z0), V(-0.9, ch.position.y - 0.004, z0 + 0.004), V(-0.955, ch.position.y - 0.06, z0 + 0.012), V(-1.04, 0.36, z0 + 0.03),
+      V(-1.12, 0.43, z0 + 0.06), V(-1.185, 0.58, z0 + 0.09), V(-1.2215, 0.70, z0 + 0.105), V(-1.2232, TOP + 0.0024, z0 + 0.108), V(-1.2395, TOP + 0.0022, z0 + 0.1),
+      V(TX + 0.21 + 0.025, TOP + 0.0022, ez - 0.03), V(TX + 0.21 + 0.005, TOP + 0.0030, ez - 0.012), V(TX + 0.21, ph.position.y, ez)];
+    const cm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.4), 90, 0.0021, 8, false), blk);
+    cm.castShadow = true; world.add(cm); tag(cm, '충전 케이블', () => '충전기 → 폰 (연결됨)');
+  }
+  // (4) 돋보기 안경: 방금 벗어 둔 듯 탁자 앞쪽 왼편에 비스듬히, 한쪽 다리는 펴고 한쪽은 접힌 채
+  {
+    const gl = group(world, TX - 0.13, TOP, TZ + 0.12);
+    gl.rotation.y = 0.55;
+    const fr = new THREE.MeshStandardMaterial({ color:0x3a2318, roughness:0.35, metalness:0.1 });
+    const lensM = new THREE.MeshStandardMaterial({ color:0xdcefff, roughness:0.05, metalness:0.0, transparent:true, opacity:0.22, side:THREE.DoubleSide, depthWrite:false });
+    const RX = 0.0235, RZ = 0.019, CXo = 0.037, TY = 0.0019;
+    for (const sx of [-1, 1]) {
+      const ring = add(gl, new THREE.TorusGeometry(1, 0.0019, 8, 40), fr, sx * CXo, TY, 0); ring.rotation.x = Math.PI / 2; ring.scale.set(RX, RZ, 1);
+      const lens = add(gl, new THREE.CircleGeometry(1, 40), lensM, sx * CXo, TY, 0); lens.rotation.x = -Math.PI / 2; lens.scale.set(RX, RZ, 1);
+      add(gl, B(0.005, 0.004, 0.006), fr, sx * (CXo + RX + 0.001), TY, -0.004);                      // 힌지 블록
+    }
+    add(gl, B(0.016, 0.0028, 0.0045), fr, 0, TY + 0.003, -0.006);                                      // 코다리(브리지)
+    // 펼친 다리(오른쪽 렌즈 쪽): 뒤(-z)로 비스듬히
+    const tR = group(gl, CXo + RX + 0.001, TY, -0.004); tR.rotation.y = -0.22;
+    add(tR, B(0.0026, 0.0032, 0.125), fr, 0, 0, -0.0625);
+    add(tR, B(0.0034, 0.0042, 0.026), fr, 0, -0.0006, -0.113);
+    // 접힌 다리(왼쪽): 렌즈 위를 가로지름
+    const tL = group(gl, -(CXo + RX + 0.001), TY + 0.0028, -0.004); tL.rotation.y = -Math.PI / 2 + 0.06;
+    add(tL, B(0.0026, 0.0032, 0.12), fr, 0, 0, -0.06);
+    gl.rotation.z = 0.012;
+    tag(gl, '돋보기 안경', () => '방금 벗어 둔 듯 탁자 위에 놓여 있음');
+  }
+}
+
+// ── 소파 옆 캐리어 (크림색 하드케이스: 세로 리브 · 검정 모서리 보호대 · 트롤리 손잡이 · 4륜) ──
+{
+  const g = group(world, -2.85, 0, 0.985);                   // 소파 발치 쪽 끝(z≈0.725) 바로 옆, 왼벽에 붙임. 앞면이 방 안쪽(+x)
+  const cream = new THREE.MeshStandardMaterial({ color:0xe9e1d0, roughness:0.45, metalness:0.02 });
+  const creamD = new THREE.MeshStandardMaterial({ color:0xddd4c1, roughness:0.5 });
+  const black = new THREE.MeshStandardMaterial({ color:0x1b1c1e, roughness:0.5 });
+  const D = 0.26, Hh = 0.62, Wd = 0.44, Y0 = 0.065;           // 깊이 · 높이 · 폭, 바닥에서 몸통까지
+  add(g, new RoundedBoxGeometry(D, Hh, Wd, 4, 0.022), cream, 0, Y0 + Hh / 2, 0);
+  for (let i = -3; i <= 3; i++) add(g, B(0.006, Hh - 0.1, 0.017), creamD, D / 2 + 0.001, Y0 + Hh / 2, i * 0.052);   // 세로 리브(앞면)
+  for (const sy of [-1, 1]) for (const sz of [-1, 1]) {                                                              // 검정 모서리 보호대 4곳
+    add(g, new RoundedBoxGeometry(0.036, 0.075, 0.075, 3, 0.008), black, D / 2 - 0.016, Y0 + Hh / 2 + sy * (Hh / 2 - 0.032), sz * (Wd / 2 - 0.032));
+  }
+  // 트롤리 손잡이(접힌 상태): 몸통 윗면 가운데에 기둥 2개 + 손잡이
+  add(g, B(0.05, 0.012, 0.2), black, 0, Y0 + Hh + 0.004, 0);
+  for (const sz of [-1, 1]) add(g, CYL(0.0065, 0.07, 10), black, 0, Y0 + Hh + 0.04, sz * 0.075);
+  add(g, new RoundedBoxGeometry(0.03, 0.022, 0.19, 3, 0.008), black, 0, Y0 + Hh + 0.082, 0);
+  // 바퀴 4개(스피너)
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const w = group(g, sx * (D / 2 - 0.05), 0, sz * (Wd / 2 - 0.05));
+    add(w, B(0.05, 0.026, 0.05), black, 0, Y0 - 0.008, 0);
+    const wh = add(w, CYL(0.027, 0.018, 16), mat(0x2b2d30, { roughness:0.7 }), 0, 0.027, 0); wh.rotation.x = Math.PI / 2;
+  }
+  tag(g, '보호자 캐리어', () => '소파 옆에 세워 둔 크림색 캐리어');
+}
+
+// ── 벽 달력 (왼벽, 2026년 12월) ──
+{
+  const g = group(world, -3 + 0.006, 1.52, 1.55);
+  g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
+  const CW = 0.3, CH = 0.42;
+  add(g, B(CW + 0.01, CH + 0.01, 0.006), mat(0xf4f4f0, { roughness:0.7 }), 0, 0, 0);
+  const calTex = canvasTex(600, 840, (c, w, h) => {
+    c.fillStyle = '#fbfbf8'; c.fillRect(0, 0, w, h);
+    // 위쪽 그림: 눈 덮인 언덕과 크리스마스 트리
+    const sky = c.createLinearGradient(0, 0, 0, 330); sky.addColorStop(0, '#9ec9e6'); sky.addColorStop(1, '#e8f3fa');
+    c.fillStyle = sky; c.fillRect(0, 0, w, 330);
+    c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(0, 300); c.quadraticCurveTo(200, 230, 360, 285); c.quadraticCurveTo(480, 320, 600, 260); c.lineTo(600, 330); c.lineTo(0, 330); c.fill();
+    for (const [tx, ty, sc] of [[190, 150, 1], [330, 190, 0.7], [440, 175, 0.55]]) {
+      c.fillStyle = '#2f6b4a';
+      for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(tx, ty - 70 * sc + k * 38 * sc); c.lineTo(tx - (42 + k * 18) * sc, ty - 10 * sc + k * 38 * sc); c.lineTo(tx + (42 + k * 18) * sc, ty - 10 * sc + k * 38 * sc); c.fill(); }
+      c.fillStyle = '#6b4a2e'; c.fillRect(tx - 7 * sc, ty + 100 * sc, 14 * sc, 22 * sc);
+      c.fillStyle = '#e8c547'; c.beginPath(); c.arc(tx, ty - 78 * sc, 7 * sc, 0, 7); c.fill();
+    }
+    c.fillStyle = '#ffffff'; for (let k = 0; k < 40; k++) { c.beginPath(); c.arc((k * 97) % 600, (k * 53) % 250, 2 + (k % 3), 0, 7); c.fill(); }
+    // 제목
+    c.fillStyle = '#c0392b'; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    c.font = `bold 78px ${FONT}`; c.fillText('12월', w / 2, 415);
+    c.fillStyle = '#6b7780'; c.font = `bold 26px Arial, Helvetica, sans-serif`; c.fillText('DECEMBER 2026', w / 2, 452);
+    // 요일 + 날짜 (2026-12-01 = 화요일)
+    const names = ['일', '월', '화', '수', '목', '금', '토'], x0 = 36, cw = (w - 72) / 7;
+    c.font = `bold 28px ${FONT}`;
+    names.forEach((n, i) => { c.fillStyle = i === 0 ? '#d64541' : i === 6 ? '#3b6fb6' : '#39444b'; c.fillText(n, x0 + cw * (i + 0.5), 502); });
+    c.strokeStyle = '#cfd6da'; c.lineWidth = 2; c.beginPath(); c.moveTo(x0, 515); c.lineTo(w - x0, 515); c.stroke();
+    const first = 2, rh = 54;
+    c.font = `34px ${FONT}`;
+    for (let d = 1; d <= 31; d++) {
+      const idx = first + d - 1, col = idx % 7, row = Math.floor(idx / 7);
+      c.fillStyle = col === 0 || d === 25 ? '#d64541' : col === 6 ? '#3b6fb6' : '#2b343a';
+      c.fillText(String(d), x0 + cw * (col + 0.5), 562 + row * rh);
+    }
+    c.fillStyle = '#d64541'; c.font = `18px ${FONT}`; c.fillText('성탄절', x0 + cw * (5 + 0.5), 562 + 3 * rh + 22);     // 12/25 (금)
+  }, 2);
+  screenMesh(g, calTex, CW, CH, 0, 0, 0.0045);
+  add(g, B(0.045, 0.012, 0.012), mat(0x333a3f, { metalness:0.4, roughness:0.4 }), 0, CH / 2 + 0.002, 0.004);        // 상단 제본 바
+  const nail = add(g, CYL(0.004, 0.012, 10), mat(0xb8bcc0, { metalness:0.8, roughness:0.3 }), 0, CH / 2 + 0.03, -0.002); nail.rotation.x = Math.PI / 2;
+  tag(g, '벽 달력', () => '2026년 12월');
+}
+
+// ── 천장형 에어컨 (4방향 카세트: 사각 흰 패널 + 가운데 흡입 그릴 + 4변 송풍구) ──
+{
+  const g = group(world, -1.55, 2.6, -0.15);
+  const wh = new THREE.MeshStandardMaterial({ color:0xf3f4f1, roughness:0.45 });
+  const gr = new THREE.MeshStandardMaterial({ color:0xd9dcdc, roughness:0.55 });
+  const dk = new THREE.MeshStandardMaterial({ color:0x9aa0a3, roughness:0.6 });
+  add(g, B(0.6, 0.034, 0.6), wh, 0, -0.017, 0);                                  // 패널 본체(천장에서 3.4 cm 돌출)
+  add(g, B(0.62, 0.006, 0.62), wh, 0, -0.003, 0);                                // 천장 접합 테두리
+  add(g, B(0.3, 0.004, 0.3), gr, 0, -0.035, 0);                                  // 가운데 흡입 그릴 바탕
+  for (let i = -6; i <= 6; i++) { add(g, B(0.3, 0.0025, 0.008), dk, 0, -0.0372, i * 0.0215); add(g, B(0.008, 0.0025, 0.3), dk, i * 0.0215, -0.0372, 0); }
+  for (const sd of [0, 1, 2, 3]) {                                               // 4변 송풍구(루버)
+    const ang = sd * Math.PI / 2, v = group(g, Math.sin(ang) * 0.225, -0.0345, Math.cos(ang) * 0.225); v.rotation.y = ang;
+    add(v, B(0.40, 0.004, 0.055), dk, 0, 0, 0);
+    add(v, B(0.38, 0.003, 0.012), gr, 0, -0.0015, 0.012);
+  }
+  add(g, B(0.042, 0.003, 0.013), mat(0x20262a), 0.255, -0.0355, 0.255);          // 표시창
+  add(g, B(0.006, 0.003, 0.006), new THREE.MeshBasicMaterial({ color:0x33e07a }), 0.246, -0.0372, 0.255);   // 운전 표시등
+  tag(g, '천장형 에어컨', () => '천장 매립형(4방향) · 운전 대기');
+}
 // 천장 연기감지기
 {
   const g = group(world, -1.5, 2.6, 1.0);
@@ -1678,7 +1843,34 @@ const gownMat = mat(0xcfe8ef);
 const skinMat = mat(0xf3c9a5);
 const torso = add(headGroup, B(0.56, 0.2, 0.85), gownMat, 0, 0.1, -0.475);
 tag(torso, '환자 (나예민)', () => `나예민 (F/60) · 통증 NRS ${vit.pain}/10 · HR ${Math.round(vit.hr)} · BP ${Math.round(vit.sbp)}/${Math.round(vit.dbp)}`);
-const pillow = add(headGroup, B(0.5, 0.1, 0.34), mat(0xffffff), 0, 0.05, -0.98);
+// 병원 베개: 통통한 직사각형(모서리가 둥글고 윗면이 완만) + 앞면에 병원 이름 인쇄. 높이 0.1 기준(아래에서 머리 높이에 맞춰 y 배율을 바꿈)
+function superEllipsoid(a, b, c, e1, e2, nu = 40, nv = 28) {
+  const sp = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+  const pos = [], idx = [];
+  for (let j = 0; j <= nv; j++) {
+    const th = -Math.PI / 2 + Math.PI * j / nv;
+    for (let i = 0; i <= nu; i++) {
+      const ph = -Math.PI + 2 * Math.PI * i / nu;
+      pos.push(a * sp(Math.cos(th), e1) * sp(Math.cos(ph), e2), c * sp(Math.sin(th), e1), b * sp(Math.cos(th), e1) * sp(Math.sin(ph), e2));
+    }
+  }
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const k = j * (nu + 1) + i; idx.push(k, k + nu + 1, k + 1, k + 1, k + nu + 1, k + nu + 2); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+const pillow = group(headGroup, 0, 0.05, -0.98);
+{
+  const pm = new THREE.Mesh(superEllipsoid(0.27, 0.19, 0.05, 0.42, 0.32), new THREE.MeshStandardMaterial({ color:0xfdfdfb, roughness:0.95 }));
+  pm.castShadow = true; pm.receiveShadow = true; pillow.add(pm);
+  const printTex = canvasTex(512, 192, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = 'rgba(30,52,96,0.9)'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `bold 104px Arial, Helvetica, sans-serif`; g.fillText('SIMC', w / 2, h * 0.38);
+    g.font = `bold 34px Arial, Helvetica, sans-serif`; g.fillText('SIM MEDICAL CENTER', w / 2, h * 0.78);
+  }, 2);
+  const dm = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), new THREE.MeshStandardMaterial({ map:printTex, transparent:true, roughness:0.95, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 }));
+  dm.rotation.set(-Math.PI / 2, 0, Math.PI / 2); dm.position.set(0.185, 0.0508, 0.0); pillow.add(dm);   // 머리에 가려지지 않는 베개 옆 부분에 인쇄
+  pillow.userData.decal = dm;
+}
 tag(pillow, '베개', '');
 const head = add(headGroup, SPH(0.115), skinMat, 0, 0.2, -0.96);
 tag(head, '환자 (나예민)', () => `통증 NRS ${vit.pain}/10`);
@@ -3543,7 +3735,7 @@ loadModel('bed.glb', sc => {
   g.position.set(0.011, 0, -0.8);                // 옆 프레임 가장자리가 좌우 ±0.465 m로 대칭
   world.add(tag(g, '침대', () => '바퀴 잠금 · 최저 높이'));
   for (const o of bedFrameParts) o.removeFromParent();
-  foot.position.set(0, 0.84 - BED_LIFT, 0.355);  // 낙상 표지판을 발판 바깥면에
+  foot.position.set(0, 0.84 - BED_LIFT, 0.308);  // 침상 카드를 발판 바깥면(z≈0.33)에 딱 붙임 (카드 면 = 이 값 + 0.025)
 });
 loadModel('rail.glb', sc => {
   // 머리 쪽: 길이 약 0.86 m / 다리 쪽: 약 0.72 m (발판에 닿지 않게)
