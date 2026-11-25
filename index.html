@@ -639,76 +639,48 @@ window.__switchPlate = makeSwitch(2.985, 1.18, 2.22, -Math.PI / 2, 0.87, 'room',
 makeSwitch(2.0, 1.18, BATH.zf + BATH.t / 2, 0, 0.85, 'bath', '화장실', '화장실 조명 스위치', () => { setBathLight(!window.__bath.on); toast(window.__bath.on ? '💡 화장실 불을 켰습니다.' : '💡 화장실 불을 껐습니다.', '', 1500); });
 setRoomLight(true); setBathLight(true);
 
-// 창문 (왼벽)
+// 창문 (왼벽): 천장에서 바닥 쪽으로 내려와 뒷벽 모서리까지 이어지는 큰 창 (흰 창틀 2열 + 아래 가로 칸 + 환기창), 창밖은 겨울 숲 사진, 천장 쪽에 버티컬이 아닌 가로 블라인드
 {
-  const g = group(world, -2.99, 1.55, -0.2);
-  add(g, B(0.04, 1.1, 1.7), mat(0xf5f7f8));
-  const glass = add(g, B(0.02, 0.95, 1.55), new THREE.MeshStandardMaterial({ color:0x0b1328, emissive:0x0b1328, emissiveIntensity:0.6 }), 0.02);
-  // 창밖 풍경: 12월 오후 3시 → 해가 낮게 기운 맑고 차가운 겨울 오후 (옅은 하늘, 멀리 도심 건물, 앙상한 나무, 가벼운 눈발)
-  const nightTex = canvasTex(1024, 640, (c, w, h) => {
-    const sky = c.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#8fb4d6'); sky.addColorStop(0.5, '#bcd4e6'); sky.addColorStop(0.85, '#e6eaea'); sky.addColorStop(1, '#f0e9dc');
-    c.fillStyle = sky; c.fillRect(0, 0, w, h);
-    let sd = 7; const rn = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-    const sg = c.createRadialGradient(780, 360, 6, 780, 360, 230); sg.addColorStop(0, 'rgba(255,250,225,0.95)'); sg.addColorStop(0.18, 'rgba(255,244,210,0.55)'); sg.addColorStop(1, 'rgba(255,240,200,0)');
-    c.fillStyle = sg; c.fillRect(480, 130, 540, 460);                                                     // 낮게 걸린 겨울 해(희미한 빛무리)
-    c.fillStyle = 'rgba(255,255,255,0.55)';
-    for (const [cx, cy, cw] of [[170, 120, 170], [430, 70, 130], [640, 150, 210], [900, 90, 120], [330, 230, 150]]) { c.beginPath(); c.ellipse(cx, cy, cw, 22 + rn() * 10, 0, 0, 7); c.fill(); }   // 옅은 구름
-    // 멀리 있는 건물 두 겹 (낮이라 흐릿한 푸른 회색) + 유리창 반사
-    const city = (base, col, hMin, hMax, win) => {
-      let x = -10;
-      while (x < w) {
-        const bw = 50 + rn() * 90, bh = hMin + rn() * (hMax - hMin);
-        c.fillStyle = col; c.fillRect(x, base - bh, bw, bh + 200);
-        for (let yy = base - bh + 14; yy < base - 8; yy += 16) for (let xx = x + 8; xx < x + bw - 10; xx += 14)
-          if (rn() < win) { c.fillStyle = 'rgba(210,228,242,0.55)'; c.fillRect(xx, yy, 5, 8); }
-        x += bw + 3 + rn() * 8;
-      }
-    };
-    city(480, '#9fb3c4', 60, 200, 0.25);
-    city(560, '#7f95a8', 40, 150, 0.3);
-    c.fillStyle = '#f2f4f5'; c.fillRect(0, 585, w, 60);                                                      // 눈 덮인 지면
-    c.fillStyle = '#dfe5e8'; c.fillRect(0, 585, w, 5);
-    for (const tx of [90, 330, 560, 870]) {                                                                   // 잎 진 나무
-      c.strokeStyle = '#5d554d'; c.lineCap = 'round'; c.lineWidth = 5; c.beginPath(); c.moveTo(tx, 600); c.lineTo(tx, 520); c.stroke();
-      c.lineWidth = 3;
-      for (const [dx, dy, ex, ey] of [[0, 535, -34, 490], [0, 535, 34, 492], [0, 515, -22, 462], [0, 515, 24, 466], [-34, 490, -52, 468], [34, 492, 52, 470]]) { c.beginPath(); c.moveTo(tx + dx, dy); c.lineTo(tx + ex, ey); c.stroke(); }
-    }
-    for (let i = 0; i < 90; i++) { const r = 1 + rn() * 2.2; c.fillStyle = `rgba(255,255,255,${0.55 + rn() * 0.4})`; c.beginPath(); c.arc(rn() * w, rn() * h, r, 0, 7); c.fill(); }   // 가벼운 눈발
+  const TOPY = 2.6, BOTY = 0.95, Z0 = BACK_Z + 0.03, Z1 = 0.75;
+  const WH = TOPY - BOTY, WWd = Z1 - Z0, CY = (TOPY + BOTY) / 2, CZ = (Z0 + Z1) / 2;
+  const g = group(world, -3, CY, CZ);                                   // +x = 방 안쪽
+  const frameM = mat(0xe9f0ef, { roughness:0.45 }), sashM = mat(0xdde8e6, { roughness:0.45 });
+  const tex = new THREE.TextureLoader().load('window_view.jpg'); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const view = new THREE.Mesh(new THREE.PlaneGeometry(WWd, WH), new THREE.MeshBasicMaterial({ map:tex }));
+  view.rotation.y = Math.PI / 2; view.position.x = 0.012; g.add(view);       // 창밖 풍경(유리 뒤)
+  const glassM = new THREE.MeshStandardMaterial({ color:0xdfeff2, transparent:true, opacity:0.1, roughness:0.05, metalness:0.1, depthWrite:false });
+  add(g, B(0.006, WH - 0.1, WWd - 0.1), glassM, 0.02, 0, 0);               // 유리 (아주 옅은 반사)
+  const fw = 0.06;                                                         // 창틀 굵기
+  add(g, B(0.07, fw, WWd), frameM, 0.035, WH / 2 - fw / 2, 0);               // 위 틀(천장에 닿음)
+  add(g, B(0.07, fw, WWd), frameM, 0.035, -WH / 2 + fw / 2, 0);              // 아래 틀
+  for (const s of [-1, 1]) add(g, B(0.07, WH, fw), frameM, 0.035, 0, s * (WWd / 2 - fw / 2));   // 양쪽 세로 틀
+  add(g, B(0.07, WH - 2 * fw, 0.055), frameM, 0.035, 0, 0);                  // 가운데 세로 문설주
+  const my = WH / 2 - WH * 0.766;                                          // 가로 문설주 높이
+  add(g, B(0.07, 0.05, WWd - 2 * fw), frameM, 0.035, my, 0);
+  // 아래 오른쪽 칸: 안쪽 창틀 + 손잡이 (위로 열리는 환기창)
+  {
+    const zc = WWd / 4 + 0.0, sw = WWd / 2 - fw - 0.07, sy0 = -WH / 2 + fw + 0.02, sy1 = my - 0.04;
+    const sh = sy1 - sy0, sc = (sy0 + sy1) / 2;
+    for (const s of [-1, 1]) add(g, B(0.05, sh, 0.035), sashM, 0.06, sc, zc + s * sw / 2);
+    for (const s of [-1, 1]) add(g, B(0.05, 0.035, sw + 0.035), sashM, 0.06, sc + s * sh / 2, zc);
+    add(g, B(0.03, 0.012, 0.06), mat(0xc9d1d3, { metalness:0.5, roughness:0.35 }), 0.095, sy0 + 0.035, zc);   // 손잡이
+  }
+  add(g, B(0.1, 0.03, WWd + 0.04), mat(0xf4f7f7, { roughness:0.4 }), 0.05, -WH / 2 - 0.01, 0);   // 창턱
+  // 가로 블라인드(베네시안): 천장 쪽 헤드레일 + 슬랫, 위쪽 1/3 정도 내려 둠, 가운데에서 둘로 나뉨
+  const slat = canvasTex(8, 256, (c, w, h) => {
+    for (let i = 0; i < 32; i++) { c.fillStyle = i % 2 ? '#d9d6cc' : '#f1eee4'; c.fillRect(0, i * 8, w, 8); }
   });
-  const night = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 0.95), new THREE.MeshBasicMaterial({ map:nightTex }));
-  night.rotation.y = Math.PI / 2; night.position.set(0.0306, 0, 0); g.add(night);
-  add(g, B(0.03, 0.05, 1.55), mat(0xf5f7f8), 0.03);
-  add(g, B(0.03, 0.95, 0.05), mat(0xf5f7f8), 0.03);
-  tag(g, '창문', '');
-}
-// 창문 장식 (12월): 유리에 눈송이 스티커만 (솔잎 갈런드·볼·리본 장식은 제거함)
-{
-  const g = group(world, -2.99, 1.55, -0.2);            // 창문과 같은 좌표 (+x = 방 안쪽, z = 창 가로)
-  // 유리 눈송이 스티커 (흰색, 반투명)
-  const snowTex = canvasTex(1024, 640, (c, w, h) => {
-    c.clearRect(0, 0, w, h);
-    const flake = (x, y, R, a) => {
-      c.save(); c.translate(x, y); c.rotate(a); c.strokeStyle = 'rgba(255,255,255,0.92)'; c.lineCap = 'round'; c.lineWidth = Math.max(2, R / 9);
-      for (let i = 0; i < 6; i++) {
-        c.rotate(Math.PI / 3);
-        c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -R); c.stroke();
-        for (const f of [0.45, 0.7]) { c.beginPath(); c.moveTo(0, -R * f); c.lineTo(-R * 0.22, -R * (f + 0.17)); c.moveTo(0, -R * f); c.lineTo(R * 0.22, -R * (f + 0.17)); c.stroke(); }
-      }
-      c.restore();
-    };
-    const star = (x, y, R) => {
-      c.save(); c.translate(x, y); c.fillStyle = 'rgba(255,214,90,0.95)'; c.beginPath();
-      for (let i = 0; i < 10; i++) { const r = i % 2 ? R * 0.42 : R, a = i * Math.PI / 5 - Math.PI / 2; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-      c.closePath(); c.fill(); c.restore();
-    };
-    [[90, 520, 46, 0.2], [210, 590, 26, 0.5], [70, 380, 22, 0.1], [930, 540, 50, 0.4], [820, 600, 24, 0.0], [960, 400, 20, 0.3],
-     [520, 590, 22, 0.6], [330, 470, 16, 0.2], [700, 470, 16, 0.1], [120, 230, 14, 0.3], [910, 250, 15, 0.5]].forEach(f => flake(...f));
-    star(300, 600, 18); star(760, 540, 15); star(40, 600, 13); star(990, 610, 14);
-  });
-  const snow = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 0.95), new THREE.MeshBasicMaterial({ map:snowTex, transparent:true, depthWrite:false }));
-  snow.rotation.y = Math.PI / 2; snow.position.set(0.0325, 0, 0); g.add(snow);
-  tag(g, '창문 눈송이 스티커', '');
+  slat.wrapS = slat.wrapT = THREE.RepeatWrapping; slat.repeat.set(1, 1);
+  const DROP = 0.62, bw = WWd / 2 - 0.09;
+  for (const s of [-1, 1]) {
+    const zc = s * (WWd / 4);
+    const bl = new THREE.Mesh(new THREE.PlaneGeometry(bw, DROP), new THREE.MeshStandardMaterial({ map:slat, roughness:0.6, side:THREE.DoubleSide }));
+    bl.material.map.repeat.set(1, DROP / 0.08); bl.rotation.y = Math.PI / 2; bl.position.set(0.1, WH / 2 - 0.085 - DROP / 2, zc); g.add(bl);
+    add(g, B(0.055, 0.055, bw), mat(0xf3f1ea, { roughness:0.5 }), 0.1, WH / 2 - 0.0575, zc);                  // 헤드레일
+    add(g, B(0.03, 0.014, bw), mat(0xb8b4a8, { roughness:0.5 }), 0.1, WH / 2 - 0.085 - DROP - 0.007, zc);   // 하단 바
+    add(g, CYL(0.0025, 0.5, 6), mat(0xe6e3da), 0.125, WH / 2 - 0.085 - 0.25, zc + s * (bw / 2 - 0.04));      // 줄(조절 막대)
+  }
+  tag(g, '창문', () => '천장에서 내려온 큰 창 · 가로 블라인드');
 }
 // 출입문 (오른벽): 병원 병실의 옆으로 미는 슬라이딩 도어. 문짝이 벽 속(복도 쪽 벽 안)으로 밀려 들어가 열림 (포켓형)
 // → 열려도 방 안 벽면을 가리지 않으므로 세면대·소독제·옷장 위치와 상관없음. 문짝 앞면(방 쪽)은 x≥3.005 라 벽 뒤에 가려짐
