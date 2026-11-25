@@ -992,15 +992,15 @@ let phoneClockUpdate = null, wallClockUpdate = null, tvToggle = null, tvOn = tru
   tag(g, '벽걸이 TV', () => !tvOn ? 'TV 꺼짐 (리모컨 전원 버튼으로 켬)' : '병원 공지 영상: ' + TV_SLIDES[tvDrawIdx].title + ' (낙상예방 · 회진 · 손 위생 · 식사 · 병실 이용)');
 }
 
-// TV 리모컨 거치대 (TV 아래 벽): 투명 아크릴 주머니형 거치대 + TV 리모컨. 전원(빨강) 버튼을 누르면 TV가 꺼지고, 다시 누르면 켜짐
+// TV 리모컨 거치대 (TV 아래 벽, TV 오른쪽 끝에 맞춤): 투명 아크릴 주머니형 거치대 + TV 리모컨. 전원(빨강) 버튼을 누르면 TV가 꺼지고, 다시 누르면 켜짐
 {
-  const g = group(world, 0.15, 1.17, 2.5);
+  const g = group(world, 0.15 - 1.6 * 0.792 / 2 + 0.026, 1.17, 2.5);   // TV 오른쪽(커튼 반대쪽) 아래: 거치대 바깥 끝선을 TV 오른쪽 끝선(x=-0.484)에 맞춤
   g.rotation.y = Math.PI;                                   // 앞면이 방 안쪽(-z)
-  add(g, B(0.075, 0.2, 0.006), mat(0xe9ecee, { roughness:0.5 }), 0, 0, 0.003);                     // 벽에 붙은 뒤판
+  add(g, B(0.052, 0.2, 0.006), mat(0xe9ecee, { roughness:0.5 }), 0, 0, 0.003);                     // 벽에 붙은 뒤판
   const acr = new THREE.MeshStandardMaterial({ color:0xdfeff5, roughness:0.15, transparent:true, opacity:0.38, side:THREE.DoubleSide, depthWrite:false });
-  add(g, B(0.075, 0.1, 0.022), acr, 0, -0.045, 0.017);                                              // 투명 주머니
-  add(g, B(0.075, 0.006, 0.026), mat(0xc9d1d5, { roughness:0.4 }), 0, -0.097, 0.015);              // 주머니 바닥
-  for (const sx of [-1, 1]) add(g, CYL(0.0035, 0.008, 8), mat(0x9aa4aa, { metalness:0.5 }), sx * 0.028, 0.088, 0.008).rotation.x = Math.PI / 2;   // 벽 고정 나사
+  add(g, B(0.052, 0.1, 0.022), acr, 0, -0.045, 0.017);                                              // 투명 주머니
+  add(g, B(0.052, 0.006, 0.026), mat(0xc9d1d5, { roughness:0.4 }), 0, -0.097, 0.015);              // 주머니 바닥
+  for (const sx of [-1, 1]) add(g, CYL(0.0035, 0.008, 8), mat(0x9aa4aa, { metalness:0.5 }), sx * 0.018, 0.088, 0.008).rotation.x = Math.PI / 2;   // 벽 고정 나사
   const rm = group(g, 0, 0.0, 0.0165);                                                              // 리모컨 (주머니에 꽂힌 채 윗부분이 보임)
   rm.rotation.x = -0.06;
   const rb = mat(0x1d2023, { roughness:0.45 });
@@ -1447,18 +1447,21 @@ function drawMonitor(g, w, h) {
   const oak = new THREE.MeshStandardMaterial({ map:oakTex, roughness:0.6 });
   const white = new THREE.MeshStandardMaterial({ color:0xf3f3f0, roughness:0.28 });
   const dark = mat(0x3b3229, { roughness:0.8 });
-  add(g, B(0.70, 0.05, 0.42), white, -0.075, 0.72, 0);                                      // 상판 (표면 높이 0.745)
-  add(g, B(0.70, 0.006, 0.42), oak, -0.075, 0.6935, 0);                                      // 상판 밑 얇은 오크 띠
-  add(g, B(0.02, 0.665, 0.40), oak, -0.405, 0.3625, 0);                                      // 왼쪽 옆판
-  add(g, B(0.445, 0.665, 0.012), oak, -0.1775, 0.3625, -0.194);                              // 뒷판
+  add(g, B(1.765, 0.05, 0.42), white, -0.6075, 0.72, 0);                                      // 상판 (표면 높이 0.745)
+  add(g, B(1.765, 0.006, 0.42), oak, -0.6075, 0.6935, 0);                                      // 상판 밑 얇은 오크 띠
+  add(g, B(0.02, 0.665, 0.40), oak, -1.48, 0.3625, 0);                                       // 왼쪽 끝 옆판(왼벽 쪽)
+  add(g, B(0.02, 0.665, 0.40), oak, -0.185, 0.3625, 0);                                      // 서랍장 왼판(서랍 2열)
+  add(g, B(1.295, 0.665, 0.012), oak, -0.8425, 0.3625, -0.194);                              // 뒷판
   add(g, B(0.02, 0.665, 0.40), oak, 0.045, 0.3625, 0);                                       // 서랍장 왼판 (무릎 공간과 경계)
   add(g, B(0.02, 0.665, 0.40), oak, 0.255, 0.3625, 0);                                       // 서랍장 오른판
-  add(g, B(0.22, 0.06, 0.37), oak, 0.15, 0.03, -0.01);                                       // 서랍장 하단 받침
-  add(g, B(0.19, 0.62, 0.36), dark, 0.15, 0.37, -0.01);                                      // 서랍 안쪽(틈 사이로 어둡게)
+  add(g, B(0.44, 0.06, 0.37), oak, 0.035, 0.03, -0.01);                                       // 서랍장 하단 받침
+  add(g, B(0.41, 0.62, 0.36), dark, 0.035, 0.37, -0.01);                                      // 서랍 안쪽(틈 사이로 어둡게)
   for (let i = 0; i < 3; i++) {                                                              // 흰 서랍 앞판 3단
     const fy = 0.075 + 0.1 + i * 0.21;
-    add(g, B(0.2, 0.2, 0.018), white, 0.15, fy, 0.199);
-    add(g, B(0.15, 0.007, 0.006), dark, 0.15, fy + 0.095, 0.21);                             // 윗면 손잡이 홈
+    for (const cx of [0.15, -0.07]) {                                                        // 서랍 2열 (옆으로 두 배)
+      add(g, B(0.2, 0.2, 0.018), white, cx, fy, 0.199);
+      add(g, B(0.15, 0.007, 0.006), dark, cx, fy + 0.095, 0.21);                             // 윗면 손잡이 홈
+    }
   }
   {   // 머그 텀블러(물): 크림색 몸통 + 아래로 좁아지는 하단 + 하늘색 뚜껑 링 + 베이지 손잡이 + 투명 빨대
     const tb = group(g, -0.12, 0.745, 0.0); tb.rotation.y = -0.6;
@@ -1657,34 +1660,9 @@ function drawMonitor(g, w, h) {
   }
 }
 
-// ── 소파 옆 캐리어 (크림색 하드케이스: 세로 리브 · 검정 모서리 보호대 · 트롤리 손잡이 · 4륜) ──
-{
-  const g = group(world, -2.85, 0, -1.68);                   // 소파 머리 쪽 끝(z≈-1.425) 바로 옆(소파에서 보아 오른쪽), 왼벽에 붙임. 앞면이 방 안쪽(+x)
-  const cream = new THREE.MeshStandardMaterial({ color:0xe9e1d0, roughness:0.45, metalness:0.02 });
-  const creamD = new THREE.MeshStandardMaterial({ color:0xddd4c1, roughness:0.5 });
-  const black = new THREE.MeshStandardMaterial({ color:0x1b1c1e, roughness:0.5 });
-  const D = 0.26, Hh = 0.62, Wd = 0.44, Y0 = 0.065;           // 깊이 · 높이 · 폭, 바닥에서 몸통까지
-  add(g, new RoundedBoxGeometry(D, Hh, Wd, 4, 0.022), cream, 0, Y0 + Hh / 2, 0);
-  for (let i = -3; i <= 3; i++) add(g, B(0.006, Hh - 0.1, 0.017), creamD, D / 2 + 0.001, Y0 + Hh / 2, i * 0.052);   // 세로 리브(앞면)
-  for (const sy of [-1, 1]) for (const sz of [-1, 1]) {                                                              // 검정 모서리 보호대 4곳
-    add(g, new RoundedBoxGeometry(0.036, 0.075, 0.075, 3, 0.008), black, D / 2 - 0.016, Y0 + Hh / 2 + sy * (Hh / 2 - 0.032), sz * (Wd / 2 - 0.032));
-  }
-  // 트롤리 손잡이(접힌 상태): 몸통 윗면 가운데에 기둥 2개 + 손잡이
-  add(g, B(0.05, 0.012, 0.2), black, 0, Y0 + Hh + 0.004, 0);
-  for (const sz of [-1, 1]) add(g, CYL(0.0065, 0.07, 10), black, 0, Y0 + Hh + 0.04, sz * 0.075);
-  add(g, new RoundedBoxGeometry(0.03, 0.022, 0.19, 3, 0.008), black, 0, Y0 + Hh + 0.082, 0);
-  // 바퀴 4개(스피너)
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const w = group(g, sx * (D / 2 - 0.05), 0, sz * (Wd / 2 - 0.05));
-    add(w, B(0.05, 0.026, 0.05), black, 0, Y0 - 0.008, 0);
-    const wh = add(w, CYL(0.027, 0.018, 16), mat(0x2b2d30, { roughness:0.7 }), 0, 0.027, 0); wh.rotation.x = Math.PI / 2;
-  }
-  tag(g, '보호자 캐리어', () => '소파 옆에 세워 둔 크림색 캐리어');
-}
-
 // ── 탁자 아래 캐리어 (산호빛 빨강 하드케이스, 서랍장 왼쪽 무릎 공간에 들어가 있음) ──
 {
-  const g = group(world, -1.5 - 0.19, 0, BACK_Z + 0.28 - 0.03);
+  const g = group(world, -1.5 - 0.40, 0, BACK_Z + 0.28 - 0.03);
   g.rotation.y = -Math.PI / 2;                                    // 앞면(+x 로컬)이 방 안쪽(+z)
   const red = new THREE.MeshStandardMaterial({ color:0xc2363f, roughness:0.42, metalness:0.02 });
   const redD = new THREE.MeshStandardMaterial({ color:0xa82c35, roughness:0.5 });
@@ -3015,27 +2993,29 @@ function rebuildTubes() {
   if (patientRig && patientRig.bones && patientRig.bones.RightForeArm) {
     // 팔 단면을 따라: 팔 바깥쪽 매트리스 → 팔 옆면을 타고 올라가 → 팔 위(IV 부위)로 걸침. 팔을 뚫지 않음
     const bl = n => headGroup.worldToLocal(patientRig.bones[n].getWorldPosition(new THREE.Vector3()));
-    const e = bl('RightForeArm'), w = bl('RightHand'), L = headGroup.worldToLocal(siteLead.clone());
+    const e = bl('RightForeArm'), w = bl('RightHand'), L = headGroup.worldToLocal(siteLead.clone()), sh = bl('RightArm');
     const sg = Math.sign(e.z - w.z) || -1;                         // 팔꿈치 쪽 방향(머리 쪽 = -z)
     const axisAt = z => { const t = (z - e.z) / ((w.z - e.z) || 1); return V(e.x + (w.x - e.x) * t, e.y + (w.y - e.y) * t, z); };
+    // 팔 중심선(IV 부위 → 팔꿈치 → 어깨)을 따라 s(m)만큼 간 점: 손을 침대 밖으로 뻗어 팔꿈치가 굽어도(몸부림) 위팔·소매 위로 라인이 이어지게 함
+    const A0 = axisAt(L.z), l1 = A0.distanceTo(e), l2 = Math.max(0.05, e.distanceTo(sh));
+    const chainAt = sv => sv <= l1 ? A0.clone().lerp(e, sv / (l1 || 1)) : e.clone().lerp(sh, (sv - l1) / l2);
     // 팔 표면(피부/소매)까지의 실제 거리를 각도별로 재서 그 바깥으로 라인을 지나가게 함 → 팔 속으로 파묻히지 않음
     const inCath = o => { for (let q = o; q; q = q.parent) if (q === ivCathG) return true; return false; };
     const rc = new THREE.Raycaster(); rc.far = 0.3;
-    const surf = (d, z) => {
-      const c = axisAt(z), axisW = headGroup.localToWorld(c.clone());
+    const surf = (d, sv) => {
+      const c = chainAt(sv), axisW = headGroup.localToWorld(c.clone());
       const a = d * Math.PI / 180, dirW = V(-Math.sin(a), Math.cos(a), 0).transformDirection(headGroup.matrixWorld);
       rc.set(axisW.clone().addScaledVector(dirW, 0.15), dirW.clone().negate());
       const h = rc.intersectObject(patientRig.root, true).filter(q => !inCath(q.object))[0];
       return h ? Math.min(0.09, Math.max(0.025, 0.15 - h.distance)) : 0.045;
     };
-    const onArm = (d, z) => { const c = axisAt(z), a = d * Math.PI / 180, R = surf(d, z) + 0.0065; return V(c.x - R * Math.sin(a), Math.max(0.006, c.y + R * Math.cos(a)), z); };
+    const onArm = (d, sv) => { const c = chainAt(sv), a = d * Math.PI / 180, R = surf(d, sv) + 0.0065; return V(c.x - R * Math.sin(a), Math.max(0.006, c.y + R * Math.cos(a)), c.z); };
     // 팔 위: 커넥터에서 팔 방향(팔꿈치 쪽)으로 꺾임 없이 쭉 피부 위를 따라감 → 팔꿈치 부근에서 팔 바깥 옆면으로 내려와 매트리스 → 3-way
-    const zs = s => L.z + sg * s;
     const loc = [];
-    const cEnd = axisAt(zs(0.19)), Rb = surf(100, zs(0.16)) + 0.007;
-    loc.push(V(cEnd.x - Rb - 0.09, 0.006, zs(0.24)), V(cEnd.x - Rb - 0.03, 0.006, zs(0.195)));
-    [[105, 0.165], [80, 0.155], [55, 0.145], [30, 0.135], [10, 0.125]].forEach(([d, sv]) => loc.push(onArm(d, zs(sv))));
-    [0.10, 0.075, 0.05, 0.03].forEach(sv => loc.push(onArm(0, zs(sv))));
+    const cEnd = chainAt(0.19), Rb = surf(100, 0.16) + 0.007, c24 = chainAt(0.24), c195 = chainAt(0.195);
+    loc.push(V(cEnd.x - Rb - 0.09, 0.006, c24.z), V(cEnd.x - Rb - 0.03, 0.006, c195.z));
+    [[105, 0.165], [80, 0.155], [55, 0.145], [30, 0.135], [10, 0.125]].forEach(([d, sv]) => loc.push(onArm(d, sv)));
+    [0.10, 0.075, 0.05, 0.03].forEach(sv => loc.push(onArm(0, sv)));
     loc.push(V(L.x, L.y, L.z));
     ivPath = [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, ...loc.map(q => headGroup.localToWorld(q)), site];
   } else {
