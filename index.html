@@ -1469,58 +1469,84 @@ function drawMonitor(g, w, h) {
   add(g, B(0.3, 0.1, 0.24), mat(0xe6d9c4, { roughness:0.95 }), -0.16, 0.25, -0.02);
   add(g, B(0.26, 0.2, 0.2), mat(0x5b6b7a, { roughness:0.8 }), 0.17, 0.59, -0.02);          // 가방
   add(g, B(0.22, 0.08, 0.16), mat(0xf4efe6, { roughness:0.9 }), 0.17, 0.12, -0.02);       // 수건
-  // 아래 2문: 경첩 문. 번호키 잠금장치로 잠그고 풀 수 있음 (잠겨 있으면 안 열림)
-  const wLock = { locked:true, open:false, busy:false };
-  const lowerDoors = [];
+  // 경첩 2문 + 번호키 잠금장치(흰색 본체, 검은 둥근 숫자 키 12개, 잠금/배터리/열림 LED, 열쇠 구멍). 잠겨 있으면 안 열림
   const dw = (W - 0.03) / 2;
   const metalM = mat(0xb8b2a6, { metalness:0.4, roughness:0.4 });
-  for (const sx of [-1, 1]) {
-    const piv = group(g, sx * (dw + 0.001), 0.06 + FH / 2, D / 2 - 0.011);                 // 경첩(바깥쪽 가장자리)
-    add(piv, B(dw - 0.004, FH - 0.02, 0.022), doorM, -sx * (dw / 2 - 0.002), 0, 0);
-    add(piv, B(0.014, 0.16, 0.018), metalM, -sx * (dw - 0.029), FH * 0.22, 0.019);
-    lowerDoors.push({ piv, sx, ang:0 });
-    piv.userData.action = () => {
-      if (wLock.busy) return;
-      if (wLock.locked) { toast('🔒 옷장이 잠겨 있습니다. 번호키 잠금장치를 눌러 푸세요.', '', 1800); return; }
-      wLock.open = !wLock.open; wLock.busy = true;
-      const from = lowerDoors[0].ang, to = wLock.open ? 1.7 : 0;
-      tween(0.7, p => { const a = from + (to - from) * ease(p); for (const d of lowerDoors) { d.ang = a; d.piv.rotation.y = d.sx * a; } }, () => { wLock.busy = false; });
+  const lockTex = canvasTex(300, 570, (c, w, h) => {
+    const bg = c.createLinearGradient(0, 0, w, 0); bg.addColorStop(0, '#f7f7f5'); bg.addColorStop(0.5, '#ffffff'); bg.addColorStop(1, '#efefec');
+    c.fillStyle = bg; c.beginPath(); c.roundRect(0, 0, w, h, 26); c.fill();
+    c.strokeStyle = '#d9d9d4'; c.lineWidth = 3; c.beginPath(); c.roundRect(26, 40, w - 52, h - 70, 14); c.stroke();
+    const labels = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+    labels.forEach((t, i) => {
+      const cx = w * (0.26 + (i % 3) * 0.24), cy = h * 0.14 + Math.floor(i / 3) * h * 0.115;
+      const g = c.createRadialGradient(cx - 6, cy - 8, 2, cx, cy, 30); g.addColorStop(0, '#3a3a3a'); g.addColorStop(1, '#0c0c0c');
+      c.fillStyle = g; c.beginPath(); c.arc(cx, cy, 29, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#f2f2f2'; c.font = 'bold 34px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, cx, cy + 2);
+    });
+    // 아이콘 줄: 자물쇠(잠김) · 배터리 · 열린 자물쇠 (LED는 따로 3D로 얹음)
+    c.fillStyle = '#222'; c.strokeStyle = '#222'; c.lineWidth = 3;
+    c.fillRect(w * 0.26 - 9, h * 0.605, 18, 13); c.beginPath(); c.arc(w * 0.26, h * 0.605, 6, Math.PI, 0); c.stroke();
+    c.strokeRect(w * 0.5 - 12, h * 0.598, 24, 13); c.fillRect(w * 0.5 + 12, h * 0.6, 3, 9); c.fillRect(w * 0.5 - 9, h * 0.6 + 2, 5, 7); c.fillRect(w * 0.5 - 2, h * 0.6 + 2, 5, 7);
+    c.fillRect(w * 0.74 - 9, h * 0.605, 18, 13); c.beginPath(); c.arc(w * 0.74 + 6, h * 0.605, 6, Math.PI, 0.3 * Math.PI, true); c.stroke();
+    // 열쇠 구멍 (은색 링)
+    const kx = w / 2, ky = h * 0.83;
+    const kg = c.createRadialGradient(kx - 8, ky - 10, 4, kx, ky, 46); kg.addColorStop(0, '#f4f4f4'); kg.addColorStop(0.6, '#a9a9a9'); kg.addColorStop(1, '#6e6e6e');
+    c.fillStyle = kg; c.beginPath(); c.arc(kx, ky, 46, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#4a4a4a'; c.beginPath(); c.arc(kx, ky, 30, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#c9c9c9'; c.beginPath(); c.arc(kx, ky, 17, 0, Math.PI * 2); c.fill();
+  }, 2);
+  // 번호키 잠금장치 만들기: 닫히는 쪽 문에 달고, 잠금/해제를 st.locked로 공유
+  const makeKeypadLock = (parent, x, y, st, name, doorTxt) => {
+    const lk = group(parent, x, y, 0.011);
+    const LW = 0.056, LH = LW * 570 / 300;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(LW, LH, 0.012), new THREE.MeshStandardMaterial({ color:0xf3f3f1, roughness:0.4 }));
+    body.position.z = 0.006; lk.add(body);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(LW, LH), new THREE.MeshStandardMaterial({ map:lockTex, roughness:0.35, transparent:true }));
+    face.position.z = 0.0122; lk.add(face);
+    const ledM = [0, 1, 2].map(() => new THREE.Mesh(new THREE.CircleGeometry(0.0022, 14), new THREE.MeshBasicMaterial({ color:0x333333 })));
+    ledM.forEach((m, i) => { m.position.set((i - 1) * LW * 0.48, LH * (0.5 - 0.645), 0.0126); lk.add(m); });
+    const setLook = () => { ledM[0].material.color.set(st.locked ? 0xe03a2f : 0x333333); ledM[1].material.color.set(0x7a6a1a); ledM[2].material.color.set(st.locked ? 0x333333 : 0x34c759); };
+    setLook();
+    lk.userData.action = () => {
+      if (st.busy) return;
+      if (!st.locked && st.open) { toast('문을 닫은 뒤에 잠가 주세요.', '', 1600); return; }
+      st.locked = !st.locked; setLook();
+      toast(st.locked ? `🔒 ${doorTxt}을(를) 잠갔습니다.` : `🔓 ${doorTxt} 잠금을 풀었습니다.`, '', 1500);
     };
-    tag(piv, sx < 0 ? '옷장 아래 문 (왼쪽)' : '옷장 아래 문 (오른쪽)', () => wLock.locked ? '잠김 · 번호키 잠금장치로 풀기' : (wLock.open ? '열림 · 클릭: 닫기' : '클릭: 열기'));
-    if (sx > 0) {                                                                           // 번호키 잠금장치 (오른쪽 문, 닫히는 쪽 가장자리)
-      const lk = group(piv, -(dw - 0.07), FH * 0.12, 0.011);
-      const silver = new THREE.MeshStandardMaterial({ color:0xcfcbb8, metalness:0.5, roughness:0.35 });
-      add(lk, B(0.056, 0.125, 0.012), silver, 0, 0, 0.006);
-      add(lk, CYL(0.021, 0.006, 24), mat(0xb7b4a4, { metalness:0.5, roughness:0.4 }), 0, 0.037, 0.0145).rotation.x = Math.PI / 2;
-      const tab = group(lk, 0, 0.037, 0.0185);
-      add(tab, B(0.034, 0.011, 0.004), mat(0x2f4a8f, { roughness:0.4 }), 0.004, 0, 0);          // 손잡이(Keyas)
-      add(tab, B(0.01, 0.011, 0.0045), mat(0xe8e8e8), -0.01, 0, 0);
-      const keyM = mat(0x23262a, { roughness:0.4 });
-      for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) add(lk, B(0.0135, 0.0095, 0.005), keyM, (c - 1) * 0.0165, 0.004 - r * 0.0135, 0.0145);   // 숫자 키패드
-      const led = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.004, 0.003), new THREE.MeshBasicMaterial({ color:0xe03a2f }));
-      led.position.set(-0.019, 0.056, 0.0135); lk.add(led);
-      const setLockLook = () => { tab.rotation.z = wLock.locked ? 0.55 : -0.55; led.material.color.set(wLock.locked ? 0xe03a2f : 0x34c759); };
-      setLockLook();
-      lk.userData.action = () => {
-        if (wLock.busy) return;
-        if (!wLock.locked && wLock.open) { toast('문을 닫은 뒤에 잠가 주세요.', '', 1600); return; }
-        wLock.locked = !wLock.locked; setLockLook();
-        toast(wLock.locked ? '🔒 옷장을 잠갔습니다.' : '🔓 옷장 잠금을 풀었습니다.', '', 1500);
+    tag(lk, name, () => st.locked ? '잠김 · 클릭: 풀기' : '열림 · 클릭: 잠그기');
+    return lk;
+  };
+  // 경첩 문 한 쌍 (y0: 문 가운데 높이, h: 문 높이)
+  const makeDoors = (y0, h, st, doorTxt, lockName, nameL, nameR, lockDy, handleDy) => {
+    const doors = [];
+    for (const sx of [-1, 1]) {
+      const piv = group(g, sx * (dw + 0.001), y0, D / 2 - 0.011);                           // 경첩(바깥쪽 가장자리)
+      add(piv, B(dw - 0.004, h, 0.022), doorM, -sx * (dw / 2 - 0.002), 0, 0);
+      add(piv, B(0.014, 0.16, 0.018), metalM, -sx * (dw - 0.029), handleDy, 0.019);
+      doors.push({ piv, sx, ang:0 });
+      piv.userData.action = () => {
+        if (st.busy) return;
+        if (st.locked) { toast(`🔒 ${doorTxt}이(가) 잠겨 있습니다. 번호키 잠금장치를 눌러 푸세요.`, '', 1800); return; }
+        st.open = !st.open; st.busy = true;
+        const from = doors[0].ang, to = st.open ? 1.7 : 0;
+        tween(0.7, p => { const a = from + (to - from) * ease(p); for (const d of doors) { d.ang = a; d.piv.rotation.y = d.sx * a; } }, () => { st.busy = false; });
       };
-      tag(lk, '옷장 번호키 잠금장치', () => wLock.locked ? '잠김 · 클릭: 풀기' : '열림 · 클릭: 잠그기');
+      tag(piv, sx < 0 ? nameL : nameR, () => st.locked ? '잠김 · 번호키 잠금장치로 풀기' : (st.open ? '열림 · 클릭: 닫기' : '클릭: 열기'));
+      if (sx > 0) makeKeypadLock(piv, -(dw - 0.07), lockDy, st, lockName, doorTxt);
     }
-  }
+  };
+  const wLock = { locked:true, open:false, busy:false };
+  makeDoors(0.06 + FH / 2, FH - 0.02, wLock, '아래 수납장', '아래 수납장 번호키 잠금장치', '옷장 아래 문 (왼쪽)', '옷장 아래 문 (오른쪽)', 0.1, 0.185);
   // 가운데: 상판 + 열린 선반 칸
   const TOP = 0.06 + FH + 0.04;
   add(g, B(W, 0.035, D), wood, 0, TOP, 0.0);
   add(g, B(W - 2 * T, T, D - 0.05), wood, 0, TOP + 0.3, -0.01);            // 위 수납장 바닥
-  // 위: 2문 수납장 (문 + 세로 손잡이)
+  // 위: 2문 수납장 (경첩 문 + 번호키 잠금장치)
   const C0 = TOP + 0.31, CH = H - T - C0;
-  for (const sx of [-1, 1]) {
-    const dw = (W - 0.03) / 2;
-    add(g, B(dw - 0.004, CH - 0.01, 0.022), doorM, sx * (dw / 2 + 0.003), C0 + CH / 2, D / 2 - 0.011);
-    add(g, B(0.014, 0.16, 0.018), mat(0xb8b2a6, { metalness:0.4, roughness:0.4 }), sx * 0.03, C0 + 0.25, D / 2 + 0.008);
-  }
+  add(g, B(0.3, 0.1, 0.22), mat(0xe6d9c4, { roughness:0.95 }), -0.17, C0 + 0.05, -0.02);          // 안쪽 수건·물품
+  add(g, B(0.26, 0.14, 0.2), mat(0x8fb0cf, { roughness:0.95 }), 0.17, C0 + 0.07, -0.02);
+  const uLock = { locked:true, open:false, busy:false };
+  makeDoors(C0 + CH / 2, CH - 0.01, uLock, '위 수납장', '위 수납장 번호키 잠금장치', '옷장 위 문 (왼쪽)', '옷장 위 문 (오른쪽)', -(CH - 0.01) * 0.28, -(CH - 0.01) * 0.12);
   // 선반 위 소품: 수건, 컵
   add(g, B(0.22, 0.05, 0.16), mat(0xe8dfd0, { roughness:0.9 }), -0.16, TOP + 0.045, 0.02);
   add(g, CYL(0.035, 0.09, 16), mat(0xffffff, { roughness:0.3 }), 0.18, TOP + 0.065, 0.05);
@@ -2644,6 +2670,7 @@ function updateMouth(dt) {
 // 누운 환자 배 납작하게: 원본 모델은 배가 크게 솟아 있어(복수 찬 것처럼) 옆에서 보면 허리가 휜 듯 보임 → 몸통 가운데 배 부분만 눌러 평평하게.
 // 스킨 메시의 현재(누운) 자세에서 월드 좌표로 배 부분 정점을 아래로 눌러, 그 변위를 바인드 좌표로 되돌려 지오메트리에 영구 반영
 // (이후 침상 머리를 올려도 몸통을 따라 자연스럽게 움직임)
+const ARM_PALM_SIGN = { Left: 1, Right: 1 };
 function flattenBelly(mesh, opts = {}) {
   const { yKnee = 0.9, press = 0.55, zFull = [-1.0, -0.6], zFade = [-1.14, -0.46], xHalf = 0.27 } = opts;
   mesh.updateWorldMatrix(true, false); mesh.skeleton.update();
@@ -2769,57 +2796,54 @@ function setupPatient(gltf) {
   root.updateMatrixWorld(true);
   root.traverse(o => { if (o.isSkinnedMesh) { try { rig.bellyMoved = flattenBelly(o); } catch (e) { console.warn('배 납작하게 실패', e); } } });
   root.updateMatrixWorld(true);
-  // 손: 배가 낮아져 손이 떠 보임 → 손목을 안쪽으로 모으고 손이 배 윗면에 얹히도록 손 각도를 숙임
+  // 팔 자세: 오른팔은 몸 옆 침대에 편하게 늘어뜨리고, 왼손은 배 위에 가볍게 올림 (힘이 들어간 느낌 제거)
   {
-    const rcB = new THREE.Raycaster(), X = V(1, 0, 0), Y = V(0, 1, 0);
+    const Xa = V(1, 0, 0), Ya = V(0, 1, 0);
     const wp = n => bones[n].getWorldPosition(new THREE.Vector3());
-    const belly = (x, z) => { rcB.set(V(x, 2, z), V(0, -1, 0)); const h = rcB.intersectObject(root, true)[0]; return h ? h.point.y : NaN; };
-    for (const side of ['Left', 'Right']) {
-      const sg = side === 'Left' ? 1 : -1;
-      // 손목이 몸 가운데 쪽으로 오도록 아래팔을 수직축으로 살짝 회전 (팔꿈치는 그대로)
-      {
-        let best = 0, bd = Infinity, cur = 0; const D = THREE.MathUtils.degToRad(4);
-        for (let k = -8; k <= 8; k++) {
-          boneWorldRot(rig, side + 'ForeArm', Y, (k * D) - cur); cur = k * D; root.updateMatrixWorld(true);
-          const e = wp(side + 'ForeArm'), h = wp(side + 'Hand');
-          const d = Math.abs(h.x - sg * 0.15) + (h.z < e.z ? 1 : 0);
-          if (d < bd) { bd = d; best = k * D; }
-        }
-        boneWorldRot(rig, side + 'ForeArm', Y, best - cur); root.updateMatrixWorld(true);
+    // 본 b가 자식 c를 향하는 방향이 dir이 되도록 회전
+    const aim = (b, c, dir) => {
+      const from = wp(c).sub(wp(b)).normalize(), to = dir.clone().normalize();
+      const ax = new THREE.Vector3().crossVectors(from, to); const sn = ax.length(), cs = from.dot(to);
+      if (sn < 1e-5) return;
+      boneWorldRot(rig, b, ax.divideScalar(sn), Math.atan2(sn, cs)); root.updateMatrixWorld(true);
+    };
+    // 손바닥이 아래를 향하도록 손 뼈를 손가락 축 둘레로 회전
+    const palmDown = (side, sgn) => {
+      const axis = wp(side + 'HandMiddle1').sub(wp(side + 'Hand')).normalize();
+      let best = 0, bd = -Infinity, cur = 0; const D = THREE.MathUtils.degToRad(10);
+      for (let k = 0; k < 36; k++) {
+        boneWorldRot(rig, side + 'Hand', axis, k ? D : 0); root.updateMatrixWorld(true);
+        const h = wp(side + 'Hand'), n = new THREE.Vector3().crossVectors(wp(side + 'HandIndex1').sub(h), wp(side + 'HandPinky1').sub(h)).normalize();
+        const sc = -n.y * sgn; if (sc > bd) { bd = sc; best = k; }
       }
-      // 손목이 배 윗면 위(+3 cm)에 오도록 위팔 전체를 어깨 기준으로 살짝 들어 올림 (손이 배 속으로 파고들지 않게)
-      for (let it = 0, acc = 0; it < 8; it++) {
-        const w = wp(side + 'Hand'), sh = wp(side + 'Arm'), b = belly(sg * 0.04, -0.7);
-        if (!isFinite(b)) break;
-        const dy = (b + 0.03) - w.y; if (dy < 0.003 || Math.abs(acc) > 0.45) break;
-        const ang = Math.atan2(dy, Math.max(0.1, Math.hypot(w.z - sh.z, w.y - sh.y))) * 0.9;
-        boneWorldRot(rig, side + 'Arm', X, ang); root.updateMatrixWorld(true); acc += ang;
-        if (wp(side + 'Hand').y < w.y) { boneWorldRot(rig, side + 'Arm', X, -2 * ang); root.updateMatrixWorld(true); acc -= 2 * ang; }
-      }
-      // 손가락이 목 쪽이 아니라 몸 안쪽·발 쪽(배 위)을 향하도록 손을 수직축으로 회전
-      {
-        let best = 0, bd = Infinity, cur = 0; const D = THREE.MathUtils.degToRad(5), tx = -sg * 0.55, tz = 0.835;
-        for (let k = -24; k <= 24; k++) {
-          boneWorldRot(rig, side + 'Hand', Y, (k * D) - cur); cur = k * D; root.updateMatrixWorld(true);
-          const w = wp(side + 'Hand'), m = wp(side + 'HandMiddle1'); const dx = m.x - w.x, dz = m.z - w.z, l = Math.hypot(dx, dz) || 1;
-          const d = 1 - (dx * tx + dz * tz) / l;
-          if (d < bd) { bd = d; best = k * D; }
-        }
-        boneWorldRot(rig, side + 'Hand', Y, best - cur); root.updateMatrixWorld(true);
-      }
-      // 손가락 마디가 배 윗면 + 2.5 cm에 오도록 손을 X축으로 숙임 (부호는 실제로 낮아지는 쪽을 선택)
-      for (let it = 0; it < 6; it++) {
-        const m = wp(side + 'HandMiddle1'), w = wp(side + 'Hand');
-        const b = belly(sg * 0.04, -0.7);   // 손이 없는 배 윗면 높이
-        if (!isFinite(b)) break;
-        const dy = m.y - (b + 0.045), L = Math.max(0.03, Math.abs(m.z - w.z));
+      boneWorldRot(rig, side + 'Hand', axis, (best - 35) * D); root.updateMatrixWorld(true);
+    };
+    // 오른팔(환자 Rt, −x): 몸 옆으로 쭉 내려 매트리스에 얹음
+    aim('RightArm', 'RightForeArm', V(-0.16, -0.22, 0.96));
+    aim('RightForeArm', 'RightHand', V(-0.14, -0.02, 1));
+    aim('RightHand', 'RightHandMiddle1', V(-0.12, -0.06, 1));
+    palmDown('Right', ARM_PALM_SIGN.Right);
+    // 왼팔(환자 Lt, +x): 아래팔을 배 위로 비스듬히 가로질러 올리고 손은 힘을 뺀 채 얹음
+    aim('LeftArm', 'LeftForeArm', V(0.38, 0.45, 0.8));
+    aim('LeftForeArm', 'LeftHand', V(-0.55, 0.42, 0.72));
+    aim('LeftHand', 'LeftHandMiddle1', V(-0.45, -0.18, 0.88));
+    palmDown('Left', ARM_PALM_SIGN.Left);
+    // 팔 전체를 어깨 기준으로 돌려 매트리스(오른팔)/배(왼팔)에 살짝 닿는 높이로 맞춤
+    const rcB = new THREE.Raycaster();
+    const surf = (x, z) => { rcB.set(V(x, 2, z), V(0, -1, 0)); const h = rcB.intersectObject(root, true)[0]; return h ? h.point.y : NaN; };
+    for (const side of ['Right', 'Left']) {
+      for (let it = 0; it < 8; it++) {
+        const pts = ['ForeArm', 'Hand', 'HandMiddle1'].map(n => wp(side + n));
+        const sh = wp(side + 'Arm');
+        let dy;
+        if (side === 'Right') dy = 0.792 - Math.min(...pts.map(q => q.y));        // 가장 낮은 점이 매트리스(0.75) 위 4 cm
+        else dy = (surf(0.04, -0.7) + 0.03) - pts[1].y;                              // 손목이 배 윗면 + 3 cm
         if (Math.abs(dy) < 0.004) break;
-        const ang = Math.atan2(dy, L) * 0.9;
-        boneWorldRot(rig, side + 'Hand', X, ang); root.updateMatrixWorld(true);
-        const m2 = wp(side + 'HandMiddle1');
-        if (Math.abs(m2.y - (b + 0.045)) > Math.abs(dy)) { boneWorldRot(rig, side + 'Hand', X, -2 * ang); root.updateMatrixWorld(true); }
+        const far = Math.max(0.1, Math.hypot(pts[1].z - sh.z, pts[1].y - sh.y));
+        boneWorldRot(rig, side + 'Arm', Xa, -Math.atan2(dy, far) * 0.9); root.updateMatrixWorld(true);
       }
     }
+    rig.armPoseDone = true;
   }
   // 베개: 뒤통수에 닿도록 위치와 높이 맞춤
   {
