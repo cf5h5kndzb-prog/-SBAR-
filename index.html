@@ -3850,6 +3850,7 @@ function boneWorldRot(r, name, axis, ang) {
 }
 // 상의를 걷어 올린 상태(E2 교정 장면)에서는 왼손이 배 가운데 접힌 자락 아래로 파묻혀 보임 → 그동안만 왼팔을 몸 바깥쪽(매트리스 위)으로 살짝 벌려 손이 보이게 함
 const LA = (() => { const q = new URLSearchParams(location.search).get('la'); const v = q ? q.split(',').map(Number) : [0.55, 0, 0]; return { yaw:v[0], pitch:v[1], fore:v[2] }; })();   // 기본: 왼팔을 바깥쪽으로 0.55 rad
+const RA = (() => { const q = new URLSearchParams(location.search).get('ra'); return q ? q.split(',').map(Number) : [0.6, -0.3]; })();
 function applyLiftArm(r) {
   const w = r.liftW || 0;
   const on = w > 0.002;
@@ -3912,8 +3913,8 @@ function updateUnrest(r, dt) {
   // 배 위 오른손: 움켜쥐었다 놓았다 (아래팔 굽힘) / 콜벨을 찾을 땐 팔을 Rt. 바깥(침대 밖)으로 뻗음
   boneWorldRot(r, 'RightForeArm', AXx, -L * (1 - R) * (0.3 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2.6))));   // 음수 = 손이 배 위로 들림(양수였을 땐 손이 배·옷 속으로 파묻힘)
   boneWorldRot(r, 'LeftForeArm', AXx, -L * (0.4 + 0.35 * (0.5 + 0.5 * Math.sin(t * 2.1 + 2))));          // 왼손도 배 위로 움찔 (파묻히지 않게 위로)
-  boneWorldRot(r, 'RightArm', AY, -0.95 * R);
-  boneWorldRot(r, 'RightArm', AX, 0.35 * R);
+  boneWorldRot(r, 'RightArm', AY, -RA[0] * R);                        // 콜벨 찾기: 팔을 난간 쪽으로 뻗되, 매트리스 아래로 처지지 않게 들어 올림
+  boneWorldRot(r, 'RightArm', AX, RA[1] * R);
   // 다리: 침대 밖으로 내리지 않고, 누운 채 무릎을 번갈아 세웠다 폈다 + 발목을 꼼지락 (통증으로 가만히 있지 못함)
   const kneeR = L * 0.75 * smooth01(0.5 + 0.9 * Math.sin(t * 0.75));
   const kneeL = L * 0.65 * smooth01(0.5 + 0.9 * Math.sin(t * 0.75 + Math.PI));
@@ -4423,7 +4424,12 @@ phoneRing.loop = true; phoneRing.preload = 'auto'; phoneRing.volume = 0.7;
 let phoneRingRetryAt = 0;
 function updateProps(dt) {
   if (!phoneMats.length) return;
-  const blink = state.phase === 'running' && !state.phoneCalled && state.t >= 300;   // 출혈 악화(5분) 이후
+  const reportDue = state.phase === 'running' && state.allResolved && !sbar.done;   // 오류를 다 판단했는데 SBAR 보고 전 → 전화기를 다시 울려 유도 (창을 닫아도 보고 완료 전까지 계속)
+  const blink = state.phase === 'running' && (reportDue ? $('sbar').hidden : (!state.phoneCalled && state.t >= 300));   // 출혈 악화(5분) 이후 또는 보고 유도 시
+  if (reportDue && $('sbar').hidden && performance.now() - (state.rptNudgeAt || 0) > 30000) {
+    state.rptNudgeAt = performance.now();
+    toast('📞 아직 SBAR 보고를 하지 않았습니다. 깜빡이는 병동 전화기를 눌러 담당의에게 보고하세요.', '', 4500);
+  }
   const k = blink ? 0.5 + 0.5 * Math.sin(performance.now() / 1000 * Math.PI * 3) : 0;
   for (const m of phoneMats) m.emissiveIntensity = k * 0.9;
   if (blink) {
@@ -5019,6 +5025,7 @@ function sendSbar() {
   toast('📞 담당의: ' + SBAR_OK_REPLY, 'good', 3600);
   $('sbarSend').disabled = true;
   setTimeout(closeSbar, 2600);
+  if (state.allResolved) setTimeout(() => end('complete'), 3200);   // 오류 판단을 모두 마친 상태에서 보고까지 끝났으면 종료
 }
 function resetSbar() {
   Object.assign(sbar, { built:false, openAt:0, firstAt:null, tries:0, done:false, secs:null, snap:null, asked:[], last:null });
@@ -5044,7 +5051,7 @@ function judge(o, id, op) {
     feed('✘ ' + escapeHtml(o.userData.label) + ': 근거 오류 ("' + escapeHtml(op.t) + '")', 'alert');
     toast('판단 근거가 맞지 않아 이 오류는 인정되지 않습니다. (−2점)', 'alert', 2600);
     renderList();
-    if (state.found.size + state.wrong.size === ERRORS.length) end('complete');
+    if (state.found.size + state.wrong.size === ERRORS.length) allErrorsResolved();
   } else {
     feed('✘ ' + escapeHtml(o.userData.label) + ': 이상 없음 (오답)', 'alert');
     toast(`"${o.userData.label}"은(는) 이상이 없어 보입니다. (−2점)`, '', 1800);
@@ -5067,7 +5074,7 @@ function foundError(id) {
     feed('✔ 낙상 위험 상황 대응: 난간을 올리고 콜벨을 손 닿는 곳에 두었습니다.', 'good');
   }
   renderList();
-  if (state.found.size + state.wrong.size === ERRORS.length) end('complete');
+  if (state.found.size + state.wrong.size === ERRORS.length) allErrorsResolved();
 }
 
 /* PC 입력: 클릭/드래그 구분 */
@@ -5363,7 +5370,7 @@ function start() {
   stopVoice();
   state.practice = document.querySelector('input[name=mode]:checked').value === 'free';
   Object.assign(state, { phase:'running', t:0, misses:0, hints:0, fallRisk:false, fallRiskFixed:false, severeOn:false, painUnrest:false, bleedHold:null });
-  state.found.clear(); state.wrong.clear(); closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
+  state.found.clear(); state.wrong.clear(); state.allResolved = false; state.rptNudgeAt = 0; closeJudge(); resetSbar(); state.done.clear(); state.log.length = 0;
   guardian.visible = false; guardianWalk = -1; guardianPoint = 0; bubble.visible = false; bubbleTTL = 0;   // 다시 시작하면 보호자는 아직 안 옴
   doorSt.t = 0; doorSlide.userData.panel.position.z = 0; curtainSt.target = 0; guardianSayPending = null;
   $('feed').innerHTML = '';
@@ -5378,6 +5385,15 @@ function start() {
 
 function calcScore() {
   return Math.max(0, Math.round(state.found.size / ERRORS.length * 100) - state.misses * 2 - state.hints * 3);
+}
+// 오류 8개를 모두 판단했을 때: SBAR 보고를 아직 안 했으면 바로 끝내지 않고 전화기로 보고하도록 유도 (보고 완료 또는 제한시간 중 먼저 오는 쪽에서 종료)
+function allErrorsResolved() {
+  if (state.phase !== 'running') return;
+  if (state.practice || sbar.done) { end('complete'); return; }
+  if (state.allResolved) return;
+  state.allResolved = true; state.rptNudgeAt = performance.now();
+  toast('✅ 모든 오류를 확인했습니다!\n이제 병동 전화기를 눌러 담당의에게 SBAR 보고를 하세요.', 'good', 7000);
+  feed('✅ 모든 오류 확인 완료 → 전화기로 담당의에게 SBAR 보고를 해 주세요 (보고를 마치면 종료됩니다)', 'good');
 }
 function end(reason) {
   if (state.phase !== 'running') return;
