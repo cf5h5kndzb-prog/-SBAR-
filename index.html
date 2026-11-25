@@ -1445,22 +1445,33 @@ function drawMonitor(g, w, h) {
     const W = 0.0675, T = 0.0125, Ln = 0.158;
     const frameM = new THREE.MeshStandardMaterial({ color:0x4f5a6b, metalness:0.75, roughness:0.32 });
     add(ph, new RoundedBoxGeometry(W, T, Ln, 4, 0.0055), frameM, 0, 0, 0);
+    // 커버 화면: 배경화면(카페 사진) + 상단 상태 표시줄 (왼쪽 시간 / 오른쪽 Wi-Fi · 통신 · 배터리 잔량 + 충전 중 번개)
+    const wallImg = new Image(); let wallOk = false;
     const scrTex = canvasTex(328, 804, (g, w, h) => {
-      g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h);
-      const gr = g.createRadialGradient(w / 2, h * 0.28, 10, w / 2, h * 0.28, h * 0.7); gr.addColorStop(0, 'rgba(48,82,140,0.55)'); gr.addColorStop(1, 'rgba(5,7,10,0)');
-      g.fillStyle = gr; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.font = `300 150px Arial, Helvetica, sans-serif`; g.fillText('10', w / 2, h * 0.24); g.fillText('00', w / 2, h * 0.38);
-      g.font = `32px ${FONT}`; g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillText('11월 12일 목요일', w / 2, h * 0.50);
-      // 배터리 + 번개: 충전 중
-      const bx = w / 2 - 44, by = h * 0.66;
-      g.strokeStyle = '#7dffb0'; g.lineWidth = 6; g.strokeRect(bx, by, 80, 40); g.fillStyle = '#7dffb0'; g.fillRect(bx + 80, by + 11, 8, 18);
-      g.fillRect(bx + 6, by + 6, 38, 28);
-      g.fillStyle = '#05070a'; g.beginPath(); g.moveTo(bx + 52, by + 3); g.lineTo(bx + 34, by + 24); g.lineTo(bx + 46, by + 24); g.lineTo(bx + 38, by + 38); g.lineTo(bx + 60, by + 15); g.lineTo(bx + 48, by + 15); g.closePath(); g.fill();
-      g.fillStyle = '#7dffb0'; g.font = `bold 34px ${FONT}`; g.fillText('충전 중 · 47%', w / 2, h * 0.76);
-      g.fillStyle = 'rgba(255,255,255,0.6)'; g.font = `26px ${FONT}`; g.fillText('고속 충전 중 · 약 45분 남음', w / 2, h * 0.81);
-      g.fillStyle = '#0c0f14'; g.beginPath(); g.arc(w / 2, 34, 11, 0, 7); g.fill(); g.strokeStyle = '#2b3340'; g.lineWidth = 3; g.stroke();   // 전면 카메라 구멍
-    });
+      g.fillStyle = '#e9e4da'; g.fillRect(0, 0, w, h);
+      if (wallOk) g.drawImage(wallImg, 0, 0, w, h);
+      // 상태 표시줄은 밝은 하늘 위라 짙은 남색 글씨 (+ 살짝 흰 번짐으로 가독성)
+      const ink = '#16202e', cy = 30;
+      g.save(); g.shadowColor = 'rgba(255,255,255,0.7)'; g.shadowBlur = 5;
+      g.fillStyle = ink; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `bold 30px ${FONT}`; g.fillText('10:00', 22, cy);
+      // Wi-Fi
+      const wx = 168, wy = cy + 10; g.strokeStyle = ink; g.lineWidth = 3.4; g.lineCap = 'round';
+      for (const r of [17, 11, 5]) { g.beginPath(); g.arc(wx, wy, r, Math.PI * 1.22, Math.PI * 1.78); g.stroke(); }
+      g.fillStyle = ink; g.beginPath(); g.arc(wx, wy - 0.5, 2.4, 0, 7); g.fill();
+      // 통신 신호 막대
+      for (let i = 0; i < 4; i++) { const bh = 7 + i * 5; g.fillStyle = i < 3 ? ink : 'rgba(22,32,46,0.35)'; g.beginPath(); g.roundRect(196 + i * 7, cy + 12 - bh, 4.5, bh, 1.5); g.fill(); }
+      // 배터리 알약 (충전 중: 초록 채움 + 번개 + 잔량 숫자)
+      const bx = 238, by = cy - 14, bw = 72, bh2 = 28;
+      g.fillStyle = 'rgba(22,32,46,0.22)'; g.beginPath(); g.roundRect(bx, by, bw, bh2, 14); g.fill();
+      g.save(); g.beginPath(); g.roundRect(bx, by, bw, bh2, 14); g.clip();
+      const bg = g.createLinearGradient(bx, 0, bx + bw, 0); bg.addColorStop(0, '#19d28a'); bg.addColorStop(1, '#5fe3a8'); g.fillStyle = bg; g.fillRect(bx, by, bw * 0.47, bh2); g.restore();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(bx + 20, by + 4); g.lineTo(bx + 11, by + 16); g.lineTo(bx + 17, by + 16); g.lineTo(bx + 14, by + 25); g.lineTo(bx + 24, by + 12); g.lineTo(bx + 18, by + 12); g.closePath(); g.fill();   // 번개
+      g.fillStyle = ink; g.textAlign = 'left'; g.font = `bold 21px ${FONT}`; g.fillText('47', bx + 31, cy + 1);
+      g.restore();
+      g.fillStyle = '#0c0f14'; g.beginPath(); g.arc(w / 2 + 6, 20, 9, 0, 7); g.fill(); g.strokeStyle = '#2b3340'; g.lineWidth = 3; g.stroke();   // 전면 카메라 구멍
+    }, 2);
+    wallImg.onload = () => { wallOk = true; paint(scrTex); };
+    wallImg.src = 'phone_wallpaper.jpg';
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.0042, Ln - 0.0042), new THREE.MeshBasicMaterial({ map:scrTex, toneMapped:false }));
     scr.rotation.x = -Math.PI / 2; scr.position.y = T / 2 + 0.0004; ph.add(scr);
     add(ph, B(0.0016, 0.007, 0.024), frameM, W / 2 + 0.0004, 0, 0.022);      // 옆면 버튼
@@ -1479,27 +1490,42 @@ function drawMonitor(g, w, h) {
     const cm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.4), 90, 0.0021, 8, false), blk);
     cm.castShadow = true; world.add(cm); tag(cm, '충전 케이블', () => '충전기 → 폰 (연결됨)');
   }
-  // (4) 돋보기 안경: 방금 벗어 둔 듯 탁자 앞쪽 왼편에 비스듬히, 한쪽 다리는 펴고 한쪽은 접힌 채
+  // (4) 돋보기 안경: 방금 벗어 둔 듯 탁자 앞쪽 왼편에 비스듬히 세워 둠 (입체 테: 두께 있는 갈색 테 + 볼록 렌즈, 한쪽 다리는 펴고 한쪽은 접힌 채)
   {
-    const gl = group(world, TX - 0.13, TOP, TZ + 0.12);
+    const RX = 0.0235, RZ = 0.019, CXo = 0.037, TH = 0.0062, TW = 0.0024;     // 렌즈 반폭·반높이, 렌즈 중심 간격, 테 두께(앞뒤)·테 폭
+    const gl = group(world, TX - 0.13, TOP + RZ + TW, TZ + 0.12);              // 렌즈 아래 테가 탁자에 닿음
     gl.rotation.y = 0.55;
-    const fr = new THREE.MeshStandardMaterial({ color:0x3a2318, roughness:0.35, metalness:0.1 });
-    const lensM = new THREE.MeshStandardMaterial({ color:0xdcefff, roughness:0.05, metalness:0.0, transparent:true, opacity:0.22, side:THREE.DoubleSide, depthWrite:false });
-    const RX = 0.0235, RZ = 0.019, CXo = 0.037, TY = 0.0019;
+    const fr = new THREE.MeshStandardMaterial({ color:0x4a2a1a, roughness:0.28, metalness:0.12 });
+    const frD = new THREE.MeshStandardMaterial({ color:0x2b160d, roughness:0.35, metalness:0.1 });
+    const lensM = new THREE.MeshPhysicalMaterial({ color:0xe6f3ff, roughness:0.04, metalness:0, transparent:true, opacity:0.3, clearcoat:1, clearcoatRoughness:0.05, depthWrite:false });
     for (const sx of [-1, 1]) {
-      const ring = add(gl, new THREE.TorusGeometry(1, 0.0019, 8, 40), fr, sx * CXo, TY, 0); ring.rotation.x = Math.PI / 2; ring.scale.set(RX, RZ, 1);
-      const lens = add(gl, new THREE.CircleGeometry(1, 40), lensM, sx * CXo, TY, 0); lens.rotation.x = -Math.PI / 2; lens.scale.set(RX, RZ, 1);
-      add(gl, B(0.005, 0.004, 0.006), fr, sx * (CXo + RX + 0.001), TY, -0.004);                      // 힌지 블록
+      // 두께 있는 렌즈 테 (타원 고리를 앞뒤로 압출)
+      const sh = new THREE.Shape(); sh.absellipse(0, 0, RX + TW, RZ + TW, 0, Math.PI * 2, false, 0);
+      const hole = new THREE.Path(); hole.absellipse(0, 0, RX, RZ, 0, Math.PI * 2, true, 0); sh.holes.push(hole);
+      const rim = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth:TH, bevelEnabled:true, bevelSize:0.0006, bevelThickness:0.0006, bevelSegments:2, curveSegments:40 }), fr);
+      rim.position.set(sx * CXo, 0, -TH / 2); rim.castShadow = true; gl.add(rim);
+      // 볼록 렌즈 (얇은 타원체)
+      const lens = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), lensM);
+      lens.position.set(sx * CXo, 0, 0); lens.scale.set(RX + 0.0004, RZ + 0.0004, 0.0023); gl.add(lens);
     }
-    add(gl, B(0.016, 0.0028, 0.0045), fr, 0, TY + 0.003, -0.006);                                      // 코다리(브리지)
-    // 펼친 다리(오른쪽 렌즈 쪽): 뒤(-z)로 비스듬히
-    const tR = group(gl, CXo + RX + 0.001, TY, -0.004); tR.rotation.y = -0.22;
-    add(tR, B(0.0026, 0.0032, 0.125), fr, 0, 0, -0.0625);
-    add(tR, B(0.0034, 0.0042, 0.026), fr, 0, -0.0006, -0.113);
-    // 접힌 다리(왼쪽): 렌즈 위를 가로지름
-    const tL = group(gl, -(CXo + RX + 0.001), TY + 0.0028, -0.004); tL.rotation.y = -Math.PI / 2 + 0.06;
-    add(tL, B(0.0026, 0.0032, 0.12), fr, 0, 0, -0.06);
-    gl.rotation.z = 0.012;
+    // 코다리(브리지): 두 렌즈 사이를 잇는 굽은 가는 관 + 코받침
+    const bridge = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(-CXo + RX + TW * 0.6, 0.006, 0.0005), V(-0.007, 0.0105, 0.0016), V(0.007, 0.0105, 0.0016), V(CXo - RX - TW * 0.6, 0.006, 0.0005)]), 16, 0.0016, 8, false), fr);
+    gl.add(bridge);
+    for (const sx of [-1, 1]) add(gl, B(0.0028, 0.011, 0.0022), mat(0xe8eef0, { transparent:true, opacity:0.7, roughness:0.2 }), sx * (CXo - RX - 0.0012), -0.0025, -0.004);   // 코받침
+    // 힌지(경첩) 블록
+    const hx = CXo + RX + TW, hy = 0.008;
+    for (const sx of [-1, 1]) add(gl, B(0.0042, 0.0058, 0.0075), frD, sx * hx, hy, -0.0008);
+    // 펼친 다리(오른쪽): 뒤(-z)로 길게, 끝은 귀 뒤로 아래로 굽어 탁자에 닿음
+    const tR = group(gl, hx + 0.0006, hy, -0.0035); tR.rotation.y = -0.16; tR.rotation.x = -0.11;
+    add(tR, B(0.0026, 0.0046, 0.125), fr, 0, 0, -0.0625);
+    const tipR = group(tR, 0, 0, -0.123); tipR.rotation.x = -0.7;
+    add(tipR, B(0.0032, 0.0056, 0.026), frD, 0, 0, -0.012);
+    // 접힌 다리(왼쪽): 렌즈 뒤에서 안쪽(+x)으로 포개짐
+    const tL = group(gl, -(hx + 0.0006), hy, -0.0035); tL.rotation.y = -Math.PI / 2 + 0.05;
+    add(tL, B(0.0026, 0.0046, 0.12), fr, 0, 0, -0.06);
+    const tipL = group(tL, 0, 0, -0.118); tipL.rotation.x = -0.35;
+    add(tipL, B(0.0032, 0.0056, 0.024), frD, 0, 0, -0.011);
+    gl.rotation.x = -0.1;                                                    // 살짝 뒤로 기대어 앉음
     tag(gl, '돋보기 안경', () => '방금 벗어 둔 듯 탁자 위에 놓여 있음');
   }
 }
@@ -1533,6 +1559,7 @@ function drawMonitor(g, w, h) {
 {
   const g = group(world, -3 + 0.006, 1.52, 1.55);
   g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
+  g.scale.setScalar(5 / 3);                                    // 크기 2/3 키움
   const CW = 0.3, CH = 0.42;
   add(g, B(CW + 0.01, CH + 0.01, 0.006), mat(0xf4f4f0, { roughness:0.7 }), 0, 0, 0);
   const calTex = canvasTex(600, 840, (c, w, h) => {
@@ -1716,7 +1743,7 @@ function drawMonitor(g, w, h) {
   const upDoors = makeDoors(C0 + CH / 2, CH - 0.01, uLock, '위 수납장', '위 수납장 번호키 잠금장치', '옷장 위 문 (왼쪽)', '옷장 위 문 (오른쪽)', -(CH - 0.01) * 0.28, -(CH - 0.01) * 0.12);
   // 위 수납장 문 아래쪽에 붙인 안내 스티커: "개인약 임의복용 금지" (문과 함께 움직임)
   {
-    const pd = upDoors.find(d => d.sx > 0).piv, SW2 = 0.21, SH2 = 0.05;
+    const pd = upDoors.find(d => d.sx < 0).piv, SW2 = 0.31, SH2 = 0.31 * 200 / 840;   // 왼쪽 문, 글씨가 잘 보이도록 크게
     const stTex = canvasTex(840, 200, (c, w, h) => {
       c.fillStyle = '#b4513c'; c.beginPath(); c.roundRect(0, 0, w, h, 6); c.fill();
       c.fillStyle = 'rgba(255,255,255,0.06)'; c.fillRect(0, 0, w, h / 2);
@@ -1739,7 +1766,7 @@ function drawMonitor(g, w, h) {
       c.strokeStyle = '#c0392b'; c.lineWidth = 5; c.beginPath(); c.arc(fx + 56, fy - 52, 17, 0, 7); c.moveTo(fx + 47, fy - 61); c.lineTo(fx + 65, fy - 43); c.moveTo(fx + 65, fy - 61); c.lineTo(fx + 47, fy - 43); c.stroke();
     }, 2);
     const stk = new THREE.Mesh(new THREE.PlaneGeometry(SW2, SH2), new THREE.MeshStandardMaterial({ map:stTex, roughness:0.5, polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-1 }));
-    stk.position.set(-(dw / 2 - 0.002), -(CH - 0.01) / 2 + 0.05, 0.0116); pd.add(stk);
+    stk.position.set(dw / 2 - 0.002, -(CH - 0.01) / 2 + 0.06, 0.0116); pd.add(stk);
   }
   // 선반 위 소품: 수건, 컵
   add(g, B(0.22, 0.05, 0.16), mat(0xe8dfd0, { roughness:0.9 }), -0.16, TOP + 0.045, 0.02);
@@ -2001,14 +2028,14 @@ ivCathG.add(ivSite, ivSiteLead);
     g.fillStyle = '#fbfbf8'; g.fillRect(0, 0, w, h);
     g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4);
     g.fillStyle = '#1d2f8c'; g.font = `bold 76px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('11/12', w / 2, h * 0.30);                               // IV 삽입일 = 수술 당일(2026-11-12)
+    g.fillText('12/8', w / 2, h * 0.30);                                // IV 삽입일 12/8
     g.fillText('20G', w / 2, h * 0.74);
   }, 2);
   const tape = curved(0.04, 0.024, -0.047, new THREE.MeshStandardMaterial({ map:tapeTex, roughness:0.8 }), 0.0055);
   // 파란 커넥터 + 흰 클램프
   add(ivCathG, CYL(0.0036, 0.016, 14), mat(0x1f5fd1, { roughness:0.35 }), 0, 0.004, -0.073).rotation.x = Math.PI / 2;
   add(ivCathG, B(0.009, 0.004, 0.006), mat(0xf5f5f2), 0, 0.0045, -0.062);
-  tag(ivCathG, 'IV 카테터 (Rt. wrist)', () => 'Rt. 손목 IV 20G (11/12 삽입) 유지 중 · 투명 드레싱 깨끗함');
+  tag(ivCathG, 'IV 카테터 (Rt. wrist)', () => 'Rt. 손목 IV 20G (12/8 삽입) 유지 중 · 투명 드레싱 깨끗함');
 }
 
 // 복부 dressing (E2) — JP 삽입 부위 (환자 오른쪽 = -x)
@@ -2074,13 +2101,20 @@ tag(railR, '침상 난간 (Rt.)', () => railR.userData.up ? '올려져 있음' :
   railR.add(hb);
 }
 
-// 환자용 침대 조절 리모컨: 침대 오른쪽(+x) 뒷벽에 단 흰 거치대에 꽂혀 있고, 코일선이 침대 옆 프레임 커넥터로 이어짐
+// 환자용 침대 조절 리모컨: 벽이 아니라 침대 프레임에서 올라온 고정관(금속 지지대) 끝의 거치대에 꽂혀 있고, 코일선이 침대 옆 프레임 커넥터로 이어짐
 {
-  const WX = 0.64, WY = 0.93, WZ = BACK_Z;                         // 거치대 중심(월드), 앞면이 방 안쪽(+z)
+  const WX = 0.575, WY = 0.97, WZ = -1.62;                         // 거치대 중심(월드), 앞면이 발치 쪽(+z)
   const g = group(world, WX, WY, WZ);
   const bodyM = mat(0xefece4, { roughness:0.55 });
   const holdM = mat(0xe2e2dc, { roughness:0.5 });
-  add(g, B(0.084, 0.17, 0.008), holdM, 0, -0.01, 0.004);                                           // 벽 고정판
+  add(g, B(0.084, 0.17, 0.008), holdM, 0, -0.01, 0.004);                                           // 거치대 뒤판
+  // 침대 프레임에서 올라온 고정관: 프레임 클램프 → 수직 금속관 → 거치대 뒤판 아래 조임쇠
+  const steel = mat(0xa9b1b6, { metalness:0.55, roughness:0.35 });
+  const pipeH = WY - 0.585 - 0.05;
+  add(g, CYL(0.0105, pipeH), steel, 0, -0.09 - pipeH / 2 + 0.02, -0.0105);
+  add(g, B(0.05, 0.04, 0.05), mat(0x2b3136, { roughness:0.6 }), 0, 0.585 - WY, -0.0105);              // 프레임 클램프
+  add(g, CYL(0.016, 0.03), steel, 0, -0.085, -0.0105);                                             // 뒤판 아래 조임쇠
+  add(g, B(0.03, 0.02, 0.014), steel, 0, -0.07, -0.0035);
   add(g, B(0.007, 0.115, 0.036), holdM, -0.0385, -0.035, 0.026);                                   // 양옆 가이드
   add(g, B(0.007, 0.115, 0.036), holdM, 0.0385, -0.035, 0.026);
   for (const sx of [-1, 1]) add(g, B(0.028, 0.012, 0.036), holdM, sx * 0.0255, -0.098, 0.026);     // 아래 받침 턱(가운데는 코드가 나오는 틈)
@@ -2105,8 +2139,8 @@ tag(railR, '침상 난간 (Rt.)', () => railR.userData.up ? '올려져 있음' :
   const face = new THREE.Mesh(new THREE.PlaneGeometry(0.058, 0.18), new THREE.MeshStandardMaterial({ map:tex, roughness:0.55 }));
   face.position.set(0, 0, 0.0122); rem.add(face);
   // 코일선: 리모컨 아래 → 아래로 처지며 → 침대 옆 프레임 바(y≈0.585, x≈0.49)의 작은 커넥터
-  const S = V(WX, WY + 0.003 - 0.096, WZ + 0.021), E = V(0.505, 0.585, -1.40);
-  const path = new THREE.CatmullRomCurve3([S, V(WX, 0.79, WZ + 0.022), V(WX - 0.015, 0.70, -1.90), V(0.60, 0.635, -1.80), V(0.56, 0.60, -1.62), V(0.525, 0.59, -1.48), E], false, 'catmullrom', 0.5);
+  const S = V(WX, WY + 0.003 - 0.096, WZ + 0.021), E = V(0.505, 0.585, -1.40);   // (고정관 앞쪽으로 늘어져 내려옴)
+  const path = new THREE.CatmullRomCurve3([S, V(WX + 0.012, 0.86, WZ + 0.05), V(WX + 0.03, 0.76, WZ + 0.12), V(WX + 0.025, 0.68, WZ + 0.2), V(0.55, 0.625, -1.44), E], false, 'catmullrom', 0.5);
   const pts = [], turns = 26, per = 10, rc = 0.0095;
   for (let i = 0; i <= turns * per; i++) {
     const t = i / (turns * per), c0 = path.getPointAt(t), T = path.getTangentAt(t);
@@ -2117,7 +2151,7 @@ tag(railR, '침상 난간 (Rt.)', () => railR.userData.up ? '올려져 있음' :
   const coil = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, 0.0024, 5, false), new THREE.MeshStandardMaterial({ color:0xd6d9d9, roughness:0.5 }));
   coil.castShadow = false; world.add(coil);
   add(world, B(0.03, 0.03, 0.04), mat(0x2b3136, { roughness:0.6 }), 0.52, 0.585, -1.40);            // 침대 쪽 커넥터
-  tag(g, '침대 조절 리모컨 (환자용)', () => '등받이 · 무릎 · 높이 ▲▼ · 침대 오른쪽 벽 거치대에 꽂혀 있음');
+  tag(g, '침대 조절 리모컨 (환자용)', () => '등받이 · 무릎 · 높이 ▲▼ · 침대 프레임의 고정관 거치대에 꽂혀 있음');
 }
 
 // call bell (E8: 바닥에 떨어짐)
@@ -2540,15 +2574,29 @@ const BULB_POS = V(-0.517, 0.5 + BED_LIFT - 0.03, -0.62);  // 오류: Rt. 난간
 const BULB_FIX_POS = V(-0.37, 0.75 + 0.058, -0.56);      // 교정: 매트리스 위 환자 Rt. 옆구리 옆에 눕힘 (환의에 클립 고정)
 const BULB_FIX_ROT = -Math.PI / 2;                       // 눕힘: 마개가 머리 쪽(클립 쪽), 눈금 면이 위
 let jpClipPt = null;                                    // 환의 클립 위치 (교정 후)
+// 비운 뒤 새로 고이는 배액: 10분(시뮬 600초)에 5 mL 정도로 아주 천천히 붉게 차오름
+let jpFillT0 = null;
+const JP_FILL_ML = 5, JP_FILL_SEC = 600;
+const jpMl = () => jpFillT0 == null ? 0 : Math.max(0, Math.min(JP_FILL_ML, (state.t - jpFillT0) * JP_FILL_ML / JP_FILL_SEC));
 const bulb = group(world, BULB_POS.x, BULB_POS.y, BULB_POS.z);
 {
   const shell = add(bulb, SPH(0.058), mat(0xffffff, { transparent:true, opacity:0.4 }));
   const fluid = add(bulb, SPH(0.046), mat(0xb3001b));
   fluid.scale.set(1, 0.55, 1); fluid.position.y = -0.012;
   add(bulb, CYL(0.012, 0.03), mat(0xdddddd), 0, 0.06, 0);
-  hitSphere(bulb, 0, 0, 0, 0.1, 'JP bulb', 'E3', () => bulb.userData.fixed ? 'JP bulb: 비우고 압축(음압 유지) · 환의에 클립 고정' : 'JP bulb: 혈성 배액으로 가득 차 부풀어 있음(음압 없음) · 침대 옆에 매달림');
+  const jpTxt = () => bulb.userData.fixed ? `JP bulb: 비우고 압축(음압 유지) · 환의에 클립 고정${jpMl() > 0.05 ? ` · 비운 뒤 혈성 배액 약 ${jpMl().toFixed(1)} mL (10분에 약 5 mL)` : ''}` : 'JP bulb: 혈성 배액으로 가득 차 부풀어 있음(음압 없음) · 침대 옆에 매달림';
+  hitSphere(bulb, 0, 0, 0, 0.1, 'JP bulb', 'E3', jpTxt);
   bulb.userData.err = 'E3'; bulb.userData.label = 'JP bulb';
-  bulb.userData.read = () => bulb.userData.fixed ? 'JP bulb: 비우고 압축(음압 유지) · 환의에 클립 고정' : 'JP bulb: 혈성 배액으로 가득 차 부풀어 있음(음압 없음) · 침대 옆에 매달림';
+  bulb.userData.read = jpTxt;
+}
+// 압축된 bulb 안쪽 바닥(눕혔을 때 아래쪽 면)에 고이는 붉은 배액: 양에 따라 천천히 번짐
+const jpPool = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), new THREE.MeshStandardMaterial({ color:0x9d0014, roughness:0.22, metalness:0.05, transparent:true, opacity:0.92 }));
+jpPool.position.set(0, -0.03, -0.037); jpPool.visible = false; jpPool.castShadow = false; bulb.add(jpPool);
+function updateJpPool() {
+  const ml = jpMl();
+  if (!(bulb.userData.fixed && ml > 0.02)) { jpPool.visible = false; return; }
+  const k = Math.cbrt(ml / JP_FILL_ML);                      // 부피에 비례해 커짐
+  jpPool.visible = true; jpPool.scale.set(0.026 * k + 0.002, 0.034 * k + 0.002, 0.0042 * k + 0.0008);
 }
 // 환의 고정 클립 (교정 후에만 보임): 흰 플라스틱 클립
 const jpClip = group(world);
@@ -2770,8 +2818,18 @@ function rebuildTubes() {
   const cp = new THREE.Vector3(); cuff.getWorldPosition(cp);
   const port = monPort.getWorldPosition(new THREE.Vector3());
   const hgAt = (x, y, z) => headGroup.localToWorld(V(x, y - HINGE.y - BED_LIFT, z - HINGE.z));          // 평평할 때의 월드 좌표 → 침상 머리와 함께 움직이는 점
-  if (cuff.userData.side === 'L') setTube(cuffTube, [cp, hgAt(0.41, 0.95, -1.18), V(0.48, 1.165, -1.2), V(0.56, 1.1, -1.24), V(0.64, 0.98, -1.34), V(0.78, 0.95, -1.5), port]);   // Lt. 침상 난간(윗면 y≈1.08) 위로 넘어 바깥으로 내려감
-  else setTube(cuffTube, [cp, hgAt(-0.39, 0.775, -1.1), hgAt(-0.37, 0.768, -1.5), hgAt(-0.3, 0.766, -1.74), hgAt(0, 0.766, -1.78), hgAt(0.3, 0.766, -1.76), hgAt(0.46, 0.775, -1.72), V(0.7, 1.0, -1.7), port]);   // 매트리스 위에 딱 붙어 베개 뒤(머리맡)를 지나 모니터로 (침상 머리를 올려도 따라 올라감)   // 침상 머리를 올려도(E7) 매트리스·베개를 뚫지 않게 침상 머리 따라 올라감
+  const cuffL = [cp, hgAt(0.41, 0.95, -1.18), V(0.48, 1.165, -1.2), V(0.56, 1.1, -1.24), V(0.64, 0.98, -1.34), V(0.78, 0.95, -1.5), port];   // Lt. 침상 난간(윗면 y≈1.08) 위로 넘어 바깥으로 내려감
+  const cuffR = [cp, hgAt(-0.39, 0.775, -1.1), hgAt(-0.37, 0.768, -1.5), hgAt(-0.3, 0.766, -1.74), hgAt(0, 0.766, -1.78), hgAt(0.3, 0.766, -1.76), hgAt(0.46, 0.775, -1.72), V(0.7, 1.0, -1.7), port];   // 매트리스 위에 딱 붙어 베개 뒤(머리맡)를 지나 모니터로 (침상 머리를 올려도 따라 올라감)
+  // 커프를 옮기는 동안(E6)에는 호스도 커프와 함께 Lt. 경로 → Rt. 경로로 서서히 바뀜 (호스가 먼저 가 있고 커프가 뒤따르지 않게)
+  {
+    const sw = cuff.userData.swapW !== undefined ? cuff.userData.swapW : (cuff.userData.side === 'R' ? 1 : 0);
+    if (sw <= 0) setTube(cuffTube, cuffL);
+    else if (sw >= 1) setTube(cuffTube, cuffR);
+    else {
+      const pl = new THREE.CatmullRomCurve3(cuffL, false, 'catmullrom', 0.5).getPoints(28), pr = new THREE.CatmullRomCurve3(cuffR, false, 'catmullrom', 0.5).getPoints(28);
+      setTube(cuffTube, pl.map((q, i) => q.clone().lerp(pr[i], sw)));
+    }
+  }   // 침상 머리를 올려도(E7) 매트리스·베개를 뚫지 않게 침상 머리 따라 올라감
   // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
   if (patientRig && patientRig.spo2) {
     const r = patientRig;
@@ -3099,17 +3157,18 @@ function setupPatient(gltf) {
     const bellyTab = {};
     for (const gx of [0, 0.05, 0.1, 0.15, 0.2, 0.25]) for (const gz of [-1.0, -0.9, -0.8, -0.7, -0.6]) bellyTab[gx + '_' + gz] = surf(gx, gz);
     const bellyAt = (x, z) => {
-      const gx = Math.max(0, Math.min(0.25, Math.round(x / 0.05) * 0.05)), gz = Math.max(-1.0, Math.min(-0.6, Math.round(z / 0.1) * 0.1));
+      const gx = Math.max(0, Math.min(0.1, Math.round(x / 0.05) * 0.05)),   /* x>0.1은 측정 당시 팔이 겹쳐 높게 나옴 → 배 중앙 값 */ gz = Math.max(-1.0, Math.min(-0.6, Math.round(z / 0.1) * 0.1));
       const v = bellyTab[(+gx.toFixed(2)) + '_' + (+gz.toFixed(1))]; return isFinite(v) ? v : 0.88;
     };
-    aim('LeftArm', 'LeftForeArm', V(0.14, -0.08, 0.99));
-    for (let it = 0; it < 8; it++) {                                      // 팔꿈치(중심)가 매트리스 위 5.5 cm에 놓이도록 위팔을 어깨 기준으로 회전
-      const el = wp('LeftForeArm'), sh = wp('LeftArm'), dy = 0.805 - el.y;
+    // 위팔은 몸 옆(가운 위)에 얹고 팔꿈치는 몸통 옆면 높이, 아래팔은 완만하게 올라가 손이 배 위에 납작하게 얹히도록 (손목 꺾임 최소화)
+    aim('LeftArm', 'LeftForeArm', V(0.22, 0.03, 0.97));
+    for (let it = 0; it < 8; it++) {                                      // 팔꿈치 높이를 몸통 옆면 높이로 맞춤
+      const el = wp('LeftForeArm'), sh = wp('LeftArm'), dy = 0.905 - el.y;
       if (Math.abs(dy) < 0.003) break;
       boneWorldRot(rig, 'LeftArm', Xa, -Math.atan2(dy, Math.max(0.1, Math.hypot(el.z - sh.z, el.y - sh.y))) * 0.9); root.updateMatrixWorld(true);
     }
     const el0 = wp('LeftForeArm');
-    aim('LeftForeArm', 'LeftHand', V(0.17, bellyAt(0.17, -0.76) + 0.01, -0.74).sub(el0));   // 출혈(오른쪽 윗배)에서 먼 아랫배 쪽
+    aim('LeftForeArm', 'LeftHand', V(0.12, bellyAt(0.12, -0.78) + 0.014, -0.78).sub(el0));   // 출혈(오른쪽 윗배)에서 먼 아랫배 쪽
     palmDown('Left', ARM_PALM_SIGN.Left);
     // 손(손목·손가락 중간)이 가운 윗면 아래로 파묻히면 아래팔을 조금씩 더 들어 올림
     for (let it = 0; it < 14; it++) {
@@ -3121,7 +3180,16 @@ function setupPatient(gltf) {
       boneWorldRot(rig, 'LeftForeArm', ax, THREE.MathUtils.degToRad(3)); root.updateMatrixWorld(true);
       if (wp('LeftHand').y < y0) { boneWorldRot(rig, 'LeftForeArm', ax, THREE.MathUtils.degToRad(-6)); root.updateMatrixWorld(true); }
     }
-    { const fd = wp('LeftHand').sub(wp('LeftForeArm')).normalize(); aim('LeftHand', 'LeftHandMiddle1', V(fd.x, fd.y * 0.15, fd.z)); }
+    // 손은 아래팔 방향을 대부분 이어 가되(꺾임 최소) 손끝이 배 윗면에서 크게 뜨지 않는 범위에서 가장 많이 이음
+    {
+      const fd = wp('LeftHand').sub(wp('LeftForeArm')).normalize(), h0 = wp('LeftHand');
+      let kk = 0.7;
+      for (; kk > 0.05; kk -= 0.1) {
+        const hd = V(fd.x, fd.y * kk, fd.z).normalize(), tip = h0.clone().addScaledVector(hd, 0.17), mid = h0.clone().addScaledVector(hd, 0.09);
+        if (tip.y - bellyAt(tip.x, tip.z) < 0.03 && mid.y - bellyAt(mid.x, mid.z) < 0.02) break;
+      }
+      aim('LeftHand', 'LeftHandMiddle1', V(fd.x, fd.y * Math.max(0.05, kk), fd.z));
+    }
     // 오른팔 전체를 어깨 기준으로 돌려 매트리스에 살짝 닿는 높이로 맞춤
     for (const side of ['Right']) {
       for (let it = 0; it < 8; it++) {
@@ -3194,30 +3262,38 @@ function setupPatient(gltf) {
       const u0 = V(0, 1, 0).transformDirection(G.matrixWorld);           // 위쪽
       const u1 = new THREE.Vector3().crossVectors(ax, u0).normalize();
       const rc = new THREE.Raycaster(), pts = [], N = 36;
-      for (let i = 0; i < N; i++) {
-        const t = i / N * Math.PI * 2;
-        const d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
-        // 손목 안(뼈 위치)에서 바깥으로 쏴서 처음 만나는 면 = 손목 피부 (몸통·옷에 걸리지 않게 가까운 거리만)
-        rc.set(c, d); rc.far = 0.05;
-        const h = rc.intersectObject(root, true)[0];
-        pts.push(h ? h.point.distanceTo(c) : NaN);
+      // 손목 단면의 실제 중심으로 옮겨(뼈 위치 대신) 띠가 한쪽으로 뜨지 않고 피부에 고르게 붙게 함
+      for (let it = 0; it < 3; it++) {
+        const hits = [];
+        for (let i = 0; i < 24; i++) {
+          const t = i / 24 * Math.PI * 2, d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
+          rc.set(c, d); rc.far = 0.05;
+          const h = rc.intersectObject(root, true)[0]; if (h) hits.push(h.point);
+        }
+        if (hits.length > 12) { const m = hits.reduce((q, w) => q.add(w), V(0, 0, 0)).multiplyScalar(1 / hits.length); m.addScaledVector(ax, -m.clone().sub(c).dot(ax)); c.copy(m); }
       }
-      const ok = pts.filter(r => isFinite(r)).sort((a, b) => a - b);
-      const med = ok.length ? ok[ok.length >> 1] : 0.028;
-      for (let i = 0; i < N; i++) {
-        const t = i / N * Math.PI * 2;
-        const d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
-        let r = pts[i]; if (!isFinite(r) || r > med * 1.5 || r < med * 0.5) r = med;
-        pts[i] = c.clone().addScaledVector(d, r + 0.0075);
-      }
-      // 너무 들쭉날쭉하지 않게 이웃 평균으로 다듬기
-      let sm = pts;
-      for (let pass = 0; pass < 3; pass++) { const src = sm; sm = src.map((p, i) => p.clone().add(src[(i + 1) % N]).add(src[(i + N - 1) % N]).multiplyScalar(1 / 3)); }
+      // 손목·아래팔은 팔꿈치 쪽으로 굵어지므로 띠의 양쪽 가장자리 반지름을 각각 재서 원뿔 모양으로 감음 (한쪽 가장자리가 피부에 파묻혀 찢어져 보이지 않게)
+      const ringR = cc => {
+        const rr = [];
+        for (let i = 0; i < N; i++) {
+          const t = i / N * Math.PI * 2, d = u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t));
+          rc.set(cc, d); rc.far = 0.06;
+          const h = rc.intersectObject(root, true)[0]; rr.push(h ? h.point.distanceTo(cc) : NaN);
+        }
+        const ok = rr.filter(r => isFinite(r)).sort((x, y) => x - y), med = ok.length ? ok[ok.length >> 1] : 0.028;
+        let sr = rr.map(r => (!isFinite(r) || r > med * 1.5 || r < med * 0.5) ? med : r);
+        for (let pass = 0; pass < 3; pass++) { const src = sr; sr = src.map((r, i) => (r + src[(i + 1) % N] + src[(i + N - 1) % N]) / 3); }
+        return sr;
+      };
+      const OFF = 0.0028, cA = c.clone().addScaledVector(ax, -width / 2), cB = c.clone().addScaledVector(ax, width / 2);
+      const rC = ringR(c), rA = ringR(cA), rB = ringR(cB);
+      const dirAt = i => { const t = i / N * Math.PI * 2; return u0.clone().multiplyScalar(Math.cos(t)).addScaledVector(u1, Math.sin(t)); };
+      const sm = rC.map((r, i) => c.clone().addScaledVector(dirAt(i), r + OFF));
       const pos = [], idx = [];
-      sm.forEach(p => {
-        const a = G.worldToLocal(p.clone().addScaledVector(ax, -width / 2)), b = G.worldToLocal(p.clone().addScaledVector(ax, width / 2));
-        pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
-      });
+      for (let i = 0; i < N; i++) {
+        const d = dirAt(i), pa = G.worldToLocal(cA.clone().addScaledVector(d, rA[i] + OFF)), pb = G.worldToLocal(cB.clone().addScaledVector(d, rB[i] + OFF));
+        pos.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
+      }
       for (let i = 0; i < N; i++) { const j = (i + 1) % N; idx.push(2 * i, 2 * j, 2 * i + 1, 2 * i + 1, 2 * j, 2 * j + 1); }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
@@ -4296,7 +4372,7 @@ const FIX = {
         bulb.position.y += 0.12 * Math.sin(Math.PI * e);   // 살짝 들어 올려 옮김
         bulb.rotation.x = BULB_FIX_ROT * e;                 // 옮기면서 옆으로 눕힘
         tubesDirty = true;
-      }, () => { bulb.position.copy(BULB_FIX_POS); bulb.rotation.x = BULB_FIX_ROT; tubesDirty = true; });
+      }, () => { bulb.position.copy(BULB_FIX_POS); bulb.rotation.x = BULB_FIX_ROT; tubesDirty = true; jpFillT0 = state.t; });   // 이때부터 새 배액이 천천히 고임
     };
     if (jpModels) {   // 3D 모델: 혈액이 찬 bulb를 눌러 혈액이 조금 남은 압축 bulb로 바꿈
       const { full, comp } = jpModels;
@@ -4313,16 +4389,16 @@ const FIX = {
     tween(0.8, p => setThreeWayHandle(Math.PI * (1 - ease(p))));   // 3-way 손잡이를 돌려 PCA 포트 열기
   },
   E6() {
-    cuff.userData.side = 'R';
+    cuff.userData.side = 'R'; cuff.userData.swapW = 0;       // 호스 경로는 커프 이동 진행도에 맞춰 Lt.→Rt.로 바뀜
     if (patientRig) {   // 3D 환자: 오른팔(위팔)로 옮겨 감기
       patientRig.cuffR.attach(cuff);
       if (cuff.userData.fitRadius) cuff.userData.fitRadius();   // 오른팔 굵기에 맞춰 다시 밀착
       const a = cuff.position.clone(), qa = cuff.quaternion.clone(), qb = new THREE.Quaternion();
-      tween(0.9, p => { const e = ease(p); cuff.position.lerpVectors(a, V(0, 0, 0), e); cuff.position.y += 0.14 * Math.sin(Math.PI * e); cuff.quaternion.slerpQuaternions(qa, qb, e); tubesDirty = true; }, () => { cuff.position.set(0, 0, 0); cuff.quaternion.identity(); tubesDirty = true; });
+      tween(0.9, p => { const e = ease(p); cuff.position.lerpVectors(a, V(0, 0, 0), e); cuff.position.y += 0.14 * Math.sin(Math.PI * e); cuff.quaternion.slerpQuaternions(qa, qb, e); cuff.userData.swapW = e; tubesDirty = true; }, () => { cuff.position.set(0, 0, 0); cuff.quaternion.identity(); cuff.userData.swapW = 1; tubesDirty = true; });
       return;
     }
     const a = cuff.position.clone(), b = V(-0.33, 0.05, -0.55);
-    tween(0.9, p => { const e = ease(p); cuff.position.lerpVectors(a, b, e); cuff.position.y = 0.05 + 0.14 * Math.sin(Math.PI * e); tubesDirty = true; }, () => { cuff.position.copy(b); tubesDirty = true; });
+    tween(0.9, p => { const e = ease(p); cuff.position.lerpVectors(a, b, e); cuff.position.y = 0.05 + 0.14 * Math.sin(Math.PI * e); cuff.userData.swapW = e; tubesDirty = true; }, () => { cuff.position.copy(b); cuff.userData.swapW = 1; tubesDirty = true; });
   },
   E7() {
     tween(1.4, p => { const e = ease(p); headGroup.rotation.x = e * (Math.PI / 6); hobDeg = Math.round(e * 30); tubesDirty = true; }, () => { hobDeg = 30; paint(hobTex); tubesDirty = true; });
@@ -5180,6 +5256,7 @@ function frame() {
 
   updateMonSound(Math.min(rawDt, 0.5));      // 프레임이 느려도 맥박 간격 유지
   updateDrip(dt);                            // 점적통 물방울
+  updateJpPool();                            // 비운 JP bulb에 천천히 고이는 붉은 배액
 
   // 활력징후(부드럽게 변화)
   const tg = targets();
