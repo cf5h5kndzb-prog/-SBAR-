@@ -682,75 +682,9 @@ setRoomLight(true); setBathLight(true);
   add(g, B(0.03, 0.95, 0.05), mat(0xf5f7f8), 0.03);
   tag(g, '창문', '');
 }
-// 크리스마스 장식 (창문, 12월 발표용): 창틀 위 솔잎 갈런드 3구간 + 크리스마스 볼 + 호랑가시 열매 + 작은 전구 + 빨간 리본, 유리에 눈송이 스티커
+// 창문 장식 (12월): 유리에 눈송이 스티커만 (솔잎 갈런드·볼·리본 장식은 제거함)
 {
   const g = group(world, -2.99, 1.55, -0.2);            // 창문과 같은 좌표 (+x = 방 안쪽, z = 창 가로)
-  const TOP = 0.52, X0 = 0.075;                         // 창틀 위쪽 높이, 벽에서 띄운 거리
-  // 매다는 점 4개 (양 끝 + 가운데 2곳), 그 사이로 늘어지는 줄
-  const hangZ = [-0.8, -0.27, 0.27, 0.8], SAG = 0.14;
-  const pts = [];
-  for (let i = 0; i < 3; i++) {
-    const za = hangZ[i], zb = hangZ[i + 1];
-    for (let k = 0; k < 8; k++) {
-      const t = k / 8, z = za + (zb - za) * t;
-      pts.push(V(X0 + 0.01 * Math.sin(t * Math.PI), TOP - SAG * Math.sin(t * Math.PI) ** 1.3, z));
-    }
-  }
-  pts.push(V(X0, TOP, hangZ[3]));
-  const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.3);
-  const core = new THREE.Mesh(new THREE.TubeGeometry(curve, 160, 0.022, 8, false), mat(0x1f4a2a, { roughness:0.9 }));
-  g.add(core);
-  // 솔잎: 가는 원뿔을 줄 둘레로 사방에 꽂음 (색을 조금씩 다르게)
-  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const N = 2200;
-  const needle = new THREE.ConeGeometry(0.0045, 0.06, 4); needle.translate(0, 0.03, 0);
-  const needles = new THREE.InstancedMesh(needle, new THREE.MeshStandardMaterial({ roughness:0.85 }), N);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = V(0, 1, 0), col = new THREE.Color();
-  for (let i = 0; i < N; i++) {
-    const t = rnd(), p = curve.getPointAt(t), tg = curve.getTangentAt(t);
-    const dir = V(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5); dir.sub(tg.clone().multiplyScalar(dir.dot(tg))).normalize();
-    dir.addScaledVector(tg, (rnd() - 0.3) * 0.8).normalize();
-    q.setFromUnitVectors(up, dir);
-    const sc = 0.7 + rnd() * 0.6;
-    m4.compose(p.clone().addScaledVector(dir, 0.012), q, V(sc, sc, sc));
-    needles.setMatrixAt(i, m4);
-    needles.setColorAt(i, col.setHSL(0.36 + rnd() * 0.05, 0.45 + rnd() * 0.2, 0.16 + rnd() * 0.12));
-  }
-  g.add(needles);
-  // 크리스마스 볼 (반짝이는 금속 느낌)
-  const ballCols = [0xd42a2a, 0x2a6fd4, 0xe6a21a, 0x2e9e4a, 0xd42a2a, 0xc9ccd2, 0xe6a21a, 0x2a6fd4, 0xd42a2a];
-  const ballT = [0.06, 0.15, 0.24, 0.39, 0.5, 0.61, 0.76, 0.85, 0.94];
-  ballT.forEach((t, i) => {
-    const p = curve.getPointAt(t);
-    const r = i % 3 === 1 ? 0.03 : 0.024;
-    const b = add(g, SPH(r), mat(ballCols[i], { metalness:0.55, roughness:0.22 }), p.x + 0.02, p.y - 0.045 - r, p.z);
-    add(g, CYL(0.006, 0.01, 8), mat(0xd9c27a, { metalness:0.7, roughness:0.3 }), p.x + 0.02, p.y - 0.045, p.z);   // 고리 캡
-    add(g, CYL(0.0012, 0.03, 4), mat(0xd9c27a), p.x + 0.02, p.y - 0.028, p.z);                                      // 매단 실
-  });
-  // 호랑가시 열매 (빨간 알 3개씩) + 잎
-  const berry = mat(0xc8102e, { roughness:0.3 }), holly = mat(0x1d6b35, { roughness:0.5 });
-  for (const t of [0.1, 0.2, 0.33, 0.44, 0.56, 0.67, 0.8, 0.9]) {
-    const p = curve.getPointAt(t);
-    for (let k = 0; k < 3; k++) add(g, SPH(0.009), berry, p.x + 0.03, p.y + 0.01 + (k === 2 ? 0.012 : 0), p.z + (k - 1) * 0.011);
-    for (const s of [-1, 1]) { const lf = add(g, B(0.004, 0.018, 0.045), holly, p.x + 0.026, p.y + 0.005, p.z + s * 0.028); lf.rotation.x = s * 0.5; }
-  }
-  // 작은 전구 (따뜻한 빛, 스스로 빛남)
-  const bulbM = new THREE.MeshBasicMaterial({ color:0xffe7a3 });
-  for (let i = 0; i < 46; i++) {
-    const t = (i + 0.5) / 46, p = curve.getPointAt(t);
-    add(g, SPH(0.0055), bulbM, p.x + 0.03, p.y + (i % 2 ? 0.022 : -0.022), p.z);
-  }
-  // 매다는 점마다 빨간 리본 (고리 2개 + 꼬리 2개)
-  const ribbon = mat(0xc4161c, { roughness:0.45 });
-  for (const z of hangZ) {
-    const r = group(g, X0 + 0.03, TOP + 0.01, z);
-    for (const s of [-1, 1]) {
-      const loop = add(r, new THREE.TorusGeometry(0.026, 0.008, 8, 18), ribbon, 0, 0.006, s * 0.028);
-      loop.rotation.y = Math.PI / 2; loop.scale.set(1, 0.65, 1);
-      const tail = add(r, B(0.006, 0.07, 0.016), ribbon, 0, -0.045, s * 0.014); tail.rotation.x = s * 0.25;
-    }
-    add(r, SPH(0.012), ribbon);
-  }
   // 유리 눈송이 스티커 (흰색, 반투명)
   const snowTex = canvasTex(1024, 640, (c, w, h) => {
     c.clearRect(0, 0, w, h);
@@ -774,7 +708,7 @@ setRoomLight(true); setBathLight(true);
   });
   const snow = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 0.95), new THREE.MeshBasicMaterial({ map:snowTex, transparent:true, depthWrite:false }));
   snow.rotation.y = Math.PI / 2; snow.position.set(0.0325, 0, 0); g.add(snow);
-  tag(g, '크리스마스 장식', '');
+  tag(g, '창문 눈송이 스티커', '');
 }
 // 출입문 (오른벽): 병원 병실의 옆으로 미는 슬라이딩 도어. 문짝이 벽 속(복도 쪽 벽 안)으로 밀려 들어가 열림 (포켓형)
 // → 열려도 방 안 벽면을 가리지 않으므로 세면대·소독제·옷장 위치와 상관없음. 문짝 앞면(방 쪽)은 x≥3.005 라 벽 뒤에 가려짐
@@ -1715,9 +1649,9 @@ function drawMonitor(g, w, h) {
   tag(g, '탁자 아래 캐리어', () => '서랍장 옆 빈 공간에 넣어 둔 빨간 캐리어');
 }
 
-// ── 벽시계 (왼벽, 달력 왼쪽 위 11시 방향): 둥근 아날로그 시계, TV·폰과 같은 시뮬 시각 (18:50 → 19:00) ──
+// ── 벽시계 (왼벽, 달력 바로 위): 둥근 아날로그 시계, TV·폰과 같은 시뮬 시각 (18:50 → 19:00) ──
 {
-  const g = group(world, -3 + 0.006, 2.02, 2.05);
+  const g = group(world, -3 + 0.006, 2.26, 1.55);   // 달력 바로 위 (냉장고가 벽에 붙어도 가리지 않게)
   g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
   const R = 0.15;
   add(g, CYL(R + 0.014, 0.014, 40), mat(0x25292d, { roughness:0.4, metalness:0.3 }), 0, 0, 0.007).rotation.x = Math.PI / 2;   // 테
@@ -2025,11 +1959,11 @@ function drawMonitor(g, w, h) {
   tag(g, '환자 옷장', () => '위 수납장 · 선반 · 아래 수납장');
 }
 
-// 독립형 냉장고 (은색 2도어: 위 냉동 / 아래 냉장): 옷장 왼쪽, 뒷벽에 붙임. 폭 0.70 · 깊이 0.68 · 높이 1.85 m
+// 독립형 냉장고 (은색 2도어: 위 냉동 / 아래 냉장): 왼벽(시계·달력 벽) 앞쪽 모서리에 붙임. 폭 0.70 · 깊이 0.68 · 높이 1.85 m
 {
   const FW = 0.70, FD = 0.68, FHt = 1.85;
-  const g = group(world, BATH.xw - FD / 2 - 0.005, 0, BACK_Z + 0.02 + 0.72 + 0.03 + FW / 2);   // 보관장 옆 같은 벽, 앞면이 침대 쪽(-x)
-  g.rotation.y = -Math.PI / 2;
+  const g = group(world, -3 + FD / 2 + 0.005, 0, 2.5 - FW / 2 - 0.03);   // 시계·달력이 있는 왼벽(창문 벽) 앞쪽 모서리, 앞면이 방 안쪽(+x)
+  g.rotation.y = Math.PI / 2;
   const steel = new THREE.MeshStandardMaterial({ color:0xdfe3e5, metalness:0.12, roughness:0.35 });
   add(g, B(FW, FHt, FD), mat(0xcdd2d4, { metalness:0.1, roughness:0.45 }), 0, FHt / 2, 0);        // 본체
   add(g, B(FW - 0.1, 0.05, FD - 0.06), mat(0x6f777b, { roughness:0.7 }), 0, 0.025, 0.02);         // 아래 그릴(받침)
@@ -2060,6 +1994,7 @@ for (const x of [-0.4, 0.4]) for (const z of [-1.7, 0.1]) {
   w.rotation.z = Math.PI / 2;
   bedFrameParts.push(w, add(bed, CYL(0.012, 0.3), frameMat, x, 0.22 - BED_LIFT, z));
 }
+const SAN_H = 0.30, SAN_ROT = 0;   // 소독제 모델 높이(m)·방향
 // 거치형 손소독제: 침대 발치 풋보드 바깥면('나예민' 침상 카드 옆)에 고정한 철제 거치대 + 펌프식 소독제 병
 {
   const g = group(bed, -0.33, 0.62, 0.346);         // 풋보드 바깥면(발치 쪽), 침상 카드 옆
@@ -2077,14 +2012,22 @@ for (const x of [-0.4, 0.4]) for (const z of [-1.7, 0.1]) {
     c.fillStyle = '#1b4f9c'; c.font = `bold 46px ${FONT}`; c.fillText('손소독제', w / 2, 122);
     c.fillStyle = '#5f6b72'; c.font = `bold 24px ${FONT}`; c.fillText('Alcohol Hand Rub', w / 2, 164); c.fillText('500 mL', w / 2, 198);
   });
+  const oldBottle = [];
   const bodyM = new THREE.MeshStandardMaterial({ color:0xeef3f3, roughness:0.3, transparent:true, opacity:0.96 });
-  add(g, new THREE.CylinderGeometry(0.033, 0.033, 0.2, 28), bodyM, 0, 0.035 - 0.01, 0);          // 병 몸통 (받침 위에서 링 높이까지)
+  oldBottle.push(add(g, new THREE.CylinderGeometry(0.033, 0.033, 0.2, 28), bodyM, 0, 0.035 - 0.01, 0));          // 병 몸통 (받침 위에서 링 높이까지)
   const lb = new THREE.Mesh(new THREE.CylinderGeometry(0.0335, 0.0335, 0.1, 28, 1, true, -Math.PI / 2 - 0.9, 1.8), new THREE.MeshStandardMaterial({ map:lab, roughness:0.45, side:THREE.DoubleSide }));
-  lb.position.set(0, 0.0, 0); lb.rotation.y = Math.PI; g.add(lb);
-  add(g, CYL(0.015, 0.02, 16), mat(0xdfe6e8, { roughness:0.4 }), 0, 0.145, 0);                    // 목
-  add(g, CYL(0.007, 0.05, 10), mat(0xf4f6f6, { roughness:0.4 }), 0, 0.18, 0);                     // 펌프 대
-  add(g, B(0.05, 0.016, 0.02), mat(0xf4f6f6, { roughness:0.4 }), 0.015, 0.21, 0);                 // 펌프 머리
-  add(g, B(0.03, 0.006, 0.012), mat(0xf4f6f6, { roughness:0.4 }), 0.045, 0.21, 0);                // 분사구
+  lb.position.set(0, 0.0, 0); lb.rotation.y = Math.PI; g.add(lb); oldBottle.push(lb);
+  oldBottle.push(add(g, CYL(0.015, 0.02, 16), mat(0xdfe6e8, { roughness:0.4 }), 0, 0.145, 0));                    // 목
+  oldBottle.push(add(g, CYL(0.007, 0.05, 10), mat(0xf4f6f6, { roughness:0.4 }), 0, 0.18, 0));                     // 펌프 대
+  oldBottle.push(add(g, B(0.05, 0.016, 0.02), mat(0xf4f6f6, { roughness:0.4 }), 0.015, 0.21, 0));                 // 펌프 머리
+  oldBottle.push(add(g, B(0.03, 0.006, 0.012), mat(0xf4f6f6, { roughness:0.4 }), 0.045, 0.21, 0));                // 분사구
+  // 사용자가 올린 3D 소독제 모델(sanitizer.glb)로 병·펌프를 교체 (거치대 철제 고정판·받침은 그대로)
+  lateLoad('sanitizer.glb', sc => {
+    const m = fitModel(sc, SAN_H);
+    m.position.set(0, -0.078, 0); m.rotation.y = SAN_ROT;
+    g.add(m);
+    for (const o of oldBottle) o.visible = false;
+  });
   g.userData.action = () => handHygiene('침대 발치 손소독제');
   tag(g, '손소독제 (침대 발치 거치)', () => '펌프식 · 풋보드에 고정');
 }
@@ -3940,12 +3883,27 @@ function boneWorldRot(r, name, axis, ang) {
   const d = pw.clone().invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, ang)).multiply(pw);
   b.quaternion.premultiply(d);
 }
+// 상의를 걷어 올린 상태(E2 교정 장면)에서는 왼손이 배 가운데 접힌 자락 아래로 파묻혀 보임 → 그동안만 왼팔을 몸 바깥쪽(매트리스 위)으로 살짝 벌려 손이 보이게 함
+const LA = (() => { const q = new URLSearchParams(location.search).get('la'); const v = q ? q.split(',').map(Number) : [0.55, 0, 0]; return { yaw:v[0], pitch:v[1], fore:v[2] }; })();   // 기본: 왼팔을 바깥쪽으로 0.55 rad
+function applyLiftArm(r) {
+  const w = r.liftW || 0;
+  const on = w > 0.002;
+  if (!on && !r.liftArmOn) return;
+  for (const n of ['LeftArm', 'LeftForeArm', 'LeftHand']) if (r.bones[n] && r.unrestBase[n]) r.bones[n].quaternion.copy(r.unrestBase[n]);
+  r.liftArmOn = on;
+  if (!on) return;
+  r.root.updateMatrixWorld(true);
+  boneWorldRot(r, 'LeftArm', V(0, 1, 0), LA.yaw * w);
+  boneWorldRot(r, 'LeftArm', V(1, 0, 0), LA.pitch * w);
+  boneWorldRot(r, 'LeftForeArm', V(0, 1, 0), LA.fore * w);
+}
 function updateUnrest(r, dt) {
   if (!r.unrestBase) {
     r.unrestBase = {};
-    for (const n of ['Neck', 'Head', 'RightArm', 'RightForeArm', 'LeftForeArm', 'RightUpLeg', 'LeftUpLeg', 'RightLeg', 'LeftLeg', 'RightFoot', 'LeftFoot'])
+    for (const n of ['Neck', 'Head', 'RightArm', 'RightForeArm', 'LeftArm', 'LeftForeArm', 'LeftHand', 'RightUpLeg', 'LeftUpLeg', 'RightLeg', 'LeftLeg', 'RightFoot', 'LeftFoot'])
       if (r.bones[n]) r.unrestBase[n] = r.bones[n].quaternion.clone();
   }
+  r.liftW = (r.liftW || 0) + (Math.min(1, Math.max(0, (liftU.liftCur.value - LIFT_LO) / 0.05)) - (r.liftW || 0)) * Math.min(1, dt * 5);
   const live = !state.practice && (state.phase === 'running' || state.phase === 'ended');
   const tt = state.t;
   const blocked = state.found.has('E8');
@@ -3976,10 +3934,12 @@ function updateUnrest(r, dt) {
       boneWorldRot(r, 'Head', V(0, 0, 1), shakeAng());
       r.shaking = true;
     } else if (r.shaking) { r.bones.Head.quaternion.copy(r.unrestBase.Head); r.shaking = false; }
+    applyLiftArm(r);
     return 0;
   }
   unrest.t += dt;
   for (const [n, q] of Object.entries(r.unrestBase)) r.bones[n].quaternion.copy(q);
+  r.liftArmOn = true; applyLiftArm(r);
   const L = unrest.level, S = smooth01(unrest.sit), R = smooth01(unrest.reach), t = unrest.t;
   const AX = V(0, 0, 1), AY = V(0, 1, 0), AXx = V(1, 0, 0);
   // 머리 좌우로 뒤척임 (불안), 콜벨을 찾을 때는 Rt. 쪽(난간 쪽)을 봄
@@ -4148,6 +4108,7 @@ function gpAtDist(d) {
 }
 const GUARDIAN_LEAN_SIGN = 1;      // 보호자 뼈 X축 회전이 '앞으로 숙임'이 되는 방향
 const G_WALK_V = 1.0;             // 60대 남성 걸음 속도 (m/s)
+const GUARDIAN_APPROACH = false;     // 보호자는 환자가 몸부림쳐도 다가가지 않고 제자리에 서 있음 (true면 Lt. 난간 쪽으로 다가가 상체를 숙임)
 const gState = { dist:0, yaw:0, settle:0, manual:false, walkW:0, near:0, moving:false };
 const G_NEAR = new THREE.Vector2(0.80, -0.32);   // 환자가 몸부림칠 때 보호자가 다가가 서는 자리: Lt. 난간 바로 옆, 환자 가슴 높이쯤
 const yawTo = (fromX, fromZ, x, z) => Math.atan2(x - fromX, z - fromZ);   // 모델 앞쪽이 +z
@@ -5248,7 +5209,11 @@ function speak(text, opts = {}) {
     const a = voiceCache[f] || (voiceCache[f] = new Audio(f));
     a.currentTime = 0; curVoice = a;
     talkSrc = f.indexOf('voice/p_') === 0 ? { audio:a, file:f } : null;
-    a.play().catch(() => { curVoice = null; talkSrc = null; ttsSpeak(text, opts); });   // 재생 실패 시 기본 음성
+    a.play().catch(() => {
+      if (curVoice !== a) return;                         // 다른 음성이 이어서 재생되면서 끊긴 것(중복 호출 등) → 기계음으로 대신 읽지 않음
+      curVoice = null; talkSrc = null;
+      if (f.indexOf('voice/g_') !== 0) ttsSpeak(text, opts);   // 보호자 녹음은 재생이 막혀도 기계음으로 바꾸지 않음
+    });
     return;
   }
   ttsSpeak(text, opts);
@@ -5657,7 +5622,7 @@ function frame() {
       if (!gState.manual) { GW.walk.stopFading(); GW.idle.stopFading(); GW.idle.setEffectiveWeight(1); GW.walk.setEffectiveWeight(0); gState.manual = true; gState.walkW = 0; }
       GW.walk.enabled = true; GW.idle.enabled = true;       // 크로스페이드가 끝나면 걷기 액션이 꺼져 가중치가 먹지 않음 → 걸을 때 idle만 부분 반영돼 T자 자세(팔 벌림)가 되던 문제 방지
       if (!GW.walk.isRunning()) GW.walk.play(); if (!GW.idle.isRunning()) GW.idle.play();
-      const wantNear = unrest.level > 0.4, home = gpAt(1), D = wantNear ? G_NEAR : home;
+      const wantNear = GUARDIAN_APPROACH && unrest.level > 0.4, home = gpAt(1), D = wantNear ? G_NEAR : home;
       const dx = D.x - guardian.position.x, dz = D.y - guardian.position.z, dd = Math.hypot(dx, dz);
       if (dd > 0.03) {
         const v = 0.6, st = Math.min(dd, v * dt);
@@ -5670,14 +5635,18 @@ function frame() {
       gState.near += (((wantNear && !gState.moving) ? 1 : 0) - gState.near) * Math.min(1, dt * 1.5);
     }
   }
+  // 숙임 자세는 매 프레임 '직전에 얹은 만큼만 되돌린 뒤' 다시 얹음: 서 있는 동작(정지 프레임)은 값이 안 변하면 믹서가 뼈를 다시 쓰지 않아서, 그냥 곱하면 매 프레임 누적돼 상체가 계속 돌아감
+  if (GW.leanPrev) { for (const k in GW.leanPrev) { const b = GW.bones[k]; if (b) b.quaternion.multiply(GW.leanPrev[k].clone().invert()); } GW.leanPrev = null; }
   if (GW.mixer && guardian.visible) GW.mixer.update(dt);
-  if (GW.bones && gState.near > 0.002) {                          // 안쓰러운 자세: 상체 숙임 + 고개 숙여 옆으로 갸웃 (믹서가 뼈를 덮어쓴 뒤 얹음)
+  if (GW.bones && gState.near > 0.002) {
     const n = gState.near, qx = new THREE.Quaternion(), qz = new THREE.Quaternion();
+    GW.leanPrev = {};
     for (const [k, a] of [['Spine', 0.07], ['Spine1', 0.08], ['Spine2', 0.08], ['Neck', 0.08], ['Head', 0.14]]) {
       const b = GW.bones[k]; if (!b) continue;
-      b.quaternion.multiply(qx.setFromAxisAngle(V(1, 0, 0), a * n * GUARDIAN_LEAN_SIGN));
+      const lq = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), a * n * GUARDIAN_LEAN_SIGN);
+      if (k === 'Head') lq.multiply(qz.setFromAxisAngle(V(0, 0, 1), 0.2 * n));          // 고개를 옆으로 갸웃
+      b.quaternion.multiply(lq); GW.leanPrev[k] = lq;
     }
-    if (GW.bones.Head) GW.bones.Head.quaternion.multiply(qz.setFromAxisAngle(V(0, 0, 1), 0.2 * n));
   }
   if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
   if (pBubbleTTL > 0) { pBubbleTTL -= dt; if (pBubbleTTL <= 0) pBubble.visible = false; }
