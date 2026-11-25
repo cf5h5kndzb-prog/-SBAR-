@@ -643,7 +643,41 @@ setRoomLight(true); setBathLight(true);
 {
   const g = group(world, -2.99, 1.55, -0.2);
   add(g, B(0.04, 1.1, 1.7), mat(0xf5f7f8));
-  const glass = add(g, B(0.02, 0.95, 1.55), new THREE.MeshStandardMaterial({ color:0xbfe3f5, emissive:0x9fd0ea, emissiveIntensity:0.55 }), 0.02);
+  const glass = add(g, B(0.02, 0.95, 1.55), new THREE.MeshStandardMaterial({ color:0x0b1328, emissive:0x0b1328, emissiveIntensity:0.6 }), 0.02);
+  // 창밖 풍경: 12월 저녁 7시 → 이미 어두운 밤하늘 + 멀리 도심 야경(불 켜진 창, 가로등) + 눈 내림
+  const nightTex = canvasTex(1024, 640, (c, w, h) => {
+    const sky = c.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#050a1c'); sky.addColorStop(0.55, '#101d3e'); sky.addColorStop(0.85, '#2a3a63'); sky.addColorStop(1, '#3b4a70');
+    c.fillStyle = sky; c.fillRect(0, 0, w, h);
+    let sd = 7; const rn = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(255,255,240,${0.25 + rn() * 0.5})`; c.fillRect(rn() * w, rn() * h * 0.5, 1.5, 1.5); }   // 도심이라 별은 몇 개만
+    const mg = c.createRadialGradient(800, 110, 6, 800, 110, 70); mg.addColorStop(0, 'rgba(255,248,215,0.95)'); mg.addColorStop(0.25, 'rgba(255,244,200,0.35)'); mg.addColorStop(1, 'rgba(255,244,200,0)');
+    c.fillStyle = mg; c.fillRect(700, 10, 200, 200);                                                         // 달무리
+    c.fillStyle = '#fff6d6'; c.beginPath(); c.arc(800, 110, 17, 0, 7); c.fill();
+    c.fillStyle = '#16213f'; c.beginPath(); c.arc(809, 105, 15, 0, 7); c.fill();                           // 초승달
+    // 멀리 있는 건물 두 겹 + 불 켜진 창
+    const city = (base, col, hMin, hMax, win) => {
+      let x = -10;
+      while (x < w) {
+        const bw = 50 + rn() * 90, bh = hMin + rn() * (hMax - hMin);
+        c.fillStyle = col; c.fillRect(x, base - bh, bw, bh + 200);
+        for (let yy = base - bh + 14; yy < base - 8; yy += 16) for (let xx = x + 8; xx < x + bw - 10; xx += 14)
+          if (rn() < win) { c.fillStyle = rn() < 0.7 ? 'rgba(255,218,130,0.9)' : 'rgba(190,225,255,0.85)'; c.fillRect(xx, yy, 5, 8); }
+        x += bw + 3 + rn() * 8;
+      }
+    };
+    city(470, '#1b2745', 60, 200, 0.18);
+    city(560, '#0f1730', 40, 150, 0.3);
+    c.fillStyle = '#0a1024'; c.fillRect(0, 590, w, 60);                                                      // 가까운 지면
+    for (const lx of [80, 300, 520, 760, 960]) {                                                              // 가로등
+      const lg = c.createRadialGradient(lx, 585, 2, lx, 585, 55); lg.addColorStop(0, 'rgba(255,220,150,0.9)'); lg.addColorStop(1, 'rgba(255,220,150,0)');
+      c.fillStyle = lg; c.fillRect(lx - 60, 530, 120, 110); c.fillStyle = '#ffe9b0'; c.beginPath(); c.arc(lx, 585, 3.5, 0, 7); c.fill();
+    }
+    c.fillStyle = '#ff4040'; c.fillRect(256, 262, 3, 3); c.fillRect(634, 330, 3, 3);                         // 건물 꼭대기 경고등
+    for (let i = 0; i < 160; i++) { const r = 1 + rn() * 2.6; c.fillStyle = `rgba(255,255,255,${0.35 + rn() * 0.5})`; c.beginPath(); c.arc(rn() * w, rn() * h, r, 0, 7); c.fill(); }   // 내리는 눈
+  });
+  const night = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 0.95), new THREE.MeshBasicMaterial({ map:nightTex }));
+  night.rotation.y = Math.PI / 2; night.position.set(0.0306, 0, 0); g.add(night);
   add(g, B(0.03, 0.05, 1.55), mat(0xf5f7f8), 0.03);
   add(g, B(0.03, 0.95, 0.05), mat(0xf5f7f8), 0.03);
   tag(g, '창문', '');
@@ -994,7 +1028,7 @@ let phoneClockUpdate = null, wallClockUpdate = null, tvToggle = null, tvOn = tru
 
 // TV 리모컨 거치대 (TV 아래 벽, TV 오른쪽 끝에 맞춤): 투명 아크릴 주머니형 거치대 + TV 리모컨. 전원(빨강) 버튼을 누르면 TV가 꺼지고, 다시 누르면 켜짐
 {
-  const g = group(world, 0.15 - 1.6 * 0.792 / 2 + 0.026, 1.17, 2.5);   // TV 오른쪽(커튼 반대쪽) 아래: 거치대 바깥 끝선을 TV 오른쪽 끝선(x=-0.484)에 맞춤
+  const g = group(world, 0.15 - 1.6 * 0.792 / 2 - 0.03 - 0.026, 1.8 - 1.6 * 0.57 / 2 + 0.1, 2.5);   // TV 오른쪽 옆(커튼 반대쪽): TV 오른쪽 끝선(x=-0.484)에서 3 cm 띄우고, 거치대 아래 끝을 TV 아래 끝선(y=1.344)에 맞춤
   g.rotation.y = Math.PI;                                   // 앞면이 방 안쪽(-z)
   add(g, B(0.052, 0.2, 0.006), mat(0xe9ecee, { roughness:0.5 }), 0, 0, 0.003);                     // 벽에 붙은 뒤판
   const acr = new THREE.MeshStandardMaterial({ color:0xdfeff5, roughness:0.15, transparent:true, opacity:0.38, side:THREE.DoubleSide, depthWrite:false });
@@ -2763,7 +2797,7 @@ lateLoad('pump.glb', sc => {
   g.position.set(-body.x, -body.y, -body.z);
   modelFace(g, sc, { x:0.232, y:0.433, w:0.366, h:0.273 }, ivTex, 320 / 240, 1.0);
   const out = modelPt(sc, 0.239, -0.93, 0);          // 아래 라인 끝
-  ivOut.position.set(out.x - body.x, out.y - body.y, out.z - body.z);
+  ivOut.position.set(out.x - body.x, out.y - body.y - 0.004, out.z - body.z + 0.019);   // 실측: 아래 줄 끝(검은 스텁) 중심이 z +1.9 cm, y -0.4 cm 쪽 → 흰 라인이 스텁 끝에서 정확히 이어지게
   const inl = modelPt(sc, 0.236, 0.94, -0.085);      // 위 라인 입구
   ivIn.position.set(inl.x - body.x, inl.y - body.y, inl.z - body.z);
   ivPumpProc.removeFromParent();
@@ -5183,6 +5217,8 @@ const VOICE_FILES = {
   [PATIENT_LINE.pcaNoEffect]: 'voice/p_pca_noeffect.mp3',
   [PATIENT_LINE.pcaFixed]: 'voice/p_pca_fixed.mp3',
   [PATIENT_LINE.getUp]: 'voice/p_bell.mp3',
+  [GUARDIAN_ASK]: 'voice/g_ask.mp3',     // 보호자(60대 남성) 녹음 음성
+  [GUARDIAN_PCA]: 'voice/g_pca.mp3',
   // 담당의 되묻기·보고 완료 (파일이 아직 없으면 기본 음성으로 읽음)
   [SBAR_ASK.id]:    'voice/d_ask_id.mp3',
   [SBAR_ASK.sit]:   'voice/d_ask_sit.mp3',
@@ -5243,8 +5279,7 @@ function patientSay(text, ttl = 7, delay = 0) {
 }
 // 보호자가 말하기: 말풍선 + 음성 + 기록
 function guardianSay(text, ttl = 9, delay = 0) {
-  bubbleText = text; paint(bubbleTex);
-  bubble.visible = true; bubbleTTL = ttl + delay;
+  if (!VOICE_FILES[text]) { bubbleText = text; paint(bubbleTex); bubble.visible = true; bubbleTTL = ttl + delay; }   // 녹음 음성이 있으면 말풍선 없이 소리만
   feed('보호자: "' + text + '"', 'alert');
   setTimeout(() => { if (state.phase === 'running') speak(text); }, delay * 1000);
 }
@@ -5620,6 +5655,8 @@ function frame() {
     gState.settle += dt;
     if (gState.settle > 0.6) {
       if (!gState.manual) { GW.walk.stopFading(); GW.idle.stopFading(); GW.idle.setEffectiveWeight(1); GW.walk.setEffectiveWeight(0); gState.manual = true; gState.walkW = 0; }
+      GW.walk.enabled = true; GW.idle.enabled = true;       // 크로스페이드가 끝나면 걷기 액션이 꺼져 가중치가 먹지 않음 → 걸을 때 idle만 부분 반영돼 T자 자세(팔 벌림)가 되던 문제 방지
+      if (!GW.walk.isRunning()) GW.walk.play(); if (!GW.idle.isRunning()) GW.idle.play();
       const wantNear = unrest.level > 0.4, home = gpAt(1), D = wantNear ? G_NEAR : home;
       const dx = D.x - guardian.position.x, dz = D.y - guardian.position.z, dd = Math.hypot(dx, dz);
       if (dd > 0.03) {
