@@ -3985,8 +3985,8 @@ function updateUnrest(r, dt) {
   // 머리 좌우로 뒤척임 (불안), 콜벨을 찾을 때는 Rt. 쪽(난간 쪽)을 봄
   boneWorldRot(r, 'Head', AX, L * (0.42 * Math.sin(t * 1.7) + 0.12 * Math.sin(t * 4.3)) * (1 - 0.6 * R) - 0.35 * R + shakeAng() * (1 - R));
   // 배 위 오른손: 움켜쥐었다 놓았다 (아래팔 굽힘) / 콜벨을 찾을 땐 팔을 Rt. 바깥(침대 밖)으로 뻗음
-  boneWorldRot(r, 'RightForeArm', AXx, -L * (1 - R) * (0.1 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2.6))));   // 음수 = 손이 배 위로 들림(양수였을 땐 손이 배·옷 속으로 파묻힘)
-  boneWorldRot(r, 'LeftForeArm', AXx, -L * (0.1 + 0.3 * (0.5 + 0.5 * Math.sin(t * 2.1 + 2))));          // 왼손도 배 위로 움찔 (파묻히지 않게 위로)
+  boneWorldRot(r, 'RightForeArm', AXx, -L * (1 - R) * (0.3 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2.6))));   // 음수 = 손이 배 위로 들림(양수였을 땐 손이 배·옷 속으로 파묻힘)
+  boneWorldRot(r, 'LeftForeArm', AXx, -L * (0.4 + 0.35 * (0.5 + 0.5 * Math.sin(t * 2.1 + 2))));          // 왼손도 배 위로 움찔 (파묻히지 않게 위로)
   boneWorldRot(r, 'RightArm', AY, -0.95 * R);
   boneWorldRot(r, 'RightArm', AX, 0.35 * R);
   // 다리: 침대 밖으로 내리지 않고, 누운 채 무릎을 번갈아 세웠다 폈다 + 발목을 꼼지락 (통증으로 가만히 있지 못함)
