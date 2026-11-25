@@ -1776,9 +1776,11 @@ function drawMonitor(g, w, h) {
   // 다운라이트(매립 조명)
   const dl = (x, z) => {
     const d = group(world, x, 2.6, z);
-    add(d, CYL(0.05, 0.004, 28), ceilWhite, 0, -0.002, 0);
-    add(d, CYL(0.036, 0.004, 28), mat(0x3a3f43), 0, -0.0035, 0);
-    add(d, CYL(0.027, 0.002, 24), new THREE.MeshBasicMaterial({ color:0xfff3d6 }), 0, -0.0045, 0);
+    // 층을 서로 겹치지 않게 쌓음(겹치면 면이 깜빡이며 별 모양으로 반짝임) + 작고 은은하게
+    add(d, CYL(0.036, 0.004, 28), ceilWhite, 0, -0.002, 0);                       // 흰 마감 링 (0 ~ -0.004)
+    add(d, CYL(0.026, 0.004, 28), mat(0x3a3f43), 0, -0.006, 0);                    // 어두운 리플렉터 (-0.004 ~ -0.008)
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.018, 24), new THREE.MeshBasicMaterial({ color:0xd8d0b8 }));
+    lens.rotation.x = Math.PI / 2; lens.position.y = -0.0085; d.add(lens);         // 아래를 보는 은은한 램프면
     tag(d, '다운라이트', () => '천장 매립 조명');
   };
   for (const [x, z] of [[1.55, 0.5], [0.9, -0.35], [-0.9, 0.05], [0, 0], [2.2, -1.2], [0.9, 1.7]]) dl(x, z);
@@ -1962,8 +1964,9 @@ function drawMonitor(g, w, h) {
 // 독립형 냉장고 (은색 2도어: 위 냉동 / 아래 냉장): 왼벽(시계·달력 벽) 앞쪽 모서리에 붙임. 폭 0.70 · 깊이 0.68 · 높이 1.85 m
 {
   const FW = 0.70, FD = 0.68, FHt = 1.85;
-  const g = group(world, -3 + FD / 2 + 0.005, 0, 2.5 - FW / 2 - 0.03);   // 시계·달력이 있는 왼벽(창문 벽) 앞쪽 모서리, 앞면이 방 안쪽(+x)
-  g.rotation.y = Math.PI / 2;
+  const FS = 0.6;                                          // 크기 2/5 줄임 (60%)
+  const g = group(world, -3 + FS * FD / 2 + 0.005, 0, 2.5 - FS * FW / 2 - 0.03);   // 시계·달력이 있는 왼벽(창문 벽) 앞쪽 모서리, 앞면이 방 안쪽(+x)
+  g.rotation.y = Math.PI / 2; g.scale.setScalar(FS);
   const steel = new THREE.MeshStandardMaterial({ color:0xdfe3e5, metalness:0.12, roughness:0.35 });
   add(g, B(FW, FHt, FD), mat(0xcdd2d4, { metalness:0.1, roughness:0.45 }), 0, FHt / 2, 0);        // 본체
   add(g, B(FW - 0.1, 0.05, FD - 0.06), mat(0x6f777b, { roughness:0.7 }), 0, 0.025, 0.02);         // 아래 그릴(받침)
