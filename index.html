@@ -2924,7 +2924,7 @@ function rebuildTubes() {
   setTube(ivSetTube, [dS, dS.clone().add(V(0, -0.025, 0.004)), V(dS.x + (pin.x - dS.x) * 0.35, dS.y - 0.06, dS.z + (pin.z - dS.z) * 0.35 + 0.012), V(pin.x + (dS.x - pin.x) * 0.2, pin.y + 0.05, pin.z + (dS.z - pin.z) * 0.2 + 0.01), pin.clone().add(V(0, 0.02, 0)), pin]);
   // 3-way: Rt. 난간 위쪽(난간을 내리면 함께 내려감), 몸통은 환자 손 쪽을 향하고 옆 포트는 폴대 쪽
   // 3-way는 침상 머리 부분(headGroup)에 붙여 둠: 침상 머리를 30° 올려도(E7) 환자·팔과 함께 올라가 라인이 매트리스를 뚫지 않음
-  const twAt = headGroup.localToWorld(V(-0.53, 1.1 + railR.position.y * 0.72 - HINGE.y - BED_LIFT, -1.25 - HINGE.z));
+  const twAt = headGroup.localToWorld(V(-0.53, 1.1 + railR.position.y * 0.72 - HINGE.y - BED_LIFT, -0.92 - HINGE.z));
   const X = V(site.x - twAt.x, 0, site.z - twAt.z).normalize();
   const Y = V(0, 1, 0);
   const Z = new THREE.Vector3().crossVectors(X, Y);           // 손잡이를 위로 두면 옆 포트는 폴대 쪽(-x, 발치 쪽)을 향함
@@ -2937,8 +2937,8 @@ function rebuildTubes() {
   // IV 라인: 펌프 아래 → (짧게 늘어짐) → 3-way → Rt. 손목 IV
   const ivA = ivOut.getWorldPosition(new THREE.Vector3());
   // 폴대에서 내려온 라인은 허공을 건너지 않고 Rt. 사이드 레일 윗면에 걸쳐 놓인 뒤 3-way로 이어짐 (레일을 내리거나 침상 머리를 올려도 레일 따라감)
-  const railTop = (dz) => headGroup.localToWorld(V(-0.52, 1.1 + railR.position.y * 0.72 - HINGE.y - BED_LIFT - 0.018, -1.25 + dz - HINGE.z));
-  const rP1 = railTop(-0.16), rP0 = V(-0.52, 1.1 + railR.position.y * 0.72 - 0.018, -1.55);   // rP0: 고정된 레일 윗면(침상 머리를 올려도 그대로) → 거기서 3-way 쪽으로 이어 올라감
+  const railTop = (dz) => headGroup.localToWorld(V(-0.52, 1.1 + railR.position.y * 0.72 - HINGE.y - BED_LIFT - 0.018, -0.92 + dz - HINGE.z));
+  const rP1 = railTop(-0.14), rP0 = V(-0.52, 1.1 + railR.position.y * 0.72 - 0.018, -1.3);   // rP0: 고정된 레일 윗면(침상 머리를 올려도 그대로) → 거기서 3-way 쪽으로 이어 올라감
   const sagAt = (t, d) => { const p = ivA.clone().lerp(rP0, t); p.y -= d; return p; };
   const ivPts = [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), sagAt(0.55, 0.1), sagAt(0.86, 0.03), rP0, rP1, tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn];
   setTube(ivTube, ivPts);
@@ -3862,7 +3862,8 @@ function boneWorldRot(r, name, axis, ang) {
 const LA = (() => { const q = new URLSearchParams(location.search).get('la'); const v = q ? q.split(',').map(Number) : [0.55, 0, 0]; return { yaw:v[0], pitch:v[1], fore:v[2] }; })();   // 기본: 왼팔을 바깥쪽으로 0.55 rad
 const RA = (() => { const q = new URLSearchParams(location.search).get('ra'); return q ? q.split(',').map(Number) : [0.6, -0.3]; })();
 function applyLiftArm(r) {
-  const w = r.liftW || 0;
+  // 침상 머리를 올리면(E7 등) 상체만 기울고 하체는 그대로라 왼손이 골반·옷 속으로 파묻힘 → 각도에 비례해 왼팔을 바깥쪽으로 벌림
+  const w = Math.max(r.liftW || 0, 0.8 * Math.min(1, Math.max(0, headGroup.rotation.x / (Math.PI / 6))));
   const on = w > 0.002;
   if (!on && !r.liftArmOn) return;
   for (const n of ['LeftArm', 'LeftForeArm', 'LeftHand']) if (r.bones[n] && r.unrestBase[n]) r.bones[n].quaternion.copy(r.unrestBase[n]);
