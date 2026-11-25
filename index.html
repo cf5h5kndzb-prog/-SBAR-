@@ -235,8 +235,8 @@ const FONT = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
 const params = new URLSearchParams(location.search);
 const SPEED = Math.max(0.1, Math.min(60, Number(params.get('speed')) || 1));   // 테스트용 배속 (?speed=10)
 const LIMIT = 600;       // 10분
-// 병실 시계(벽시계·TV·폰): 시뮬 시작 18:50 → 끝 19:00 (시뮬 1초 = 시계 1초)
-const SIM_T0 = 18 * 3600 + 50 * 60;
+// 병실 시계(벽시계·TV·폰): 시뮬 시작 14:50 → 끝 15:00 (시뮬 1초 = 시계 1초)
+const SIM_T0 = 14 * 3600 + 50 * 60;
 const simSec = () => SIM_T0 + Math.floor(Math.min(state.t, LIMIT));
 const simHHMM = () => { const t = simSec(); return String(Math.floor(t / 3600) % 24).padStart(2, '0') + ':' + String(Math.floor(t / 60) % 60).padStart(2, '0'); };
 const HINTS_MAX = 3;
@@ -644,37 +644,37 @@ setRoomLight(true); setBathLight(true);
   const g = group(world, -2.99, 1.55, -0.2);
   add(g, B(0.04, 1.1, 1.7), mat(0xf5f7f8));
   const glass = add(g, B(0.02, 0.95, 1.55), new THREE.MeshStandardMaterial({ color:0x0b1328, emissive:0x0b1328, emissiveIntensity:0.6 }), 0.02);
-  // 창밖 풍경: 12월 저녁 7시 → 이미 어두운 밤하늘 + 멀리 도심 야경(불 켜진 창, 가로등) + 눈 내림
+  // 창밖 풍경: 12월 오후 3시 → 해가 낮게 기운 맑고 차가운 겨울 오후 (옅은 하늘, 멀리 도심 건물, 앙상한 나무, 가벼운 눈발)
   const nightTex = canvasTex(1024, 640, (c, w, h) => {
     const sky = c.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#050a1c'); sky.addColorStop(0.55, '#101d3e'); sky.addColorStop(0.85, '#2a3a63'); sky.addColorStop(1, '#3b4a70');
+    sky.addColorStop(0, '#8fb4d6'); sky.addColorStop(0.5, '#bcd4e6'); sky.addColorStop(0.85, '#e6eaea'); sky.addColorStop(1, '#f0e9dc');
     c.fillStyle = sky; c.fillRect(0, 0, w, h);
     let sd = 7; const rn = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(255,255,240,${0.25 + rn() * 0.5})`; c.fillRect(rn() * w, rn() * h * 0.5, 1.5, 1.5); }   // 도심이라 별은 몇 개만
-    const mg = c.createRadialGradient(800, 110, 6, 800, 110, 70); mg.addColorStop(0, 'rgba(255,248,215,0.95)'); mg.addColorStop(0.25, 'rgba(255,244,200,0.35)'); mg.addColorStop(1, 'rgba(255,244,200,0)');
-    c.fillStyle = mg; c.fillRect(700, 10, 200, 200);                                                         // 달무리
-    c.fillStyle = '#fff6d6'; c.beginPath(); c.arc(800, 110, 17, 0, 7); c.fill();
-    c.fillStyle = '#16213f'; c.beginPath(); c.arc(809, 105, 15, 0, 7); c.fill();                           // 초승달
-    // 멀리 있는 건물 두 겹 + 불 켜진 창
+    const sg = c.createRadialGradient(780, 360, 6, 780, 360, 230); sg.addColorStop(0, 'rgba(255,250,225,0.95)'); sg.addColorStop(0.18, 'rgba(255,244,210,0.55)'); sg.addColorStop(1, 'rgba(255,240,200,0)');
+    c.fillStyle = sg; c.fillRect(480, 130, 540, 460);                                                     // 낮게 걸린 겨울 해(희미한 빛무리)
+    c.fillStyle = 'rgba(255,255,255,0.55)';
+    for (const [cx, cy, cw] of [[170, 120, 170], [430, 70, 130], [640, 150, 210], [900, 90, 120], [330, 230, 150]]) { c.beginPath(); c.ellipse(cx, cy, cw, 22 + rn() * 10, 0, 0, 7); c.fill(); }   // 옅은 구름
+    // 멀리 있는 건물 두 겹 (낮이라 흐릿한 푸른 회색) + 유리창 반사
     const city = (base, col, hMin, hMax, win) => {
       let x = -10;
       while (x < w) {
         const bw = 50 + rn() * 90, bh = hMin + rn() * (hMax - hMin);
         c.fillStyle = col; c.fillRect(x, base - bh, bw, bh + 200);
         for (let yy = base - bh + 14; yy < base - 8; yy += 16) for (let xx = x + 8; xx < x + bw - 10; xx += 14)
-          if (rn() < win) { c.fillStyle = rn() < 0.7 ? 'rgba(255,218,130,0.9)' : 'rgba(190,225,255,0.85)'; c.fillRect(xx, yy, 5, 8); }
+          if (rn() < win) { c.fillStyle = 'rgba(210,228,242,0.55)'; c.fillRect(xx, yy, 5, 8); }
         x += bw + 3 + rn() * 8;
       }
     };
-    city(470, '#1b2745', 60, 200, 0.18);
-    city(560, '#0f1730', 40, 150, 0.3);
-    c.fillStyle = '#0a1024'; c.fillRect(0, 590, w, 60);                                                      // 가까운 지면
-    for (const lx of [80, 300, 520, 760, 960]) {                                                              // 가로등
-      const lg = c.createRadialGradient(lx, 585, 2, lx, 585, 55); lg.addColorStop(0, 'rgba(255,220,150,0.9)'); lg.addColorStop(1, 'rgba(255,220,150,0)');
-      c.fillStyle = lg; c.fillRect(lx - 60, 530, 120, 110); c.fillStyle = '#ffe9b0'; c.beginPath(); c.arc(lx, 585, 3.5, 0, 7); c.fill();
+    city(480, '#9fb3c4', 60, 200, 0.25);
+    city(560, '#7f95a8', 40, 150, 0.3);
+    c.fillStyle = '#f2f4f5'; c.fillRect(0, 585, w, 60);                                                      // 눈 덮인 지면
+    c.fillStyle = '#dfe5e8'; c.fillRect(0, 585, w, 5);
+    for (const tx of [90, 330, 560, 870]) {                                                                   // 잎 진 나무
+      c.strokeStyle = '#5d554d'; c.lineCap = 'round'; c.lineWidth = 5; c.beginPath(); c.moveTo(tx, 600); c.lineTo(tx, 520); c.stroke();
+      c.lineWidth = 3;
+      for (const [dx, dy, ex, ey] of [[0, 535, -34, 490], [0, 535, 34, 492], [0, 515, -22, 462], [0, 515, 24, 466], [-34, 490, -52, 468], [34, 492, 52, 470]]) { c.beginPath(); c.moveTo(tx + dx, dy); c.lineTo(tx + ex, ey); c.stroke(); }
     }
-    c.fillStyle = '#ff4040'; c.fillRect(256, 262, 3, 3); c.fillRect(634, 330, 3, 3);                         // 건물 꼭대기 경고등
-    for (let i = 0; i < 160; i++) { const r = 1 + rn() * 2.6; c.fillStyle = `rgba(255,255,255,${0.35 + rn() * 0.5})`; c.beginPath(); c.arc(rn() * w, rn() * h, r, 0, 7); c.fill(); }   // 내리는 눈
+    for (let i = 0; i < 90; i++) { const r = 1 + rn() * 2.2; c.fillStyle = `rgba(255,255,255,${0.55 + rn() * 0.4})`; c.beginPath(); c.arc(rn() * w, rn() * h, r, 0, 7); c.fill(); }   // 가벼운 눈발
   });
   const night = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 0.95), new THREE.MeshBasicMaterial({ map:nightTex }));
   night.rotation.y = Math.PI / 2; night.position.set(0.0306, 0, 0); g.add(night);
@@ -1552,7 +1552,7 @@ function drawMonitor(g, w, h) {
     const frameM = new THREE.MeshStandardMaterial({ color:0x4f5a6b, metalness:0.75, roughness:0.32 });
     add(ph, new RoundedBoxGeometry(W, T, Ln, 4, 0.0055), frameM, 0, 0, 0);
     // 커버 화면: 검은 배경 + 큰 시계 (잠금 화면). 상단에는 충전 중 표시(번개 + 잔량)만. 화면 위쪽은 벽 쪽(-z), 충전 포트는 폰 아래쪽(방 안쪽 +z)
-    const hhmm = simHHMM;   // 벽 TV·벽시계와 같은 시뮬 시각 (18:50 → 19:00)
+    const hhmm = simHHMM;   // 벽 TV·벽시계와 같은 시뮬 시각 (14:50 → 15:00)
     const scrTex = canvasTex(804, 328, (g, w, h) => {   // 폰은 가로로 눕혀 놓았지만 화면 내용(잠금 화면)은 세로 방향: 위쪽이 폰 위(포트 반대쪽), 글씨는 90° 돌아가 있음
       g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h);
       g.save(); g.translate(w / 2, h / 2); g.rotate(-Math.PI / 2); g.translate(-h / 2, -w / 2);   // 이제 g 는 폭 h(328) × 높이 w(804)인 세로 화면
@@ -1649,9 +1649,9 @@ function drawMonitor(g, w, h) {
   tag(g, '탁자 아래 캐리어', () => '서랍장 옆 빈 공간에 넣어 둔 빨간 캐리어');
 }
 
-// ── 벽시계 (왼벽, 달력 바로 위): 둥근 아날로그 시계, TV·폰과 같은 시뮬 시각 (18:50 → 19:00) ──
+// ── 벽시계 (왼벽, 달력 바로 위): 둥근 아날로그 시계, TV·폰과 같은 시뮬 시각 (14:50 → 15:00) ──
 {
-  const g = group(world, -3 + 0.006, 2.26, 1.55);   // 달력 바로 위 (냉장고가 벽에 붙어도 가리지 않게)
+  const g = group(world, -3 + 0.006, 2.26, 1.39);   // 달력 바로 위 (냉장고가 벽에 붙어도 가리지 않게)
   g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
   const R = 0.15;
   add(g, CYL(R + 0.014, 0.014, 40), mat(0x25292d, { roughness:0.4, metalness:0.3 }), 0, 0, 0.007).rotation.x = Math.PI / 2;   // 테
@@ -1681,7 +1681,7 @@ function drawMonitor(g, w, h) {
 
 // ── 벽 달력 (왼벽, 3단 달력: 2026년 11월 · 12월 · 2027년 1월 / 가운데가 이번 달) ──
 {
-  const g = group(world, -3 + 0.006, 1.5, 1.55);
+  const g = group(world, -3 + 0.006, 1.5, 1.39);   // 냉장고(z 2.13~)와 창문(~z 0.65) 사이 가운데
   g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
   g.scale.setScalar(5 / 3);                                    // 크기 2/3 키움
   const CW = 0.3, CH = 0.66;
@@ -1763,7 +1763,7 @@ function drawMonitor(g, w, h) {
   }
   tag(g, '천장형 에어컨', () => '천장 매립형(4방향) · 운전 대기 · 침대 쪽 송풍구에 바람막이판');
 }
-// 천장 추가 설비: 원형 환기구(디퓨저) + 다운라이트 + 스프링클러 + 슬롯형 선형 환기구
+// 천장 추가 설비: 원형 환기구(디퓨저) + 스프링클러 + 슬롯형 선형 환기구
 {
   const ceilWhite = mat(0xf4f5f2, { roughness:0.5 }), ceilDark = mat(0x6f767a, { roughness:0.6 });
   // 원형 디퓨저: 흰 테두리 판 + 어두운 틈 + 가운데 원판
@@ -1773,17 +1773,7 @@ function drawMonitor(g, w, h) {
   add(dif, CYL(0.078, 0.012, 40), ceilWhite, 0, -0.015, 0);
   add(dif, CYL(0.034, 0.006, 24), mat(0xe3e6e4, { roughness:0.55 }), 0, -0.024, 0);
   tag(dif, '원형 환기구', () => '천장 환기 디퓨저');
-  // 다운라이트(매립 조명)
-  const dl = (x, z) => {
-    const d = group(world, x, 2.6, z);
-    // 층을 서로 겹치지 않게 쌓음(겹치면 면이 깜빡이며 별 모양으로 반짝임) + 작고 은은하게
-    add(d, CYL(0.036, 0.004, 28), ceilWhite, 0, -0.002, 0);                       // 흰 마감 링 (0 ~ -0.004)
-    add(d, CYL(0.026, 0.004, 28), mat(0x3a3f43), 0, -0.006, 0);                    // 어두운 리플렉터 (-0.004 ~ -0.008)
-    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.018, 24), new THREE.MeshBasicMaterial({ color:0xd8d0b8 }));
-    lens.rotation.x = Math.PI / 2; lens.position.y = -0.0085; d.add(lens);         // 아래를 보는 은은한 램프면
-    tag(d, '다운라이트', () => '천장 매립 조명');
-  };
-  for (const [x, z] of [[1.55, 0.5], [0.9, -0.35], [-0.9, 0.05], [0, 0], [2.2, -1.2], [0.9, 1.7]]) dl(x, z);
+  // (매립 다운라이트는 누워 있는 환자에게 눈부실 수 있어 제거함)
   // 스프링클러 헤드(펜던트형): 흰 마감 링 + 은색 몸통 + 프레임 + 붉은 유리 감열구 + 디플렉터
   const spr = (x, z) => {
     const d = group(world, x, 2.6, z);
@@ -1964,7 +1954,7 @@ function drawMonitor(g, w, h) {
 // 독립형 냉장고 (은색 2도어: 위 냉동 / 아래 냉장): 왼벽(시계·달력 벽) 앞쪽 모서리에 붙임. 폭 0.70 · 깊이 0.68 · 높이 1.85 m
 {
   const FW = 0.70, FD = 0.68, FHt = 1.85;
-  const FS = 0.6;                                          // 크기 2/5 줄임 (60%)
+  const FS = 0.48;                                         // 크기: 2/5 줄여 60% → 다시 현재의 1/5 더 줄여 48%
   const g = group(world, -3 + FS * FD / 2 + 0.005, 0, 2.5 - FS * FW / 2 - 0.03);   // 시계·달력이 있는 왼벽(창문 벽) 앞쪽 모서리, 앞면이 방 안쪽(+x)
   g.rotation.y = Math.PI / 2; g.scale.setScalar(FS);
   const steel = new THREE.MeshStandardMaterial({ color:0xdfe3e5, metalness:0.12, roughness:0.35 });
