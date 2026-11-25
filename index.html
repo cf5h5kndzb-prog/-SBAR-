@@ -1445,48 +1445,32 @@ function drawMonitor(g, w, h) {
     const W = 0.0675, T = 0.0125, Ln = 0.158;
     const frameM = new THREE.MeshStandardMaterial({ color:0x4f5a6b, metalness:0.75, roughness:0.32 });
     add(ph, new RoundedBoxGeometry(W, T, Ln, 4, 0.0055), frameM, 0, 0, 0);
-    // 커버 화면: 배경화면(카페 사진) + 상단 상태 표시줄 (왼쪽 시간 / 오른쪽 Wi-Fi · 통신 · 배터리 잔량 + 충전 중 번개)
-    const wallImg = new Image(); let wallOk = false;
+    // 커버 화면: 검은 배경 + 큰 시계 (잠금 화면). 상단에는 충전 중 표시(번개 + 잔량)만. 화면 위쪽은 벽 쪽(-z), 충전 포트는 폰 아래쪽(방 안쪽 +z)
     const scrTex = canvasTex(328, 804, (g, w, h) => {
-      g.fillStyle = '#e9e4da'; g.fillRect(0, 0, w, h);
-      if (wallOk) g.drawImage(wallImg, 0, 0, w, h);
-      // 상태 표시줄은 밝은 하늘 위라 짙은 남색 글씨 (+ 살짝 흰 번짐으로 가독성)
-      const ink = '#16202e', cy = 30;
-      g.save(); g.shadowColor = 'rgba(255,255,255,0.7)'; g.shadowBlur = 5;
-      g.fillStyle = ink; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `bold 30px ${FONT}`; g.fillText('10:00', 22, cy);
-      // Wi-Fi
-      const wx = 168, wy = cy + 10; g.strokeStyle = ink; g.lineWidth = 3.4; g.lineCap = 'round';
-      for (const r of [17, 11, 5]) { g.beginPath(); g.arc(wx, wy, r, Math.PI * 1.22, Math.PI * 1.78); g.stroke(); }
-      g.fillStyle = ink; g.beginPath(); g.arc(wx, wy - 0.5, 2.4, 0, 7); g.fill();
-      // 통신 신호 막대
-      for (let i = 0; i < 4; i++) { const bh = 7 + i * 5; g.fillStyle = i < 3 ? ink : 'rgba(22,32,46,0.35)'; g.beginPath(); g.roundRect(196 + i * 7, cy + 12 - bh, 4.5, bh, 1.5); g.fill(); }
-      // 배터리 알약 (충전 중: 초록 채움 + 번개 + 잔량 숫자)
-      const bx = 238, by = cy - 14, bw = 72, bh2 = 28;
-      g.fillStyle = 'rgba(22,32,46,0.22)'; g.beginPath(); g.roundRect(bx, by, bw, bh2, 14); g.fill();
-      g.save(); g.beginPath(); g.roundRect(bx, by, bw, bh2, 14); g.clip();
-      const bg = g.createLinearGradient(bx, 0, bx + bw, 0); bg.addColorStop(0, '#19d28a'); bg.addColorStop(1, '#5fe3a8'); g.fillStyle = bg; g.fillRect(bx, by, bw * 0.47, bh2); g.restore();
-      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(bx + 20, by + 4); g.lineTo(bx + 11, by + 16); g.lineTo(bx + 17, by + 16); g.lineTo(bx + 14, by + 25); g.lineTo(bx + 24, by + 12); g.lineTo(bx + 18, by + 12); g.closePath(); g.fill();   // 번개
-      g.fillStyle = ink; g.textAlign = 'left'; g.font = `bold 21px ${FONT}`; g.fillText('47', bx + 31, cy + 1);
-      g.restore();
-      g.fillStyle = '#0c0f14'; g.beginPath(); g.arc(w / 2 + 6, 20, 9, 0, 7); g.fill(); g.strokeStyle = '#2b3340'; g.lineWidth = 3; g.stroke();   // 전면 카메라 구멍
+      g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h);
+      // 상단 충전 표시: 초록 번개 + 47%
+      g.save(); g.translate(w / 2 - 28, 30);
+      g.fillStyle = '#2fe39a'; g.beginPath(); g.moveTo(8, -13); g.lineTo(-4, 3); g.lineTo(3, 3); g.lineTo(-1, 14); g.lineTo(11, -3); g.lineTo(4, -3); g.closePath(); g.fill(); g.restore();
+      g.fillStyle = '#d9dee6'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `600 24px ${FONT}`; g.fillText('47%', w / 2 - 10, 31);
+      // 큰 시계
+      g.fillStyle = '#f4f6f8'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `300 124px ${FONT}`; g.fillText('10:00', w / 2, 250);
+      g.fillStyle = '#0c0f14'; g.beginPath(); g.arc(w / 2 + 6, 20, 0.01, 0, 7); g.fill();
     }, 2);
-    wallImg.onload = () => { wallOk = true; paint(scrTex); };
-    wallImg.src = 'phone_wallpaper.jpg';
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.0042, Ln - 0.0042), new THREE.MeshBasicMaterial({ map:scrTex, toneMapped:false }));
     scr.rotation.x = -Math.PI / 2; scr.position.y = T / 2 + 0.0004; ph.add(scr);
     add(ph, B(0.0016, 0.007, 0.024), frameM, W / 2 + 0.0004, 0, 0.022);      // 옆면 버튼
     add(ph, B(0.0016, 0.012, 0.012), frameM, W / 2 + 0.0004, 0, 0.04);
-    // USB-C 플러그: 몸체 -z 끝(벽 쪽)에 꽂힘
-    add(ph, B(0.0083, 0.0026, 0.007), mat(0xc9cdd0, { metalness:0.85, roughness:0.25 }), 0, 0, -Ln / 2 - 0.0033);
-    add(ph, new RoundedBoxGeometry(0.0125, 0.0072, 0.019, 3, 0.002), blk, 0, 0, -Ln / 2 - 0.0095 - 0.007);
+    // USB-C 플러그: 폰 아래쪽 끝(+z, 방 안쪽)에 꽂힘
+    add(ph, B(0.0083, 0.0026, 0.007), mat(0xc9cdd0, { metalness:0.85, roughness:0.25 }), 0, 0, Ln / 2 + 0.0033);
+    add(ph, new RoundedBoxGeometry(0.0125, 0.0072, 0.019, 3, 0.002), blk, 0, 0, Ln / 2 + 0.0095 + 0.007);
     tag(ph, '스마트폰 (폴더블, 접힌 상태 · 충전 중)', () => '벽 콘센트 충전기에 연결되어 충전 중 (47%)');
   }
   // (3) 충전 케이블: 충전기 → 벽을 따라 늘어졌다가 → 탁자 모서리를 넘어 → 폰 포트
   {
-    const z0 = ch.position.z + 0.015, ez = TZ - 0.079 - 0.0095 - 0.007 - 0.019 / 2 - 0.0005;   // 케이블이 몰드 끝에 이어짐
+    const z0 = ch.position.z + 0.015, ez = TZ + 0.079 + 0.0095 + 0.007 + 0.019 / 2 + 0.0005;   // 케이블이 몰드 끝에 이어짐
     const pts = [V(-0.866 - 0.0, ch.position.y, z0), V(-0.9, ch.position.y - 0.004, z0 + 0.004), V(-0.955, ch.position.y - 0.06, z0 + 0.012), V(-1.04, 0.36, z0 + 0.03),
       V(-1.12, 0.43, z0 + 0.06), V(-1.185, 0.58, z0 + 0.09), V(-1.2215, 0.70, z0 + 0.105), V(-1.2232, TOP + 0.0024, z0 + 0.108), V(-1.2395, TOP + 0.0022, z0 + 0.1),
-      V(TX + 0.21 + 0.025, TOP + 0.0022, ez - 0.03), V(TX + 0.21 + 0.005, TOP + 0.0030, ez - 0.012), V(TX + 0.21, ph.position.y, ez)];
+      V(TX + 0.21 + 0.048, TOP + 0.0022, TZ - 0.02), V(TX + 0.21 + 0.048, TOP + 0.0022, TZ + 0.12), V(TX + 0.21 + 0.02, TOP + 0.0024, ez + 0.05), V(TX + 0.21 + 0.004, TOP + 0.0030, ez + 0.014), V(TX + 0.21, ph.position.y, ez)];
     const cm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.4), 90, 0.0021, 8, false), blk);
     cm.castShadow = true; world.add(cm); tag(cm, '충전 케이블', () => '충전기 → 폰 (연결됨)');
   }
@@ -2060,13 +2044,14 @@ const cuff = group(headGroup, 0.33, 0.05, -0.55);
   const c = add(cuff, new THREE.CylinderGeometry(CUFF_R, CUFF_R, CUFF_LEN, 28, 1, true), cuffM);
   c.rotation.x = Math.PI / 2;
   const edgeM = mat(0x1c3a49, { roughness:0.8 });
-  const rims = [-1, 1].map(sz => add(cuff, new THREE.TorusGeometry(CUFF_R, 0.0018, 6, 28), edgeM, 0, 0, sz * CUFF_LEN / 2));
   const vel = add(cuff, B(0.028, 0.0035, CUFF_LEN * 0.7), edgeM, 0, CUFF_R + 0.0012, 0);   // 겹쳐진 부분(찍찍이)
-  // 팔(소매) 굵기에 딱 맞게 반지름을 바꿈: 환의 소매 위에 얇은 천이 밀착
-  cuff.userData.setRadius = r => {
-    c.geometry.dispose(); c.geometry = new THREE.CylinderGeometry(r, r, CUFF_LEN, 28, 1, true);
-    rims.forEach(m => { m.geometry.dispose(); m.geometry = new THREE.TorusGeometry(r, 0.0018, 6, 28); });
-    vel.position.y = r + 0.0012;
+  // 팔 단면에 꼭 맞는 커프: 팔 위치마다(행·각도) 잰 반지름으로 만든 두께 있는 통 (원통이 아니라 팔 모양 그대로 → 헐렁하거나 찢어져 보이지 않음)
+  cuff.userData.setFit = fit => {
+    c.geometry.dispose(); c.geometry = fit.geo; c.rotation.set(0, 0, 0);
+    vel.position.set(fit.cx, fit.topY + 0.0008, fit.cz);
+  };
+  cuff.userData.setRadius = r => {   // (측정 실패 시) 원통 대체
+    c.geometry.dispose(); c.geometry = new THREE.CylinderGeometry(r, r, CUFF_LEN, 28, 1, true); c.rotation.x = Math.PI / 2; vel.position.set(0, r + 0.0012, 0);
   };
   hitSphere(cuff, 0, 0.02, 0, 0.1, '혈압 커프', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
   cuff.userData.side = 'L';
@@ -2588,7 +2573,9 @@ const bulb = group(world, BULB_POS.x, BULB_POS.y, BULB_POS.z);
 }
 // 압축된 bulb 안쪽 바닥(눕혔을 때 아래쪽 면)에 고이는 붉은 배액: 양에 따라 천천히 번짐
 const jpPool = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), new THREE.MeshStandardMaterial({ color:0x9d0014, roughness:0.22, metalness:0.05, transparent:true, opacity:0.92 }));
-jpPool.position.set(0, -0.03, -0.037); jpPool.visible = false; jpPool.castShadow = false; bulb.add(jpPool);
+jpPool.position.set(0, -0.03, -0.037); jpPool.visible = false; jpPool.castShadow = false; jpPool.scale.setScalar(0.001);
+jpPool.raycast = () => {};                                  // 선택(호버) 대상에서 제외: 보이지 않을 때도 반지름 1 m 구가 모든 클릭·툴팁을 가로채던 문제 방지
+bulb.add(jpPool);
 function updateJpPool() {
   const ml = jpMl();
   if (!(bulb.userData.fixed && ml > 0.02)) { jpPool.visible = false; return; }
@@ -2846,13 +2833,13 @@ function rebuildTubes() {
   if (patientRig && patientRig.spo2) {
     const r = patientRig;
     spo2Tube.visible = true;
-    const sp = r.spo2Pts ? r.spo2Pts.map(a => a.getWorldPosition(new THREE.Vector3())) : [r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3())];
+    const sp = (r.spo2Pts ? r.spo2Pts.map(a => a.getWorldPosition(new THREE.Vector3())) : [r.spo2Back.getWorldPosition(new THREE.Vector3()), r.spo2Wrist.getWorldPosition(new THREE.Vector3())]).concat((r.spo2Drop || []).map(a => a.getWorldPosition(new THREE.Vector3())));
     const last = sp[sp.length - 1];
     // 아래팔 피부 위를 따라 팔꿈치까지 → 몸 옆 매트리스에 걸쳐 놓이고 → Lt. 침상 난간 안쪽 면을 타고 올라 넘어가 → 바깥으로 내려가 모니터 포트로 (공중에 뜨지 않음)
     const mz = last.z;
     const ex = headGroup.worldToLocal(last.clone());
     const lift = (x, dz) => headGroup.localToWorld(V(x, 0.014, ex.z + dz));
-    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), ...sp, last.clone().add(V(0.035, -0.05, 0)), lift(last.x + 0.1, -0.01), lift(0.42, -0.08),
+    setTube(spo2Tube, [r.spo2.localToWorld(V(0, 0.006, -0.012)), ...sp, lift(last.x + 0.07, -0.015), lift(0.42, -0.08),
       V(0.462, 0.98, mz - 0.12), V(0.49, 1.13, mz - 0.15), V(0.6, 1.06, mz - 0.2), V(0.66, 0.97, -1.2), V(0.78, 0.93, -1.48), port]);
   } else spo2Tube.visible = false;
   // call bell 줄: 벽 패널 NURSE CALL 잭 → 벽을 타고 내려와 침대 머리 쪽 → Rt. 매트리스 옆 클립 → call bell 코일 끝
@@ -3356,17 +3343,34 @@ function setupPatient(gltf) {
         return hit ? hit.point.clone().add(V(0, 0.0028, 0)) : p.clone().add(V(0, 0.02, 0)); };
       const st = [[s0.clone().lerp(h, 0.3), 'LeftHand'], [s0.clone().lerp(h, 0.65), 'LeftHand'], [h.clone(), 'LeftHand'],
         [h.clone().addScaledVector(d2, -0.025), 'LeftHand'], [h.clone().addScaledVector(d2, -0.045), 'LeftHand'], [h.clone().addScaledVector(d2, -0.065), 'LeftForeArm'],
-        [h.clone().addScaledVector(d2, -0.085), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.105), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.125), 'LeftForeArm'],
-        [h.clone().addScaledVector(d2, -0.15), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.175), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.2), 'LeftForeArm']];
+        [h.clone().addScaledVector(d2, -0.085), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.105), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.125), 'LeftForeArm']];
       // 지점별 높이가 손목밴드·피부를 오가며 톱니처럼 들쭉날쭉해지지 않게: 이웃 지점 중 가장 높은 값으로 덮은 뒤 이동평균으로 매끈하게 (피부·밴드보다 항상 위)
       // 손등 고정 테이프: 손등 피부 위(허공에 뜨지 않게)에 납작하게 얹음
       { const hb = skin(h.clone().addScaledVector(d2, 0.05)); hb.y += 0.0012;
         rig.spo2Back = anchor('LeftHand', hb, frameQ(d2, up));
         add(rig.spo2Back, B(0.045, 0.0025, 0.016), tapeM); }
-      const raw = st.map(([p]) => skin(p)), ys = raw.map(q => q.y);
-      const env = ys.map((y, i) => Math.max(y, ys[i - 1] ?? y, ys[i + 1] ?? y, ys[i - 2] ?? y, ys[i + 2] ?? y));
-      const sm = env.map((y, i) => Math.max(ys[i] + 0.0015, (env[i - 1] ?? y) * 0.25 + y * 0.5 + (env[i + 1] ?? y) * 0.25));
-      rig.spo2Pts = st.map(([p, bn], i) => anchor(bn, V(raw[i].x, sm[i] + 0.002, raw[i].z), frameQ(d2, up)));
+      // 피부(또는 환의) 윗면만 정확히 재서 그 위 5 mm(케이블 반지름 3 mm + 여유)에 얹음. 손목밴드 구간만 밴드 두께만큼 살짝 올라탐 (이웃 지점으로 부드럽게)
+      const rcS = new THREE.Raycaster();
+      const surf = (p, far = 0.3, up0 = 0.15) => {
+        rcS.set(p.clone().add(V(0, up0, 0)), V(0, -1, 0)); rcS.far = far;
+        const hs = rcS.intersectObject(root, true).filter(x => x.object.isMesh && x.point.distanceTo(p) < 0.09);
+        const sk = hs.find(x => x.object.name === 'output_unwrapped');
+        const bd = hs.find(x => x.object.name !== 'output_unwrapped' && (!sk || (x.point.y - sk.point.y > 0.0005 && x.point.y - sk.point.y < 0.06)));
+        return { y: sk ? sk.point.y : (hs[0] ? hs[0].point.y : p.y + 0.01), band: !!bd };
+      };
+      const sf = st.map(([p]) => surf(p));
+      let lift = sf.map(q => q.band ? 0.0095 : 0.0042);
+      lift = lift.map((v, i) => Math.max(v, 0.72 * (lift[i - 1] ?? 0), 0.72 * (lift[i + 1] ?? 0)));
+      let yy = sf.map((q, i) => q.y + lift[i]);
+      yy = yy.map((y, i) => Math.max(sf[i].y + lift[i], ((yy[i - 1] ?? y) + 2 * y + (yy[i + 1] ?? y)) / 4));
+      rig.spo2Pts = st.map(([p, bn], i) => anchor(bn, V(p.x, yy[i], p.z), frameQ(d2, up)));
+      // 팔꿈치(커프 옆)를 넘지 않고 아래팔 중간에서 바깥쪽(+x)으로 환 옆면·매트리스를 타고 내려옴 → 팔·커프를 관통하지 않음
+      { const pe = st[st.length - 1][0], mat0 = headGroup.localToWorld(V(0, 0.014, 0)).y, dr = [];
+        for (const dx of [0.03, 0.055, 0.085, 0.115, 0.145]) {
+          const q = V(pe.x + dx, pe.y, pe.z - dx * 0.25), g = surf(q, 0.6, 0.35);
+          dr.push(anchor('LeftForeArm', V(q.x, Math.max(g.y, mat0) + 0.0046, q.z), frameQ(d2, up)));
+        }
+        rig.spo2Drop = dr; }
     }
   }
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
@@ -3376,25 +3380,55 @@ function setupPatient(gltf) {
   }
   rig.cuffL = upperArm('Left');
   rig.cuffR = upperArm('Right');
-  // 커프가 놓이는 위팔 구간의 소매/피부 바깥 반지름을 팔마다(Lt/Rt) 따로 측정 → 어느 쪽 팔에 감겨도 소매에 파묻히거나 지글거리지 않고 밀착
+  // 커프가 놓이는 위팔 구간의 단면(소매/피부 바깥 모양)을 팔마다(Lt/Rt) 행·각도별로 측정 → 팔 모양에 그대로 밀착하는 커프 통을 만듦
   {
-    const rcC = new THREE.Raycaster(); rig.cuffRad = {};
+    const rcC = new THREE.Raycaster(); rig.cuffRad = {}; rig.cuffFit = {};
+    const NA = 36, NR = 7, TH_OUT = 0.0042, TH_IN = 0.0012;
     for (const side of ['Left', 'Right']) {
-      const s0 = J(side + 'Arm'), e0 = J(side + 'ForeArm'), u = e0.clone().sub(s0).normalize();
-      const a1 = new THREE.Vector3().crossVectors(u, V(0, 1, 0)).normalize(), a2 = new THREE.Vector3().crossVectors(u, a1).normalize();
-      const rs = [];
-      for (const dz of [-CUFF_LEN / 2, 0, CUFF_LEN / 2]) {
-        const c0 = lerp(s0, e0, 0.62).addScaledVector(u, dz);
-        for (let k = 0; k < 20; k++) {
-          const th = k / 20 * Math.PI * 2, dir = a1.clone().multiplyScalar(Math.cos(th)).addScaledVector(a2, Math.sin(th));
-          rcC.set(c0.clone().addScaledVector(dir, 0.11), dir.clone().negate()); rcC.far = 0.11;
-          const h = rcC.intersectObject(root, true).filter(q => !(q.object.parent === cuff || q.object === cuff))[0]; if (h) rs.push(0.11 - h.distance);
+      const A = side === 'Left' ? rig.cuffL : rig.cuffR; A.updateWorldMatrix(true, false);
+      const ax = V(1, 0, 0).transformDirection(A.matrixWorld), ay = V(0, 1, 0).transformDirection(A.matrixWorld), az = V(0, 0, 1).transformDirection(A.matrixWorld);
+      const wsc = A.getWorldScale(V(1, 1, 1)).x;   // anchor가 뼈 스케일을 상쇄하므로 보통 1
+      const shoot = (c0, th) => {
+        const dir = ax.clone().multiplyScalar(Math.cos(th)).addScaledVector(ay, Math.sin(th));
+        rcC.set(c0.clone().addScaledVector(dir, 0.12), dir.clone().negate()); rcC.far = 0.12;
+        const h = rcC.intersectObject(root, true).filter(q => !(q.object.parent === cuff || q.object === cuff))[0];
+        return h ? { r: 0.12 - h.distance, p: h.point } : null;
+      };
+      const rows = [];
+      for (let k = 0; k < NR; k++) {
+        const dz = (k / (NR - 1) - 0.5) * CUFF_LEN;
+        let c0 = A.localToWorld(V(0, 0, dz / wsc));
+        for (let it = 0; it < 3; it++) {          // 단면 중심을 팔 한가운데로 옮김
+          const pts = []; for (let j = 0; j < NA; j++) { const h = shoot(c0, j / NA * Math.PI * 2); if (h) pts.push(h.p); }
+          if (pts.length) { const m = V(0, 0, 0); pts.forEach(q => m.add(q)); m.multiplyScalar(1 / pts.length); c0 = m.sub(az.clone().multiplyScalar(m.clone().sub(A.localToWorld(V(0, 0, dz / wsc))).dot(az))); }
         }
+        const rad = []; for (let j = 0; j < NA; j++) { const h = shoot(c0, j / NA * Math.PI * 2); rad.push(h ? h.r : null); }
+        const ok = rad.filter(x => x != null), mean = ok.length ? ok.reduce((x, y) => x + y, 0) / ok.length : CUFF_R;
+        const r2 = rad.map(x => x == null ? mean : Math.min(Math.max(x, 0.03), 0.075));
+        const sm = r2.map((x, j) => (r2[(j + NA - 1) % NA] + 2 * x + r2[(j + 1) % NA]) / 4);
+        rows.push({ dz, c: A.worldToLocal(c0.clone()), rad: sm });
       }
-      rs.sort((x, y) => x - y);
-      rig.cuffRad[side] = rs.length ? Math.min(0.065, Math.max(0.034, rs[Math.floor(rs.length * 0.88)] + 0.005)) : CUFF_R;
+      // 행마다 가장 굵은 쪽으로 맞춰 소매가 뚫고 나오지 않게(옆 행 중 큰 값)
+      for (let k = 0; k < NR; k++) rows[k].rad = rows[k].rad.map((x, j) => Math.max(x, ((rows[k - 1] || rows[k]).rad[j] + (rows[k + 1] || rows[k]).rad[j]) / 2 - 0.001));
+      const pos = [], idx = [], nv = NR * NA;
+      for (const th of [TH_OUT, TH_IN]) for (let k = 0; k < NR; k++) for (let j = 0; j < NA; j++) {
+        const a2 = j / NA * Math.PI * 2, rr = rows[k].rad[j] + th;
+        pos.push(rows[k].c.x + Math.cos(a2) * rr, rows[k].c.y + Math.sin(a2) * rr, rows[k].dz / wsc);
+      }
+      for (let k = 0; k < NR - 1; k++) for (let j = 0; j < NA; j++) {
+        const j2 = (j + 1) % NA, o = (kk, jj) => kk * NA + jj, i2 = (kk, jj) => nv + kk * NA + jj;
+        idx.push(o(k, j), o(k + 1, j), o(k, j2), o(k, j2), o(k + 1, j), o(k + 1, j2));          // 바깥면
+        idx.push(i2(k, j), i2(k, j2), i2(k + 1, j), i2(k, j2), i2(k + 1, j2), i2(k + 1, j));   // 안쪽면
+      }
+      for (const k of [0, NR - 1]) for (let j = 0; j < NA; j++) {                                // 양쪽 테두리 띠
+        const j2 = (j + 1) % NA; idx.push(k * NA + j, nv + k * NA + j, k * NA + j2, k * NA + j2, nv + k * NA + j, nv + k * NA + j2);
+      }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+      const mid = rows[(NR - 1) >> 1];
+      rig.cuffFit[side] = { geo, cx: mid.c.x, cz: 0, topY: mid.c.y + mid.rad[NA >> 2] + TH_OUT };
+      rig.cuffRad[side] = mid.rad.reduce((x, y) => x + y, 0) / NA;
     }
-    cuff.userData.fitRadius = () => cuff.userData.setRadius(rig.cuffRad[cuff.userData.side === 'R' ? 'Right' : 'Left']);
+    cuff.userData.fitRadius = () => cuff.userData.setFit(rig.cuffFit[cuff.userData.side === 'R' ? 'Right' : 'Left']);
     cuff.userData.fitRadius();
   }
   (cuff.userData.side === 'R' ? rig.cuffR : rig.cuffL).attach(cuff);
