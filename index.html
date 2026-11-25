@@ -1422,6 +1422,7 @@ function drawMonitor(g, w, h) {
     add(g, new THREE.CylinderGeometry(0.034, 0.022, LEG, 16), walnut, x, LEG / 2, z);
     add(g, new THREE.CylinderGeometry(0.024, 0.024, 0.014, 16), brass, x, 0.007, z);
   }
+  g.traverse(m => { if (m.isMesh) m.receiveShadow = false; });   // 등받이에 얼룩처럼 맺히던 그림자 제거
   tag(g, '보호자 소파 (3인용)', '');
 }
 // 천장 연기감지기
@@ -1721,7 +1722,7 @@ const saveBandG = group(headGroup, 0.34, 0.045, -0.3);
 const IV_R = 0.032;
 const ivCathG = group(headGroup, -0.35, 0.085, -0.15);
 const ivSite = new THREE.Object3D(), ivSiteLead = new THREE.Object3D();   // IV 라인이 이어지는 커넥터 끝 / 그 앞 방향점
-ivSite.position.set(0, 0.004, -0.082); ivSiteLead.position.set(0, 0.02, -0.13);
+ivSite.position.set(0, 0.008, -0.042); ivSiteLead.position.set(0, 0.04, -0.085);
 ivCathG.add(ivSite, ivSiteLead);
 {
   const yS = x => Math.sqrt(IV_R * IV_R - x * x) - IV_R;   // 곡면 높이 (가운데 0)
@@ -1933,6 +1934,53 @@ function modelFace(g, sc, rect, tex, asp, fill = 0.97) {
   const m = screenMesh(g, tex, pw, ph, c.x, c.y, (isFinite(zf) ? zf : 0) + 0.0015);
   return m;
 }
+// 곡면에 맞춰 붙이는 라벨: 격자 점마다 백 표면까지 레이캐스트해 라벨 메시를 표면 굴곡에 그대로 얹음 (팔찌처럼 감겨 붙음)
+function modelFaceCurved(g, sc, rect, tex, asp, fill = 0.97, off = 0.0012) {
+  const s = sc.userData.s;
+  const toG = (x, y, z) => V(x * s + sc.position.x, y * s + sc.position.y, z * s + sc.position.z);
+  const keep = g.position.clone(); g.position.set(0, 0, 0); g.updateMatrixWorld(true);
+  const rc = new THREE.Raycaster();
+  let pw = rect.w * s * fill, ph = pw / asp;
+  if (ph > rect.h * s * fill) { ph = rect.h * s * fill; pw = ph * asp; }
+  const c = toG(rect.x, rect.y, 0);
+  const NX = 16, NY = 28, pos = [], uv = [], idx = [];
+  let zf = -Infinity;
+  const hits = [];
+  for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) {
+    const x = c.x + (i / NX - 0.5) * pw, y = c.y + (0.5 - j / NY) * ph;
+    rc.set(V(x, y, 5), V(0, 0, -1));
+    const hit = rc.intersectObject(g, true)[0];
+    hits.push(hit ? { x, y, z: hit.point.z, n: hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : V(0, 0, 1) } : null);
+    if (hit) zf = Math.max(zf, hit.point.z);
+  }
+  g.position.copy(keep);
+  // 백 가장자리 밖으로 빠지는 점은 그 줄에서 가장 가까운 표면 점으로 당겨 라벨이 허공에 뜨지 않게 함
+  for (let j = 0; j <= NY; j++) {
+    const row = hits.slice(j * (NX + 1), (j + 1) * (NX + 1));
+    const ok = row.map((h, i) => h ? i : -1).filter(i => i >= 0);
+    for (let i = 0; i <= NX; i++) {
+      let q = row[i];
+      if (!q) {
+        if (ok.length) { const near = ok.reduce((m, k) => Math.abs(k - i) < Math.abs(m - i) ? k : m, ok[0]); q = { ...row[near], y: c.y + (0.5 - j / NY) * ph }; }
+        else q = { x: c.x + (i / NX - 0.5) * pw, y: c.y + (0.5 - j / NY) * ph, z: isFinite(zf) ? zf - 0.004 : 0, n: V(0, 0, 1) };
+      }
+      const n = q.n.z < 0.2 ? V(q.n.x, q.n.y, 0.2).normalize() : q.n;
+      pos.push(q.x + n.x * off, q.y + n.y * off, q.z + n.z * off);
+      uv.push(i / NX, 1 - j / NY);
+    }
+  }
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+    const a = j * (NX + 1) + i, b = a + 1, d = a + NX + 1, e = d + 1;
+    idx.push(a, d, b, b, d, e);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map:tex, toneMapped:false, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 }));
+  g.add(m);
+  return m;
+}
 // 로더(gltfLoader)는 아래쪽에서 만들어지므로 모듈 실행이 끝난 뒤 불러온다
 function lateLoad(url, fn) { queueMicrotask(() => loadModel(url, fn)); }
 // 모델 좌표 → 모델 그룹(g) 좌표
@@ -2101,7 +2149,7 @@ lateLoad('ivbag.glb', sc => {
   bag.position.y = HOOK_BAG.y - (hole.y - mid.y);    // 원점 = 백 가운데, 걸이 구멍이 고리 높이에
   g.position.set(-hole.x, -mid.y, -hole.z);
   // 모델 인쇄 라벨 위에 처방(Plasma Solution A 1 L) 라벨을 선명하게 다시 그려 붙임
-  modelFace(g, sc, { x:0, y:0.58, w:0.22, h:0.44 }, bagLbl, 256 / 512);
+  modelFaceCurved(g, sc, { x:0, y:0.57, w:0.2, h:0.40 }, bagLbl, 256 / 512);
   g.traverse(m => {                                    // 점적통 부분을 잘라내고, 아래에서 직접 만든 투명 점적통(물방울이 보임)으로 대체
     if (!m.isMesh) return;
     m.material = m.material.clone();
@@ -2431,7 +2479,7 @@ function rebuildTubes() {
   const port = monPort.getWorldPosition(new THREE.Vector3());
   const hgAt = (x, y, z) => headGroup.localToWorld(V(x, y - HINGE.y - BED_LIFT, z - HINGE.z));          // 평평할 때의 월드 좌표 → 침상 머리와 함께 움직이는 점
   if (cuff.userData.side === 'L') setTube(cuffTube, [cp, hgAt(0.41, 0.95, -1.18), V(0.48, 1.165, -1.2), V(0.56, 1.1, -1.24), V(0.64, 0.98, -1.34), V(0.78, 0.95, -1.5), port]);   // Lt. 침상 난간(윗면 y≈1.08) 위로 넘어 바깥으로 내려감
-  else setTube(cuffTube, [cp, hgAt(-0.25, 0.97, -1.7), hgAt(0.4, 0.97, -1.75), V(0.7, 1.15, -1.7), port]);   // 침상 머리를 올려도(E7) 매트리스·베개를 뚫지 않게 침상 머리 따라 올라감
+  else setTube(cuffTube, [cp, hgAt(-0.39, 0.775, -1.1), hgAt(-0.37, 0.768, -1.5), hgAt(-0.3, 0.766, -1.74), hgAt(0, 0.766, -1.78), hgAt(0.3, 0.766, -1.76), hgAt(0.46, 0.775, -1.72), V(0.7, 1.0, -1.7), port]);   // 매트리스 위에 딱 붙어 베개 뒤(머리맡)를 지나 모니터로 (침상 머리를 올려도 따라 올라감)   // 침상 머리를 올려도(E7) 매트리스·베개를 뚫지 않게 침상 머리 따라 올라감
   // SpO₂ 케이블: Lt. 검지 → 손등 테이프 → 손목 → 침대 가장자리 → 모니터
   if (patientRig && patientRig.spo2) {
     const r = patientRig;
@@ -2739,17 +2787,37 @@ function setupPatient(gltf) {
         }
         boneWorldRot(rig, side + 'ForeArm', Y, best - cur); root.updateMatrixWorld(true);
       }
+      // 손목이 배 윗면 위(+3 cm)에 오도록 위팔 전체를 어깨 기준으로 살짝 들어 올림 (손이 배 속으로 파고들지 않게)
+      for (let it = 0, acc = 0; it < 8; it++) {
+        const w = wp(side + 'Hand'), sh = wp(side + 'Arm'), b = belly(sg * 0.04, -0.7);
+        if (!isFinite(b)) break;
+        const dy = (b + 0.03) - w.y; if (dy < 0.003 || Math.abs(acc) > 0.45) break;
+        const ang = Math.atan2(dy, Math.max(0.1, Math.hypot(w.z - sh.z, w.y - sh.y))) * 0.9;
+        boneWorldRot(rig, side + 'Arm', X, ang); root.updateMatrixWorld(true); acc += ang;
+        if (wp(side + 'Hand').y < w.y) { boneWorldRot(rig, side + 'Arm', X, -2 * ang); root.updateMatrixWorld(true); acc -= 2 * ang; }
+      }
+      // 손가락이 목 쪽이 아니라 몸 안쪽·발 쪽(배 위)을 향하도록 손을 수직축으로 회전
+      {
+        let best = 0, bd = Infinity, cur = 0; const D = THREE.MathUtils.degToRad(5), tx = -sg * 0.55, tz = 0.835;
+        for (let k = -24; k <= 24; k++) {
+          boneWorldRot(rig, side + 'Hand', Y, (k * D) - cur); cur = k * D; root.updateMatrixWorld(true);
+          const w = wp(side + 'Hand'), m = wp(side + 'HandMiddle1'); const dx = m.x - w.x, dz = m.z - w.z, l = Math.hypot(dx, dz) || 1;
+          const d = 1 - (dx * tx + dz * tz) / l;
+          if (d < bd) { bd = d; best = k * D; }
+        }
+        boneWorldRot(rig, side + 'Hand', Y, best - cur); root.updateMatrixWorld(true);
+      }
       // 손가락 마디가 배 윗면 + 2.5 cm에 오도록 손을 X축으로 숙임 (부호는 실제로 낮아지는 쪽을 선택)
       for (let it = 0; it < 6; it++) {
         const m = wp(side + 'HandMiddle1'), w = wp(side + 'Hand');
         const b = belly(sg * 0.04, -0.7);   // 손이 없는 배 윗면 높이
         if (!isFinite(b)) break;
-        const dy = m.y - (b + 0.03), L = Math.max(0.03, Math.abs(m.z - w.z));
+        const dy = m.y - (b + 0.045), L = Math.max(0.03, Math.abs(m.z - w.z));
         if (Math.abs(dy) < 0.004) break;
         const ang = Math.atan2(dy, L) * 0.9;
         boneWorldRot(rig, side + 'Hand', X, ang); root.updateMatrixWorld(true);
         const m2 = wp(side + 'HandMiddle1');
-        if (Math.abs(m2.y - (b + 0.03)) > Math.abs(dy)) { boneWorldRot(rig, side + 'Hand', X, -2 * ang); root.updateMatrixWorld(true); }
+        if (Math.abs(m2.y - (b + 0.045)) > Math.abs(dy)) { boneWorldRot(rig, side + 'Hand', X, -2 * ang); root.updateMatrixWorld(true); }
       }
     }
   }
