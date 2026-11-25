@@ -1368,7 +1368,8 @@ function drawMonitor(g, w, h) {
 
 // 일반 쓰레기통 (환자 슬리퍼 옆 바닥): 갈색 원통 + 입구에 걸친 흰 비닐봉투
 {
-  const g = group(world, -0.66, 0, 0.44);           // 침대 발치 Rt. 모서리 바로 옆(아래) 바닥
+  const g = group(world, -0.58, 0, 0.36);           // 침대 발치 Rt. 모서리 바로 옆(아래) 바닥
+  g.scale.setScalar(0.8);                          // 크기 1/5 줄임 (80%)
   const R = 0.125, Hh = 0.34;
   const binM = new THREE.MeshStandardMaterial({ color:0xb89a72, roughness:0.75 });
   add(g, new THREE.CylinderGeometry(R, R * 0.93, Hh, 36, 1, true), binM, 0, Hh / 2, 0).material.side = THREE.DoubleSide;     // 통 옆면
