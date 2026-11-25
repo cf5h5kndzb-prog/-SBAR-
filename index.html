@@ -1506,7 +1506,7 @@ function drawMonitor(g, w, h) {
 
 // ── 소파 옆 캐리어 (크림색 하드케이스: 세로 리브 · 검정 모서리 보호대 · 트롤리 손잡이 · 4륜) ──
 {
-  const g = group(world, -2.85, 0, 0.985);                   // 소파 발치 쪽 끝(z≈0.725) 바로 옆, 왼벽에 붙임. 앞면이 방 안쪽(+x)
+  const g = group(world, -2.85, 0, -1.68);                   // 소파 머리 쪽 끝(z≈-1.425) 바로 옆(소파에서 보아 오른쪽), 왼벽에 붙임. 앞면이 방 안쪽(+x)
   const cream = new THREE.MeshStandardMaterial({ color:0xe9e1d0, roughness:0.45, metalness:0.02 });
   const creamD = new THREE.MeshStandardMaterial({ color:0xddd4c1, roughness:0.5 });
   const black = new THREE.MeshStandardMaterial({ color:0x1b1c1e, roughness:0.5 });
@@ -1700,6 +1700,7 @@ function drawMonitor(g, w, h) {
       tag(piv, sx < 0 ? nameL : nameR, () => st.locked ? '잠김 · 번호키 잠금장치로 풀기' : (st.open ? '열림 · 클릭: 닫기' : '클릭: 열기'));
       if (sx > 0) makeKeypadLock(piv, -(dw - 0.07), lockDy, st, lockName, doorTxt);
     }
+    return doors;
   };
   const wLock = { locked:true, open:false, busy:false };
   makeDoors(0.06 + FH / 2, FH - 0.02, wLock, '아래 수납장', '아래 수납장 번호키 잠금장치', '옷장 아래 문 (왼쪽)', '옷장 아래 문 (오른쪽)', 0.1, 0.185);
@@ -1712,7 +1713,34 @@ function drawMonitor(g, w, h) {
   add(g, B(0.3, 0.1, 0.22), mat(0xe6d9c4, { roughness:0.95 }), -0.17, C0 + 0.05, -0.02);          // 안쪽 수건·물품
   add(g, B(0.26, 0.14, 0.2), mat(0x8fb0cf, { roughness:0.95 }), 0.17, C0 + 0.07, -0.02);
   const uLock = { locked:true, open:false, busy:false };
-  makeDoors(C0 + CH / 2, CH - 0.01, uLock, '위 수납장', '위 수납장 번호키 잠금장치', '옷장 위 문 (왼쪽)', '옷장 위 문 (오른쪽)', -(CH - 0.01) * 0.28, -(CH - 0.01) * 0.12);
+  const upDoors = makeDoors(C0 + CH / 2, CH - 0.01, uLock, '위 수납장', '위 수납장 번호키 잠금장치', '옷장 위 문 (왼쪽)', '옷장 위 문 (오른쪽)', -(CH - 0.01) * 0.28, -(CH - 0.01) * 0.12);
+  // 위 수납장 문 아래쪽에 붙인 안내 스티커: "개인약 임의복용 금지" (문과 함께 움직임)
+  {
+    const pd = upDoors.find(d => d.sx > 0).piv, SW2 = 0.21, SH2 = 0.05;
+    const stTex = canvasTex(840, 200, (c, w, h) => {
+      c.fillStyle = '#b4513c'; c.beginPath(); c.roundRect(0, 0, w, h, 6); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.06)'; c.fillRect(0, 0, w, h / 2);
+      c.fillStyle = '#ffffff'; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+      c.font = `bold 78px ${FONT}`; c.fillText('개인약 임의복용 금지', 34, 96);
+      c.font = `24px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.92)'; c.fillText('검사/시술 연기, 중복투여, 입원 취소 등의 문제가 생길 수 있습니다.', 34, 158);
+      // 만화 그림: 팔짱 낀 아이 + 약(캡슐) + ⓧ 배지
+      const fx = 676, fy = 92;
+      c.fillStyle = '#3d85c6'; c.beginPath(); c.roundRect(fx - 38, fy + 28, 76, 62, 16); c.fill();                      // 몸(파란 옷)
+      c.strokeStyle = '#2b66a3'; c.lineWidth = 5; c.beginPath(); c.moveTo(fx - 26, fy + 56); c.lineTo(fx + 26, fy + 66); c.moveTo(fx + 26, fy + 56); c.lineTo(fx - 26, fy + 66); c.stroke();   // 엇갈린 팔
+      c.fillStyle = '#f7cfa6'; c.beginPath(); c.arc(fx, fy, 36, 0, 7); c.fill();                                           // 얼굴
+      c.fillStyle = '#6b4a2e'; c.beginPath(); c.arc(fx, fy - 8, 36, Math.PI, 0); c.fill();                               // 머리카락
+      c.fillStyle = '#2a2a2a'; c.beginPath(); c.arc(fx - 12, fy + 4, 3.5, 0, 7); c.arc(fx + 12, fy + 4, 3.5, 0, 7); c.fill();
+      c.strokeStyle = '#a0522d'; c.lineWidth = 3; c.beginPath(); c.arc(fx, fy + 14, 9, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
+      c.save(); c.translate(fx + 92, fy + 38); c.rotate(-0.6);                                                              // 캡슐
+      c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(-34, -14, 68, 28, 14); c.fill();
+      c.fillStyle = '#d64a4a'; c.beginPath(); c.roundRect(-34, -14, 34, 28, 14); c.fill(); c.fillRect(-14, -14, 14, 28);
+      c.fillStyle = '#7aa5d8'; c.beginPath(); c.roundRect(4, -8, 24, 16, 8); c.fill(); c.restore();
+      c.fillStyle = '#ffffff'; c.beginPath(); c.arc(fx + 56, fy - 52, 17, 0, 7); c.fill();                                // ⓧ 배지
+      c.strokeStyle = '#c0392b'; c.lineWidth = 5; c.beginPath(); c.arc(fx + 56, fy - 52, 17, 0, 7); c.moveTo(fx + 47, fy - 61); c.lineTo(fx + 65, fy - 43); c.moveTo(fx + 65, fy - 61); c.lineTo(fx + 47, fy - 43); c.stroke();
+    }, 2);
+    const stk = new THREE.Mesh(new THREE.PlaneGeometry(SW2, SH2), new THREE.MeshStandardMaterial({ map:stTex, roughness:0.5, polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-1 }));
+    stk.position.set(-(dw / 2 - 0.002), -(CH - 0.01) / 2 + 0.05, 0.0116); pd.add(stk);
+  }
   // 선반 위 소품: 수건, 컵
   add(g, B(0.22, 0.05, 0.16), mat(0xe8dfd0, { roughness:0.9 }), -0.16, TOP + 0.045, 0.02);
   add(g, CYL(0.035, 0.09, 16), mat(0xffffff, { roughness:0.3 }), 0.18, TOP + 0.065, 0.05);
@@ -1861,15 +1889,6 @@ const pillow = group(headGroup, 0, 0.05, -0.98);
 {
   const pm = new THREE.Mesh(superEllipsoid(0.27, 0.19, 0.05, 0.42, 0.32), new THREE.MeshStandardMaterial({ color:0xfdfdfb, roughness:0.95 }));
   pm.castShadow = true; pm.receiveShadow = true; pillow.add(pm);
-  const printTex = canvasTex(512, 192, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = 'rgba(30,52,96,0.9)'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = `bold 104px Arial, Helvetica, sans-serif`; g.fillText('SIMC', w / 2, h * 0.38);
-    g.font = `bold 34px Arial, Helvetica, sans-serif`; g.fillText('SIM MEDICAL CENTER', w / 2, h * 0.78);
-  }, 2);
-  const dm = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), new THREE.MeshStandardMaterial({ map:printTex, transparent:true, roughness:0.95, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 }));
-  dm.rotation.set(-Math.PI / 2, 0, Math.PI / 2); dm.position.set(0.185, 0.0508, 0.0); pillow.add(dm);   // 머리에 가려지지 않는 베개 옆 부분에 인쇄
-  pillow.userData.decal = dm;
 }
 tag(pillow, '베개', '');
 const head = add(headGroup, SPH(0.115), skinMat, 0, 0.2, -0.96);
@@ -2055,17 +2074,19 @@ tag(railR, '침상 난간 (Rt.)', () => railR.userData.up ? '올려져 있음' :
   railR.add(hb);
 }
 
-// 환자용 침대 조절 리모컨 (Lt. 머리 쪽 난간 발치 끝에 걸려 있음): 등받이·무릎·높이 ▲▼ 버튼 + 침대 본체로 이어지는 코일선
-// 난간(실측): 윗면 y≈1.04 m, 두께 x 0.455~0.50 (바깥 면 x=0.50). 고리판이 난간 윗면에 얹히고 안쪽 턱이 안쪽 면을 잡음. bed 그룹 좌표 = 월드 좌표에서 y만 BED_LIFT만큼 아래
+// 환자용 침대 조절 리모컨: 침대 오른쪽(+x) 뒷벽에 단 흰 거치대에 꽂혀 있고, 코일선이 침대 옆 프레임 커넥터로 이어짐
 {
-  const RX = 0.515, RY = 0.935, RZ = -0.70;                       // 리모컨 중심 (월드)
-  const g = group(bed, RX, RY - BED_LIFT, RZ);
+  const WX = 0.64, WY = 0.93, WZ = BACK_Z;                         // 거치대 중심(월드), 앞면이 방 안쪽(+z)
+  const g = group(world, WX, WY, WZ);
   const bodyM = mat(0xefece4, { roughness:0.55 });
-  add(g, B(0.024, 0.19, 0.062), bodyM, 0, 0, 0);                                                    // 본체
-  const hookM = mat(0xd9d6cc, { roughness:0.6 });
-  add(g, B(0.1, 0.012, 0.034), hookM, -0.035, 0.111, 0);                                              // 난간 윗면(y 1.04)에 얹히는 고리판
-  add(g, B(0.012, 0.04, 0.034), hookM, -0.066, 0.091, 0);                                             // 안쪽 턱 (난간 안쪽 면 x 0.455 을 잡음)
-  add(g, B(0.014, 0.05, 0.034), hookM, 0.003, 0.1, 0);                                                // 본체와 고리 이음 (난간 바깥 면 바로 앞)
+  const holdM = mat(0xe2e2dc, { roughness:0.5 });
+  add(g, B(0.084, 0.17, 0.008), holdM, 0, -0.01, 0.004);                                           // 벽 고정판
+  add(g, B(0.007, 0.115, 0.036), holdM, -0.0385, -0.035, 0.026);                                   // 양옆 가이드
+  add(g, B(0.007, 0.115, 0.036), holdM, 0.0385, -0.035, 0.026);
+  for (const sx of [-1, 1]) add(g, B(0.028, 0.012, 0.036), holdM, sx * 0.0255, -0.098, 0.026);     // 아래 받침 턱(가운데는 코드가 나오는 틈)
+  add(g, B(0.05, 0.014, 0.014), holdM, 0, 0.07, 0.015);                                            // 위쪽 고정 걸쇠
+  const rem = group(g, 0, 0.003, 0.021);                                                           // 리모컨: 거치대에 꽂힌 상태
+  add(rem, B(0.062, 0.19, 0.024), bodyM, 0, 0, 0);
   const tex = canvasTex(128, 320, (c, w, h) => {
     c.fillStyle = '#efece4'; c.fillRect(0, 0, w, h);
     const rows = [['등받이', 70], ['무릎', 150], ['높이', 230]];
@@ -2082,20 +2103,21 @@ tag(railR, '침상 난간 (Rt.)', () => railR.userData.up ? '올려져 있음' :
     }
   });
   const face = new THREE.Mesh(new THREE.PlaneGeometry(0.058, 0.18), new THREE.MeshStandardMaterial({ map:tex, roughness:0.55 }));
-  face.rotation.y = Math.PI / 2; face.position.set(0.0125, 0, 0); g.add(face);                      // 버튼 면은 바깥(+x)을 향함
-  // 코일선: 리모컨 아래 → 나선으로 내려가 → 침대 옆 프레임 바(y≈0.585, x≈0.475)의 작은 커넥터
-  const top = V(0, -0.095, 0), endY = 0.585 - RY;               // g 좌표
-  const pts = [top.clone(), V(0, -0.115, 0)];
-  const turns = 18, per = 9, r = 0.012, y0 = -0.125, y1 = endY + 0.05;
+  face.position.set(0, 0, 0.0122); rem.add(face);
+  // 코일선: 리모컨 아래 → 아래로 처지며 → 침대 옆 프레임 바(y≈0.585, x≈0.49)의 작은 커넥터
+  const S = V(WX, WY + 0.003 - 0.096, WZ + 0.021), E = V(0.505, 0.585, -1.40);
+  const path = new THREE.CatmullRomCurve3([S, V(WX, 0.79, WZ + 0.022), V(WX - 0.015, 0.70, -1.90), V(0.60, 0.635, -1.80), V(0.56, 0.60, -1.62), V(0.525, 0.59, -1.48), E], false, 'catmullrom', 0.5);
+  const pts = [], turns = 26, per = 10, rc = 0.0095;
   for (let i = 0; i <= turns * per; i++) {
-    const t = i / (turns * per), a = t * turns * Math.PI * 2;
-    pts.push(V(Math.cos(a) * r, y0 + (y1 - y0) * t, Math.sin(a) * r));
+    const t = i / (turns * per), c0 = path.getPointAt(t), T = path.getTangentAt(t);
+    let n1 = new THREE.Vector3().crossVectors(T, V(0, 1, 0)); if (n1.lengthSq() < 1e-4) n1 = V(1, 0, 0); n1.normalize();
+    const n2 = new THREE.Vector3().crossVectors(T, n1).normalize(), a = t * turns * Math.PI * 2;
+    pts.push(c0.clone().addScaledVector(n1, Math.cos(a) * rc).addScaledVector(n2, Math.sin(a) * rc));
   }
-  pts.push(V(-r + 0.0, endY + 0.02, 0.01), V(-0.04, endY, 0.015));
   const coil = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, 0.0024, 5, false), new THREE.MeshStandardMaterial({ color:0xd6d9d9, roughness:0.5 }));
-  coil.castShadow = false; g.add(coil);
-  add(g, B(0.03, 0.03, 0.04), mat(0x2b3136, { roughness:0.6 }), -0.045, endY, 0.015);                // 침대 쪽 커넥터
-  tag(g, '침대 조절 리모컨 (환자용)', () => '등받이 · 무릎 · 높이 ▲▼ · 난간에 걸려 있음');
+  coil.castShadow = false; world.add(coil);
+  add(world, B(0.03, 0.03, 0.04), mat(0x2b3136, { roughness:0.6 }), 0.52, 0.585, -1.40);            // 침대 쪽 커넥터
+  tag(g, '침대 조절 리모컨 (환자용)', () => '등받이 · 무릎 · 높이 ▲▼ · 침대 오른쪽 벽 거치대에 꽂혀 있음');
 }
 
 // call bell (E8: 바닥에 떨어짐)
@@ -2131,15 +2153,16 @@ lateLoad('callbell.glb', sc => {
 const POLE = V(-0.95, 0, -1.5);   // 환자 오른쪽 머리 쪽 (Rt. hand IV)
 const pole = group(world, POLE.x, 0, POLE.z);
 // 폴대 모델 기준 고리 위치 (폴대 기둥 축 기준, m)
-const HOOK_BAG = V(0.272, 1.82, 0.108), HOOK_PCA = V(-0.27, 1.82, 0.108);
+const POLE_H = 1.2, POLE_DY = 1.82 * (POLE_H - 1);   // 폴대를 지금보다 1/5 높임 (고리·펌프 등도 같이 올림)
+const HOOK_BAG = V(0.272, 1.82 * POLE_H, 0.108), HOOK_PCA = V(-0.27, 1.82 * POLE_H, 0.108);
 const poleProc = group(pole);
 {
   const m = mat(0x9aa8b0, { metalness:0.4 });
-  add(poleProc, CYL(0.015, 1.86), m, 0, 0.93, 0);
+  add(poleProc, CYL(0.015, 1.86 * POLE_H), m, 0, 0.93 * POLE_H, 0);
   add(poleProc, B(0.5, 0.03, 0.05), m, 0, 0.03, 0);
   add(poleProc, B(0.05, 0.03, 0.5), m, 0, 0.03, 0);
-  add(poleProc, B(0.58, 0.015, 0.015), m, 0, 1.845, HOOK_BAG.z);           // 고리 가로대
-  add(poleProc, B(0.015, 0.015, HOOK_BAG.z), m, 0, 1.845, HOOK_BAG.z / 2);
+  add(poleProc, B(0.58, 0.015, 0.015), m, 0, 1.845 * POLE_H, HOOK_BAG.z);           // 고리 가로대
+  add(poleProc, B(0.015, 0.015, HOOK_BAG.z), m, 0, 1.845 * POLE_H, HOOK_BAG.z / 2);
   tag(pole, 'IV 폴대', '');
 }
 
@@ -2222,7 +2245,7 @@ lateLoad('pole.glb', sc => {
   sc.traverse(o => { if (o.isMesh) o.material = metal; });   // 모델에 재질이 없어 금속 재질을 입힘
   const g = fitModel(sc, 1.95);
   const ax = modelPt(sc, -0.02, 0, -0.03);                    // 기둥 축을 POLE 위치에 맞춤
-  g.position.set(-ax.x, 0, -ax.z);
+  g.position.set(-ax.x, 0, -ax.z); g.scale.y = POLE_H;
   poleProc.removeFromParent();
   pole.add(g);
 });
@@ -2269,7 +2292,7 @@ function drawFallSign(c, w, h, FONT) {
   c.font = `800 38px ${FONT}`; c.fillText('미끄럼·넘어짐 주의', w / 2, 528);
 }
 {
-  const HOOK_SIGN = V(0.0, 1.66, 0.0);              // 폴대 기둥, 수액 백 고리 아래 눈높이 (수액 백·펌프·PCA와 겹치지 않음)
+  const HOOK_SIGN = V(0.0, 1.66 + POLE_DY, 0.0);              // 폴대 기둥, 수액 백 고리 아래 눈높이 (수액 백·펌프·PCA와 겹치지 않음)
   const CW = 0.12, CH = CW * 580 / 400;             // 12 x 17 cm
   const g = group(pole, HOOK_SIGN.x, HOOK_SIGN.y, HOOK_SIGN.z);
   g.rotation.y = 0.55; g.translateZ(0.045);          // 침대 발치 쪽을 보게 돌리고 기둥 앞으로
@@ -2324,7 +2347,7 @@ function drawNpoSign(c, w, h, FONT) {
 }
 {
   const SW = 0.15, SH = SW * 540 / 500;             // 약 15 x 16 cm
-  const g = group(pole, -0.13, 1.9325, 0.056);       // pole.glb 팔걸이: x −0.13에서 중심 높이 1.921 m, z 0.056 (굵기 약 1.5 cm)
+  const g = group(pole, -0.13, 1.9325 * POLE_H, 0.056);       // pole.glb 팔걸이: x −0.13에서 중심 높이 1.921 m, z 0.056 (굵기 약 1.5 cm)
   g.rotation.y = 0.35;                               // 침대 발치 쪽(학습자 쪽)으로 살짝 돌림
   const tex = canvasTex(500, 540, (c, w, h) => { c.clearRect(0, 0, w, h); drawNpoSign(c, w, h, FONT); });
   const card = new THREE.Mesh(new THREE.PlaneGeometry(SW, SH), new THREE.MeshStandardMaterial({ map:tex, roughness:0.55, side:THREE.DoubleSide, alphaTest:0.5 }));
@@ -2394,9 +2417,11 @@ lateLoad('ivbag.glb', sc => {
 });
 
 // 점적통 (수액 백 아래): 투명 점적통 안에서 처방/펌프 속도에 맞춰 물방울이 한 방울씩 떨어짐
-const DRIP = { x:-0.680, z:-1.395, y0:1.255, y1:1.385, GTT_PER_ML:20, phase:0 };   // 일반 수액세트 20방울 = 1 mL
-const dripG = group(world, DRIP.x, (DRIP.y0 + DRIP.y1) / 2, DRIP.z);
+const DRIP = { x:-0.680, z:-1.395, y0:1.255 + POLE_DY, y1:1.385 + POLE_DY, GTT_PER_ML:20, phase:0 };   // 일반 수액세트 20방울 = 1 mL
 const dripH = DRIP.y1 - DRIP.y0;
+const DRIP_S = 2 / 3;                                              // 점적통 크기를 1/3 줄임 (윗쪽 노즐 위치는 그대로, 아래로 짧아짐)
+const dripG = group(world, DRIP.x, DRIP.y1 - dripH * DRIP_S / 2, DRIP.z);
+dripG.scale.setScalar(DRIP_S);
 const dripDrop = new THREE.Mesh(new THREE.SphereGeometry(0.0042, 14, 10), new THREE.MeshStandardMaterial({ color:0xcfeaf6, transparent:true, opacity:0.85, roughness:0.1, metalness:0.1 }));
 const dripPool = new THREE.Mesh(new THREE.CylinderGeometry(0.0172, 0.0172, 0.03, 20), new THREE.MeshStandardMaterial({ color:0xbfe3f2, transparent:true, opacity:0.55, roughness:0.15 }));
 const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0006, 6, 20), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0 }));
@@ -2409,6 +2434,9 @@ const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0006, 6, 20), n
   dripPool.position.y = -dripH / 2 + 0.008 + 0.015; dripG.add(dripPool);
   dripRing.rotation.x = Math.PI / 2; dripRing.position.y = dripPool.position.y + 0.0152; dripG.add(dripRing);
   dripDrop.visible = false; dripG.add(dripDrop);
+  // 줄어든 점적통 아래와 백 모델의 아래 수액줄 사이 빈틈을 가는 투명 줄로 이음
+  const gap = dripH * (1 - DRIP_S);
+  add(world, CYL(0.0032, gap + 0.006, 10), mat(0xe9eff1, { roughness:0.4 }), DRIP.x, DRIP.y0 + gap / 2, DRIP.z);
   tag(dripG, '점적통', () => `현재 ${ivRate} mL/hr → 약 ${(3600 / (ivRate * DRIP.GTT_PER_ML)).toFixed(1)}초에 1방울 (20 gtt/mL 세트)`);
 }
 function updateDrip(dt) {
@@ -2439,7 +2467,7 @@ const ivTex = canvasTex(320, 240, (g, w, h) => {
   g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('Plasma Sol. A 1 L', 16, 186);
   g.fillStyle = '#3dff7a'; g.font = `bold 24px ${FONT}`; g.fillText('● RUNNING', 16, 222);
 });
-const ivPump = group(world, POLE.x + 0.15, 1.3, POLE.z);   // 펌프 본체 가운데
+const ivPump = group(world, POLE.x + 0.15, 1.3 + POLE_DY - 0.14, POLE.z);   // 펌프 본체 가운데
 const ivOut = new THREE.Object3D(); ivOut.position.set(0, -0.15, 0.04); ivPump.add(ivOut);   // 아래로 나가는 IV 라인 시작점
 const ivIn = new THREE.Object3D(); ivIn.position.set(0.06, 0.15, 0); ivPump.add(ivIn);   // 위쪽 수액 세트 입구
 const ivPumpProc = group(ivPump);
@@ -2453,7 +2481,7 @@ lateLoad('pump.glb', sc => {
   const g = fitModel(sc, 0.456);                     // 본체 높이 약 22 cm (위·아래 라인 포함 46 cm)
   const clampAx = modelPt(sc, -0.40, 0, 0.03);       // 폴대 고정대 구멍 = 폴대 축
   const body = modelPt(sc, 0.23, 0.25, 0);           // 본체 가운데
-  ivPump.position.set(POLE.x + (body.x - clampAx.x), 1.3, POLE.z + (body.z - clampAx.z));
+  ivPump.position.set(POLE.x + (body.x - clampAx.x), 1.3 + POLE_DY - 0.14, POLE.z + (body.z - clampAx.z));
   g.position.set(-body.x, -body.y, -body.z);
   modelFace(g, sc, { x:0.232, y:0.433, w:0.366, h:0.273 }, ivTex, 320 / 240, 1.0);
   const out = modelPt(sc, 0.239, -0.93, 0);          // 아래 라인 끝
@@ -2475,7 +2503,7 @@ const pcaTex = canvasTex(256, 160, (g, w, h) => {
   g.font = `20px ${FONT}`; g.fillText('Lockout 10 min', 14, 112);
   g.fillText('나예민 (F/60)', 14, 144);
 });
-const pcaPump = group(world, POLE.x + HOOK_PCA.x, 1.76, POLE.z + HOOK_PCA.z);   // 풍선 하우징 가운데
+const pcaPump = group(world, POLE.x + HOOK_PCA.x, 1.76 + POLE_DY, POLE.z + HOOK_PCA.z);   // 풍선 하우징 가운데
 const pcaOut = new THREE.Object3D(); pcaOut.position.set(0, -0.12, 0); pcaPump.add(pcaOut);   // 아래 라인 끝
 let pcaClampPt = null;                                // 모델의 라인 클램프 위치 (월드)
 const pcaProc = group(pcaPump);
@@ -2645,7 +2673,7 @@ function rebuildTubes() {
   const Zw = twSideW.clone().sub(threeWay.position).normalize();
   // IV 라인: 펌프 아래 → (짧게 늘어짐) → 3-way → Rt. 손목 IV
   const ivA = ivOut.getWorldPosition(new THREE.Vector3());
-  setTube(ivTube, [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.min(ivA.y, tIn.y) - 0.08, (ivA.z + tIn.z) / 2 + 0.03),
+  setTube(ivTube, [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.max(Math.min(ivA.y, tIn.y) - 0.02, (ivA.y + tIn.y) / 2 - 0.06), (ivA.z + tIn.z) / 2 + 0.03),
     tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn]);
   // 라인은 공중에 뜨지 않고 매트리스 위에 늘어져 있다가 팔 바깥쪽에서 팔 위로 걸쳐 올라 IV 부위로 이어짐 (침상 머리를 올려도 매트리스 면을 따라감)
   const onMat = (p, lift = 0.014) => { const l = headGroup.worldToLocal(p.clone()); l.y = lift; return headGroup.localToWorld(l); };
@@ -2683,7 +2711,7 @@ function rebuildTubes() {
   setTube(ivTube2, ivPath);
   // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
-  const pcaPts = [pA, V(POLE.x - 0.24, 1.22, POLE.z + 0.18), V(POLE.x - 0.02, 0.98, POLE.z + 0.26),
+  const pcaPts = [pA, V(POLE.x - 0.24, 1.22 + POLE_DY * 0.7, POLE.z + 0.18), V(POLE.x - 0.02, 0.98 + POLE_DY * 0.4, POLE.z + 0.26),
     twSideW.clone().add(Zw.clone().multiplyScalar(0.07)).add(V(0, -0.03, 0)), twSideW.clone().add(Zw.clone().multiplyScalar(0.025)), twSideW];
   if (pcaClampPt) setTube(pcaTube, [pcaClampPt.clone(), ...pcaPts]);
   else setTube(pcaTube, pcaPts);
@@ -3230,8 +3258,6 @@ function setupPatient(gltf) {
     tag(rig.spo2, 'SpO₂ 센서 (Lt. 검지)', () => `SpO₂ ${Math.round(vit.spo2)}% · PR ${Math.round(vit.hr)}`);
     const h = J('LeftHand'), f = J('LeftForeArm');
     const d2 = h.clone().sub(f).normalize();
-    rig.spo2Back = anchor('LeftHand', h.clone().addScaledVector(d2, 0.055).addScaledVector(up, 0.026), frameQ(d2, up));
-    add(rig.spo2Back, B(0.04, 0.002, 0.014), tapeM);                       // 손등 고정 테이프
     rig.spo2Wrist = anchor('LeftHand', h.clone().addScaledVector(d2, -0.06).addScaledVector(up, 0.03), frameQ(d2, up));
     // SpO₂ 케이블 경로: 검지 → 손등 → 손목 → 아래팔 피부 위를 따라가며(손목밴드·Lt. arm save 팔찌 아래로 통과) 피부 표면에 붙여 지나감.
     // 피부 위 지점은 위에서 아래로 레이캐스트해 한 번만 구해 뼈에 붙여 둠 (손을 뚫고 지나가지 않게)
@@ -3244,7 +3270,15 @@ function setupPatient(gltf) {
         [h.clone().addScaledVector(d2, -0.025), 'LeftHand'], [h.clone().addScaledVector(d2, -0.045), 'LeftHand'], [h.clone().addScaledVector(d2, -0.065), 'LeftForeArm'],
         [h.clone().addScaledVector(d2, -0.085), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.105), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.125), 'LeftForeArm'],
         [h.clone().addScaledVector(d2, -0.15), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.175), 'LeftForeArm'], [h.clone().addScaledVector(d2, -0.2), 'LeftForeArm']];
-      rig.spo2Pts = st.map(([p, bn]) => anchor(bn, skin(p), frameQ(d2, up)));
+      // 지점별 높이가 손목밴드·피부를 오가며 톱니처럼 들쭉날쭉해지지 않게: 이웃 지점 중 가장 높은 값으로 덮은 뒤 이동평균으로 매끈하게 (피부·밴드보다 항상 위)
+      // 손등 고정 테이프: 손등 피부 위(허공에 뜨지 않게)에 납작하게 얹음
+      { const hb = skin(h.clone().addScaledVector(d2, 0.05)); hb.y += 0.0012;
+        rig.spo2Back = anchor('LeftHand', hb, frameQ(d2, up));
+        add(rig.spo2Back, B(0.045, 0.0025, 0.016), tapeM); }
+      const raw = st.map(([p]) => skin(p)), ys = raw.map(q => q.y);
+      const env = ys.map((y, i) => Math.max(y, ys[i - 1] ?? y, ys[i + 1] ?? y, ys[i - 2] ?? y, ys[i + 2] ?? y));
+      const sm = env.map((y, i) => Math.max(ys[i] + 0.0015, (env[i - 1] ?? y) * 0.25 + y * 0.5 + (env[i + 1] ?? y) * 0.25));
+      rig.spo2Pts = st.map(([p, bn], i) => anchor(bn, V(raw[i].x, sm[i] + 0.002, raw[i].z), frameQ(d2, up)));
     }
   }
   // E6 혈압 커프: Lt. 위팔 (교정 시 Rt. 위팔로)
@@ -3306,6 +3340,31 @@ function setupPatient(gltf) {
     const a = anchor('RightForeArm', p.addScaledVector(n, 0.0008), frameQ(dir, n));
     a.attach(ivCathG);
     ivCathG.position.set(0, 0, 0); ivCathG.quaternion.identity();
+    // 팔은 팔꿈치 쪽으로 갈수록 굵어져 접선 평면 아래로 파묻힘 → 실제 피부 높이를 재서 팔꿈치 쪽 부품(테이프·커넥터·연장선)을 그만큼 들어 올림
+    {
+      root.updateMatrixWorld(true);
+      const inCath = o => { for (let q = o; q; q = q.parent) if (q === ivCathG) return true; return false; };
+      const rcl = new THREE.Raycaster(); rcl.far = 0.3;
+      const hAt = z => {
+        const org = ivCathG.localToWorld(V(0, 0.1, z)), dn = V(0, -1, 0).transformDirection(ivCathG.matrixWorld);
+        rcl.set(org, dn);
+        const h = rcl.intersectObject(root, true).filter(q => !inCath(q.object))[0];
+        return h ? 0.1 - h.distance / ivCathG.getWorldScale(new THREE.Vector3()).x : null;
+      };
+      const zs = [0, -0.03, -0.06, -0.09, -0.12, -0.15], base = hAt(0) ?? 0, lifts = zs.map(z => { const h = hAt(z); return h == null ? 0 : Math.max(0, h - base); });
+      const lift = z => { if (z >= 0) return 0; for (let i = 0; i < zs.length - 1; i++) if (z <= zs[i] && z >= zs[i + 1]) return lifts[i] + (lifts[i + 1] - lifts[i]) * (zs[i] - z) / (zs[i] - zs[i + 1]); return lifts[lifts.length - 1]; };
+      const inv = new THREE.Matrix4().copy(ivCathG.matrixWorld).invert(), vv = new THREE.Vector3();
+      ivCathG.traverse(o3 => {
+        if (!o3.isMesh || !o3.geometry.attributes.position) return;
+        o3.updateMatrixWorld(true);
+        const m = new THREE.Matrix4().multiplyMatrices(inv, o3.matrixWorld), mi = m.clone().invert();
+        o3.geometry = o3.geometry.clone();
+        const pos = o3.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) { vv.fromBufferAttribute(pos, i).applyMatrix4(m); vv.y += lift(vv.z); vv.applyMatrix4(mi); pos.setXYZ(i, vv.x, vv.y, vv.z); }
+        pos.needsUpdate = true; o3.geometry.computeBoundingSphere();
+      });
+      ivSite.position.y += lift(ivSite.position.z); ivSiteLead.position.y += lift(ivSiteLead.position.z);
+    }
   }
   // E2 복부 dressing: 우상복부(RUQ). 원래 headGroup 기준 (-0.1, 0, -0.27)에 있던 패드를 몸에 붙인다
   {
