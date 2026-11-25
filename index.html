@@ -1368,7 +1368,7 @@ function drawMonitor(g, w, h) {
 
 // 일반 쓰레기통 (환자 슬리퍼 옆 바닥): 갈색 원통 + 입구에 걸친 흰 비닐봉투
 {
-  const g = group(world, -0.82, 0, 0.52);
+  const g = group(world, -0.66, 0, 0.44);           // 침대 발치 Rt. 모서리 바로 옆(아래) 바닥
   const R = 0.125, Hh = 0.34;
   const binM = new THREE.MeshStandardMaterial({ color:0xb89a72, roughness:0.75 });
   add(g, new THREE.CylinderGeometry(R, R * 0.93, Hh, 36, 1, true), binM, 0, Hh / 2, 0).material.side = THREE.DoubleSide;     // 통 옆면
@@ -1452,16 +1452,13 @@ function drawMonitor(g, w, h) {
   add(g, B(0.02, 0.665, 0.40), oak, -1.48, 0.3625, 0);                                       // 왼쪽 끝 옆판(왼벽 쪽)
   add(g, B(0.02, 0.665, 0.40), oak, -0.185, 0.3625, 0);                                      // 서랍장 왼판(서랍 2열)
   add(g, B(1.295, 0.665, 0.012), oak, -0.8425, 0.3625, -0.194);                              // 뒷판
-  add(g, B(0.02, 0.665, 0.40), oak, 0.045, 0.3625, 0);                                       // 서랍장 왼판 (무릎 공간과 경계)
   add(g, B(0.02, 0.665, 0.40), oak, 0.255, 0.3625, 0);                                       // 서랍장 오른판
   add(g, B(0.44, 0.06, 0.37), oak, 0.035, 0.03, -0.01);                                       // 서랍장 하단 받침
   add(g, B(0.41, 0.62, 0.36), dark, 0.035, 0.37, -0.01);                                      // 서랍 안쪽(틈 사이로 어둡게)
   for (let i = 0; i < 3; i++) {                                                              // 흰 서랍 앞판 3단
     const fy = 0.075 + 0.1 + i * 0.21;
-    for (const cx of [0.15, -0.07]) {                                                        // 서랍 2열 (옆으로 두 배)
-      add(g, B(0.2, 0.2, 0.018), white, cx, fy, 0.199);
-      add(g, B(0.15, 0.007, 0.006), dark, cx, fy + 0.095, 0.21);                             // 윗면 손잡이 홈
-    }
+    add(g, B(0.42, 0.2, 0.018), white, 0.035, fy, 0.199);                                    // 폭 2배 서랍 앞판 (1칸씩 3단)
+    add(g, B(0.34, 0.007, 0.006), dark, 0.035, fy + 0.095, 0.21);                            // 윗면 손잡이 홈
   }
   {   // 머그 텀블러(물): 크림색 몸통 + 아래로 좁아지는 하단 + 하늘색 뚜껑 링 + 베이지 손잡이 + 투명 빨대
     const tb = group(g, -0.12, 0.745, 0.0); tb.rotation.y = -0.6;
@@ -1504,7 +1501,7 @@ function drawMonitor(g, w, h) {
     tag(tg, '각티슈', () => '휴지');
   }
   {   // 유선(IP) 전화기: 검정 본체 + 기울어진 패널(LCD · 숫자 키패드 · 방향키 · 오른쪽 기능키) + 왼쪽 수화기 + 꼬불 줄
-    const pg0 = group(g, -0.305, 0.745, -0.085), blk = new THREE.MeshStandardMaterial({ color:0x1a1b1e, roughness:0.4 });
+    const PX = -1.38, pg0 = group(g, PX, 0.745, -0.085), blk = new THREE.MeshStandardMaterial({ color:0x1a1b1e, roughness:0.4 });
     add(pg0, new RoundedBoxGeometry(0.2, 0.026, 0.17, 3, 0.008), blk, 0, 0.013, 0);
     const pan = group(pg0, 0.03, 0.04, -0.012); pan.rotation.x = 0.48;
     add(pan, new RoundedBoxGeometry(0.15, 0.012, 0.125, 3, 0.004), blk, 0, 0, 0);
@@ -1523,7 +1520,7 @@ function drawMonitor(g, w, h) {
     add(hs, new RoundedBoxGeometry(0.036, 0.03, 0.17, 3, 0.012), blk, 0, 0, 0);
     for (const sz of [-1, 1]) add(hs, new RoundedBoxGeometry(0.044, 0.044, 0.05, 3, 0.014), blk, 0, 0.004, sz * 0.07);
     {   // 꼬불 줄(g 좌표): 수화기 앞끝에서 탁자 위로 내려와 본체 앞으로 (이차 베지어 중심선 + 나선)
-      const A = V(-0.38, 0.772, 0.038), C = V(-0.415, 0.751, 0.17), E = V(-0.31, 0.752, 0.014), pts = [];
+      const A = V(PX - 0.075, 0.772, 0.038), C = V(PX - 0.11, 0.751, 0.17), E = V(PX - 0.005, 0.752, 0.014), pts = [];
       const bez = t => A.clone().multiplyScalar((1 - t) ** 2).add(C.clone().multiplyScalar(2 * t * (1 - t))).add(E.clone().multiplyScalar(t * t));
       for (let i = 0; i <= 320; i++) {
         const t = i / 320, p = bez(t), q = bez(Math.min(1, t + 0.004)), T = q.sub(bez(Math.max(0, t - 0.004))).normalize();
@@ -2028,10 +2025,10 @@ for (const x of [-0.4, 0.4]) for (const z of [-1.7, 0.1]) {
   w.rotation.z = Math.PI / 2;
   bedFrameParts.push(w, add(bed, CYL(0.012, 0.3), frameMat, x, 0.22 - BED_LIFT, z));
 }
-// 침대 아래 거치형 손소독제: 침대 오른쪽(Rt.) 프레임 옆면에 고정한 철제 거치대 + 펌프식 소독제 병
+// 거치형 손소독제: 침대 발치 풋보드 바깥면('나예민' 침상 카드 옆)에 고정한 철제 거치대 + 펌프식 소독제 병
 {
-  const g = group(bed, -0.52, 0.28, -0.4);          // 침대 프레임 바깥면(Rt.), 매트리스 아래 높이
-  g.rotation.y = -Math.PI / 2;                      // 병 앞면 라벨이 방 쪽(-x)을 보게
+  const g = group(bed, -0.33, 0.62, 0.346);         // 풋보드 바깥면(발치 쪽), 침상 카드 옆
+  g.rotation.y = 0;                                 // 병 앞면 라벨이 발치(+z)를 보게
   const steel = mat(0x9aa4aa, { metalness:0.55, roughness:0.35 });
   add(g, B(0.12, 0.09, 0.006), steel, 0, 0.02, -0.043);                                              // 프레임에 대는 고정판
   for (const sx of [-0.045, 0.045]) add(g, CYL(0.0035, 0.012, 8), mat(0x4f5a60), sx, 0.045, -0.047).rotation.x = Math.PI / 2;   // 나사
@@ -2053,8 +2050,8 @@ for (const x of [-0.4, 0.4]) for (const z of [-1.7, 0.1]) {
   add(g, CYL(0.007, 0.05, 10), mat(0xf4f6f6, { roughness:0.4 }), 0, 0.18, 0);                     // 펌프 대
   add(g, B(0.05, 0.016, 0.02), mat(0xf4f6f6, { roughness:0.4 }), 0.015, 0.21, 0);                 // 펌프 머리
   add(g, B(0.03, 0.006, 0.012), mat(0xf4f6f6, { roughness:0.4 }), 0.045, 0.21, 0);                // 분사구
-  g.userData.action = () => handHygiene('침대 아래 손소독제');
-  tag(g, '손소독제 (침대 아래 거치)', () => '펌프식 · 침대 프레임에 고정');
+  g.userData.action = () => handHygiene('침대 발치 손소독제');
+  tag(g, '손소독제 (침대 발치 거치)', () => '펌프식 · 풋보드에 고정');
 }
 
 // 발판(풋보드) + 안내판
@@ -4114,8 +4111,10 @@ function gpAtDist(d) {
   const u = (i - 1 + (d - GP_LUT[i - 1]) / Math.max(1e-6, GP_LUT[i] - GP_LUT[i - 1])) / 100;
   return { p:gpAt(u), u };
 }
+const GUARDIAN_LEAN_SIGN = 1;      // 보호자 뼈 X축 회전이 '앞으로 숙임'이 되는 방향
 const G_WALK_V = 1.0;             // 60대 남성 걸음 속도 (m/s)
-const gState = { dist:0, yaw:0 };
+const gState = { dist:0, yaw:0, settle:0, manual:false, walkW:0, near:0, moving:false };
+const G_NEAR = new THREE.Vector2(0.80, -0.32);   // 환자가 몸부림칠 때 보호자가 다가가 서는 자리: Lt. 난간 바로 옆, 환자 가슴 높이쯤
 const yawTo = (fromX, fromZ, x, z) => Math.atan2(x - fromX, z - fromZ);   // 모델 앞쪽이 +z
 function turnToward(cur, tgt, maxStep) {
   let d = tgt - cur; d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -4172,7 +4171,7 @@ function loadModel(url, fn) {
   };
   const slippers = group(world, 0, 0, 0);
   // 침대 Rt. 쪽 바깥 바닥, 두 짝을 나란히 (앞코가 -x)
-  for (const [z, yaw] of [[0.12, Math.PI + 0.04], [0.25, Math.PI - 0.03]]) slippers.add(mkSlipper(-0.78, z, yaw));
+  for (const [z, yaw] of [[-0.46, Math.PI + 0.04], [-0.33, Math.PI - 0.03]]) slippers.add(mkSlipper(-0.78, z, yaw));   // 침대 머리~다리 사이(옆구리 높이) Rt. 쪽 바닥
   tag(slippers, '환자 슬리퍼', '침대 옆 바닥에 가지런히 놓인 슬리퍼');
 }
 
@@ -4543,6 +4542,8 @@ function useGuardianModel(root, animated) {
   root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
   guardian.add(root);
   if (!animated) return;
+  GW.bones = {};
+  root.traverse(o => { if (o.isBone) { const m = /(Spine2|Spine1|Spine|Neck|Head)$/.exec(o.name); if (m && !GW.bones[m[1]]) GW.bones[m[1]] = o; } });
   GW.mixer = new THREE.AnimationMixer(root);
   GW.walk = GW.mixer.clipAction(animated.walk);
   GW.idle = GW.mixer.clipAction(animated.idle);
@@ -5248,7 +5249,7 @@ function guardianSay(text, ttl = 9, delay = 0) {
 }
 let guardianSayPending = null;
 function evGuardian() {
-  guardian.visible = true; guardianWalk = 0; gState.dist = 0; curtainSt.target = 0;   // 커튼이 쳐져 있으면 걷음
+  guardian.visible = true; guardianWalk = 0; gState.dist = 0; gState.settle = 0; gState.manual = false; gState.walkW = 0; gState.near = 0; gState.moving = false; curtainSt.target = 0;   // 커튼이 쳐져 있으면 걷음
   { const p = gpAt(0), q = gpAt(0.05); gState.yaw = yawTo(p.x, p.y, q.x, q.y); guardian.position.set(p.x, 0, p.y); guardian.rotation.set(0, gState.yaw, 0); }
   if (GW.mixer) { GW.walk.stopFading(); GW.idle.stopFading(); GW.walk.reset().play(); GW.walk.setEffectiveWeight(1); GW.idle.setEffectiveWeight(0); }
   toast('🚪 보호자가 병실에 들어왔습니다.', 'alert', 4200);
@@ -5612,7 +5613,34 @@ function frame() {
     if (guardianWalk >= 1) guardianSayPending.t += dt;
     if (guardianSayPending.t >= 2.0) { const tx = guardianSayPending.text; guardianSayPending = null; if (!state.found.has('E5')) guardianSay(tx, 10); }
   }
+  // 환자가 몸부림치면(통증·출혈 악화) 보호자가 Lt. 난간 쪽 환자 가까이로 다가가, 상체를 숙이고 고개를 기울여 안쓰럽게 내려다봄. 잠잠해지면 원래 자리로 돌아감
+  gState.moving = false;
+  if (guardian.visible && guardianWalk >= 1 && GW.mixer) {
+    gState.settle += dt;
+    if (gState.settle > 0.6) {
+      if (!gState.manual) { GW.walk.stopFading(); GW.idle.stopFading(); GW.idle.setEffectiveWeight(1); GW.walk.setEffectiveWeight(0); gState.manual = true; gState.walkW = 0; }
+      const wantNear = unrest.level > 0.4, home = gpAt(1), D = wantNear ? G_NEAR : home;
+      const dx = D.x - guardian.position.x, dz = D.y - guardian.position.z, dd = Math.hypot(dx, dz);
+      if (dd > 0.03) {
+        const v = 0.6, st = Math.min(dd, v * dt);
+        guardian.position.x += dx / dd * st; guardian.position.z += dz / dd * st;
+        gState.yaw = turnToward(gState.yaw, yawTo(0, 0, dx, dz), dt * 4); guardian.rotation.set(0, gState.yaw, 0);
+        gState.moving = true; GW.walk.setEffectiveTimeScale(v / GW.speed);
+      }
+      gState.walkW += ((gState.moving ? 1 : 0) - gState.walkW) * Math.min(1, dt * 6);
+      GW.walk.setEffectiveWeight(gState.walkW); GW.idle.setEffectiveWeight(1 - gState.walkW);
+      gState.near += (((wantNear && !gState.moving) ? 1 : 0) - gState.near) * Math.min(1, dt * 1.5);
+    }
+  }
   if (GW.mixer && guardian.visible) GW.mixer.update(dt);
+  if (GW.bones && gState.near > 0.002) {                          // 안쓰러운 자세: 상체 숙임 + 고개 숙여 옆으로 갸웃 (믹서가 뼈를 덮어쓴 뒤 얹음)
+    const n = gState.near, qx = new THREE.Quaternion(), qz = new THREE.Quaternion();
+    for (const [k, a] of [['Spine', 0.07], ['Spine1', 0.08], ['Spine2', 0.08], ['Neck', 0.08], ['Head', 0.14]]) {
+      const b = GW.bones[k]; if (!b) continue;
+      b.quaternion.multiply(qx.setFromAxisAngle(V(1, 0, 0), a * n * GUARDIAN_LEAN_SIGN));
+    }
+    if (GW.bones.Head) GW.bones.Head.quaternion.multiply(qz.setFromAxisAngle(V(0, 0, 1), 0.2 * n));
+  }
   if (bubbleTTL > 0) { bubbleTTL -= dt; if (bubbleTTL <= 0) bubble.visible = false; }
   if (pBubbleTTL > 0) { pBubbleTTL -= dt; if (pBubbleTTL <= 0) pBubble.visible = false; }
   // 보호자가 PCA를 가리킴: PCA(폴대 쪽) 방향으로 몸을 돌렸다가 다시 환자 쪽으로
@@ -5620,9 +5648,8 @@ function frame() {
     const gx = guardian.position.x, gz = guardian.position.z;
     let tgt;
     if (guardianPoint > 0) { guardianPoint -= dt; tgt = yawTo(gx, gz, POLE.x, POLE.z); }
-    else tgt = yawTo(gx, gz, 0.3, -0.6);
-    gState.yaw = turnToward(gState.yaw, tgt, dt * 2.2);
-    guardian.rotation.set(0, gState.yaw, 0);
+    else tgt = gState.near > 0.3 ? yawTo(gx, gz, 0.15, -0.85) : yawTo(gx, gz, 0.3, -0.6);   // 다가간 뒤에는 환자 얼굴을 봄
+    if (!gState.moving) { gState.yaw = turnToward(gState.yaw, tgt, dt * 2.2); guardian.rotation.set(0, gState.yaw, 0); }
   }
 
   // 트윈
