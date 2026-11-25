@@ -1651,7 +1651,7 @@ function drawMonitor(g, w, h) {
 
 // ── 벽시계 (왼벽, 창문과 달력 사이): 둥근 아날로그 시계, TV·폰과 같은 시뮬 시각 (14:50 → 15:00) ──
 {
-  const g = group(world, -3 + 0.006, 1.6, 0.965);   // 창문과 달력 사이
+  const g = group(world, -3 + 0.006, 2.2, 0.965);   // 창문과 달력 사이, 높이는 위쪽(창틀 윗선 근처)
   g.rotation.y = Math.PI / 2;                                  // 앞면이 방 안쪽(+x)
   const R = 0.15;
   add(g, CYL(R + 0.014, 0.014, 40), mat(0x25292d, { roughness:0.4, metalness:0.3 }), 0, 0, 0.007).rotation.x = Math.PI / 2;   // 테
