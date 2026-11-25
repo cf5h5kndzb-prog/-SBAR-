@@ -2413,6 +2413,7 @@ const bagLbl = canvasTex(256, 512, (g, w, h) => {
   g.strokeStyle = '#1f5fae'; g.lineWidth = 2; g.font = `bold 11px ${FONT}`; g.textAlign = 'right';
   for (let i = 1; i <= 9; i++) { const y = 40 + i * 44; g.beginPath(); g.moveTo(w - 8, y); g.lineTo(w - (i % 5 ? 20 : 30), y); g.stroke(); g.fillText(String(i), w - 34, y + 4); }
 });
+const BAG_S = 0.8;                                  // 수액백 크기: 지금보다 1/5 줄임
 const bag = group(world, POLE.x + HOOK_BAG.x, HOOK_BAG.y - 0.17, POLE.z + HOOK_BAG.z);   // 가운데가 원점
 const bagTail = new THREE.Object3D(); bagTail.position.set(-0.025, -0.28, 0); bag.add(bagTail);   // 수액 세트 끝 (→ 펌프 위 입구)
 const bagProc = group(bag);
@@ -2431,7 +2432,7 @@ const bagProc = group(bag);
   tag(bag, '수액 백 (Plasma Solution A 1 L)', () => 'Plasma Solution A 1000 mL');
 }
 lateLoad('ivbag.glb', sc => {
-  const g = fitModel(sc, 0.99);                      // 백 본체 약 33 cm + 수액 세트
+  const g = fitModel(sc, 0.99 * BAG_S);              // 백 본체 약 33 cm × 0.8 (1/5 줄임)
   const hole = modelPt(sc, 0, 0.92, 0);              // 맨 위 걸이 구멍
   const mid = modelPt(sc, 0, 0.58, 0);               // 백 가운데
   bag.position.y = HOOK_BAG.y - (hole.y - mid.y);    // 원점 = 백 가운데, 걸이 구멍이 고리 높이에
@@ -2441,8 +2442,7 @@ lateLoad('ivbag.glb', sc => {
   g.traverse(m => {                                    // 점적통 부분을 잘라내고, 아래에서 직접 만든 투명 점적통(물방울이 보임)으로 대체
     if (!m.isMesh) return;
     m.material = m.material.clone();
-    m.material.clippingPlanes = [new THREE.Plane(V(0, 1, 0), -DRIP.y1), new THREE.Plane(V(0, -1, 0), DRIP.y0)];
-    m.material.clipIntersection = true;
+    m.material.clippingPlanes = [new THREE.Plane(V(0, 1, 0), -DRIP.y1)];     // 점적통 아래 모델 수액줄·롤러클램프·끝 커넥터는 모두 지우고(짧게 직접 이음) 백과 꼭지만 남김
   });
   bagTail.position.copy(modelPt(sc, 0, -0.94, 0)).add(g.position);
   bagProc.removeFromParent();
@@ -2451,7 +2451,7 @@ lateLoad('ivbag.glb', sc => {
 });
 
 // 점적통 (수액 백 아래): 투명 점적통 안에서 처방/펌프 속도에 맞춰 물방울이 한 방울씩 떨어짐
-const DRIP = { x:-0.680, z:-1.395, y0:1.255 + POLE_DY, y1:1.385 + POLE_DY, GTT_PER_ML:20, phase:0 };   // 일반 수액세트 20방울 = 1 mL
+const DRIP = { x:-0.680, z:-1.395, y0:HOOK_BAG.y - 0.835 * 0.4168 - 0.13, y1:HOOK_BAG.y - 0.835 * 0.4168, GTT_PER_ML:20, phase:0 };   // 백 꼭지 바로 아래(백을 0.8배로 줄인 위치)   // 일반 수액세트 20방울 = 1 mL
 const dripH = DRIP.y1 - DRIP.y0;
 const DRIP_S = 2 / 3;                                              // 점적통 크기를 1/3 줄임 (윗쪽 노즐 위치는 그대로, 아래로 짧아짐)
 const dripG = group(world, DRIP.x, DRIP.y1 - dripH * DRIP_S / 2, DRIP.z);
@@ -2468,9 +2468,6 @@ const dripRing = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0006, 6, 20), n
   dripPool.position.y = -dripH / 2 + 0.008 + 0.015; dripG.add(dripPool);
   dripRing.rotation.x = Math.PI / 2; dripRing.position.y = dripPool.position.y + 0.0152; dripG.add(dripRing);
   dripDrop.visible = false; dripG.add(dripDrop);
-  // 줄어든 점적통 아래와 백 모델의 아래 수액줄 사이 빈틈을 가는 투명 줄로 이음
-  const gap = dripH * (1 - DRIP_S);
-  add(world, CYL(0.0032, gap + 0.006, 10), mat(0xe9eff1, { roughness:0.4 }), DRIP.x, DRIP.y0 + gap / 2, DRIP.z);
   tag(dripG, '점적통', () => `현재 ${ivRate} mL/hr → 약 ${(3600 / (ivRate * DRIP.GTT_PER_ML)).toFixed(1)}초에 1방울 (20 gtt/mL 세트)`);
 }
 function updateDrip(dt) {
@@ -2501,7 +2498,7 @@ const ivTex = canvasTex(320, 240, (g, w, h) => {
   g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('Plasma Sol. A 1 L', 16, 186);
   g.fillStyle = '#3dff7a'; g.font = `bold 24px ${FONT}`; g.fillText('● RUNNING', 16, 222);
 });
-const ivPump = group(world, POLE.x + 0.15, 1.3 + POLE_DY - 0.14, POLE.z);   // 펌프 본체 가운데
+const ivPump = group(world, POLE.x + 0.15, 1.3 + POLE_DY - 0.264, POLE.z);   // 펌프 본체 가운데
 const ivOut = new THREE.Object3D(); ivOut.position.set(0, -0.15, 0.04); ivPump.add(ivOut);   // 아래로 나가는 IV 라인 시작점
 const ivIn = new THREE.Object3D(); ivIn.position.set(0.06, 0.15, 0); ivPump.add(ivIn);   // 위쪽 수액 세트 입구
 const ivPumpProc = group(ivPump);
@@ -2515,7 +2512,7 @@ lateLoad('pump.glb', sc => {
   const g = fitModel(sc, 0.456);                     // 본체 높이 약 22 cm (위·아래 라인 포함 46 cm)
   const clampAx = modelPt(sc, -0.40, 0, 0.03);       // 폴대 고정대 구멍 = 폴대 축
   const body = modelPt(sc, 0.23, 0.25, 0);           // 본체 가운데
-  ivPump.position.set(POLE.x + (body.x - clampAx.x), 1.3 + POLE_DY - 0.14, POLE.z + (body.z - clampAx.z));
+  ivPump.position.set(POLE.x + (body.x - clampAx.x), 1.3 + POLE_DY - 0.264, POLE.z + (body.z - clampAx.z));
   g.position.set(-body.x, -body.y, -body.z);
   modelFace(g, sc, { x:0.232, y:0.433, w:0.366, h:0.273 }, ivTex, 320 / 240, 1.0);
   const out = modelPt(sc, 0.239, -0.93, 0);          // 아래 라인 끝
@@ -2681,6 +2678,16 @@ function setTube(m, pts) {
 const IV_TUBE_COLOR = 0xe3eaec;   // 수액 세트 모델의 튜브 색(투명한 흰색)에 맞춤
 const ivTube = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '수액 펌프 → 3-way');
 const ivTube2 = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '3-way → Rt. 손목 IV');
+// 속도조절기(롤러 클램프): 펌프 아래 환자 쪽 수액줄에 끼움 (펌프 위 수액 세트가 아님)
+const regClamp = new THREE.Group();
+{
+  const bm = mat(0x1f5fd1, { roughness:0.4 }), wm = mat(0xf4f6f6, { roughness:0.35 });
+  add(regClamp, new RoundedBoxGeometry(0.016, 0.042, 0.015, 2, 0.003), bm, 0, 0, 0);       // 몸통(파랑)
+  const wh = add(regClamp, CYL(0.0105, 0.01, 16), wm, 0, 0.002, 0.0105); wh.rotation.z = Math.PI / 2;   // 굴림 바퀴
+  for (let i = 0; i < 8; i++) { const r = add(regClamp, B(0.0105, 0.0016, 0.0016), mat(0xcfd5d8), 0, 0.002 + 0.0105 * Math.cos(i * Math.PI / 4), 0.0105 + 0.0105 * Math.sin(i * Math.PI / 4)); }
+  tag(regClamp, '속도조절기 (롤러 클램프)', () => `수액 속도 조절 · ${ivRate} mL/hr`);
+  world.add(regClamp);
+}
 const ivSetTube = makeTube(IV_TUBE_COLOR, 0.0045, '수액 세트 (백 → 펌프)', null, () => 'Plasma Solution A 1 L → 수액 펌프');
 const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'PCA 라인: 열림' : 'PCA 라인: 클램프로 잠김');
 const jpTubeTop = makeTube(0xa3121f, 0.004, 'JP 배액관 (삽입 부위)', null, () => 'RUQ JP 삽입 부위 → 환의 안 → Rt. 옆구리');
@@ -2703,10 +2710,10 @@ function rebuildTubes() {
   const site = ivSite.getWorldPosition(new THREE.Vector3()), siteLead = ivSiteLead.getWorldPosition(new THREE.Vector3());
   ivPump.updateMatrixWorld(true); pcaPump.updateMatrixWorld(true);
   bag.updateMatrixWorld(true);
-  // 수액 세트: 백에서 내려온 끝이 아래로 한 번 휘었다가 펌프 위 입구로 들어감
-  const bt = bagTail.getWorldPosition(new THREE.Vector3()), pin = ivIn.getWorldPosition(new THREE.Vector3());
-  setTube(ivSetTube, [bt, bt.clone().add(V(0, -0.07, 0.03)), V(bt.x + 0.05, bt.y - 0.11, bt.z + 0.07),
-    V(bt.x + 0.07, pin.y - 0.08, pin.z + 0.14), V(pin.x + 0.05, pin.y + 0.12, pin.z + 0.06), pin.clone().add(V(0, 0.03, 0)), pin]);
+  // 수액 세트: 백 꼭지 → 점적통 → 펌프 위 입구까지 짧게 (백~펌프 줄 길이 약 1/2 이하)
+  const pin = ivIn.getWorldPosition(new THREE.Vector3());
+  const dS = V(DRIP.x, DRIP.y1 - dripH * DRIP_S - 0.002, DRIP.z);
+  setTube(ivSetTube, [dS, dS.clone().add(V(0, -0.025, 0.004)), V(dS.x + (pin.x - dS.x) * 0.35, dS.y - 0.06, dS.z + (pin.z - dS.z) * 0.35 + 0.012), V(pin.x + (dS.x - pin.x) * 0.2, pin.y + 0.05, pin.z + (dS.z - pin.z) * 0.2 + 0.01), pin.clone().add(V(0, 0.02, 0)), pin]);
   // 3-way: Rt. 난간 위쪽(난간을 내리면 함께 내려감), 몸통은 환자 손 쪽을 향하고 옆 포트는 폴대 쪽
   // 3-way는 침상 머리 부분(headGroup)에 붙여 둠: 침상 머리를 30° 올려도(E7) 환자·팔과 함께 올라가 라인이 매트리스를 뚫지 않음
   const twAt = headGroup.localToWorld(V(-0.53, 1.1 + railR.position.y * 0.72 - HINGE.y - BED_LIFT, -1.25 - HINGE.z));
@@ -2723,6 +2730,11 @@ function rebuildTubes() {
   const ivA = ivOut.getWorldPosition(new THREE.Vector3());
   setTube(ivTube, [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.max(Math.min(ivA.y, tIn.y) - 0.02, (ivA.y + tIn.y) / 2 - 0.06), (ivA.z + tIn.z) / 2 + 0.03),
     tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn]);
+  {
+    const pts = [ivA, ivA.clone().add(V(0.01, -0.06, 0.03)), V((ivA.x + tIn.x) / 2, Math.max(Math.min(ivA.y, tIn.y) - 0.02, (ivA.y + tIn.y) / 2 - 0.06), (ivA.z + tIn.z) / 2 + 0.03), tIn.clone().sub(X.clone().multiplyScalar(0.04)), tIn];
+    const cv = new THREE.CatmullRomCurve3(pts), tp = cv.getPointAt(0.16), tt = cv.getTangentAt(0.16).normalize();
+    regClamp.position.copy(tp); regClamp.quaternion.setFromUnitVectors(V(0, 1, 0), tt);
+  }
   // 라인은 공중에 뜨지 않고 매트리스 위에 늘어져 있다가 팔 바깥쪽에서 팔 위로 걸쳐 올라 IV 부위로 이어짐 (침상 머리를 올려도 매트리스 면을 따라감)
   const onMat = (p, lift = 0.014) => { const l = headGroup.worldToLocal(p.clone()); l.y = lift; return headGroup.localToWorld(l); };
   const ivMid = onMat(V((tOut.x + siteLead.x) / 2, (tOut.y + siteLead.y) / 2, (tOut.z + siteLead.z) / 2));
