@@ -1460,7 +1460,21 @@ function drawMonitor(g, w, h) {
     add(g, B(0.2, 0.2, 0.018), white, 0.15, fy, 0.199);
     add(g, B(0.15, 0.007, 0.006), dark, 0.15, fy + 0.095, 0.21);                             // 윗면 손잡이 홈
   }
-  add(g, CYL(0.04, 0.1), mat(0xcfe9f7), -0.12, 0.8, 0);
+  {   // 머그 텀블러(물): 크림색 몸통 + 아래로 좁아지는 하단 + 하늘색 뚜껑 링 + 베이지 손잡이 + 투명 빨대
+    const tb = group(g, -0.12, 0.745, 0.0); tb.rotation.y = -0.6;
+    const prof = pts => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), 36);
+    const cream = new THREE.MeshStandardMaterial({ color:0xf1ebdf, roughness:0.42 }), creamD = new THREE.MeshStandardMaterial({ color:0xd9d3c6, roughness:0.45 });
+    const blue = new THREE.MeshStandardMaterial({ color:0xb9d4e8, roughness:0.4 }), tan = new THREE.MeshStandardMaterial({ color:0xd7bfa8, roughness:0.45 });
+    add(tb, prof([[0.001, 0], [0.026, 0], [0.029, 0.004], [0.03, 0.05], [0.036, 0.072], [0.044, 0.088]]), creamD, 0, 0, 0);            // 하단(좁아짐, 약간 진한 크림)
+    add(tb, prof([[0.044, 0.088], [0.0455, 0.1], [0.0455, 0.162], [0.044, 0.164]]), cream, 0, 0, 0);                                 // 몸통
+    add(tb, prof([[0.044, 0.162], [0.0475, 0.166], [0.0545, 0.188], [0.0535, 0.19], [0.0455, 0.172], [0.0, 0.172]]), blue, 0, 0, 0);   // 하늘색 뚜껑 링(위로 벌어짐)
+    add(tb, CYL(0.026, 0.006, 24), mat(0xf3dccb, { roughness:0.5 }), 0, 0.178, 0);                                                    // 가운데 뚜껑(복숭아색)
+    const straw = add(tb, CYL(0.0034, 0.13, 10), new THREE.MeshStandardMaterial({ color:0xdfe9ee, roughness:0.15, transparent:true, opacity:0.55 }), 0.004, 0.245, 0); straw.rotation.z = -0.04;   // 투명 빨대
+    const hp = new THREE.CatmullRomCurve3([V(0.043, 0.152, 0), V(0.062, 0.153, 0), V(0.077, 0.14, 0), V(0.079, 0.12, 0), V(0.076, 0.1, 0), V(0.06, 0.088, 0), V(0.043, 0.09, 0)]);
+    const handle = new THREE.Mesh(new THREE.TubeGeometry(hp, 40, 0.0068, 10, false), tan); handle.castShadow = true; tb.add(handle);
+    tb.traverse(m => { if (m.isMesh) m.castShadow = true; });
+    tag(tb, '텀블러 (물)', () => '크림색 텀블러에 담긴 물');
+  }
   {   // 각티슈: 흰 상자 위쪽 구멍으로 휴지가 뽑혀 나옴, 옆면은 분홍 꽃무늬 (정사각 상자)
     const BW = 0.118, BH = 0.122, tg = group(g, 0.1, 0.745 + BH / 2, 0.08);
     const side = canvasTex(256, 256, (c, w, h) => {
@@ -1570,13 +1584,18 @@ function drawMonitor(g, w, h) {
     add(ph, new RoundedBoxGeometry(W, T, Ln, 4, 0.0055), frameM, 0, 0, 0);
     // 커버 화면: 검은 배경 + 큰 시계 (잠금 화면). 상단에는 충전 중 표시(번개 + 잔량)만. 화면 위쪽은 벽 쪽(-z), 충전 포트는 폰 아래쪽(방 안쪽 +z)
     const hhmm = simHHMM;   // 벽 TV·벽시계와 같은 시뮬 시각 (18:50 → 19:00)
-    const scrTex = canvasTex(804, 328, (g, w, h) => {   // 가로 화면 (방 안쪽에서 보면 글씨가 바로 읽힘)
+    const scrTex = canvasTex(804, 328, (g, w, h) => {   // 폰은 가로로 눕혀 놓았지만 화면 내용(잠금 화면)은 세로 방향: 위쪽이 폰 위(포트 반대쪽), 글씨는 90° 돌아가 있음
       g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h);
+      g.save(); g.translate(w / 2, h / 2); g.rotate(-Math.PI / 2); g.translate(-h / 2, -w / 2);   // 이제 g 는 폭 h(328) × 높이 w(804)인 세로 화면
+      const PW = h, cx = PW / 2;
       // 상단 충전 표시: 초록 번개 + "충전 중 47%"
-      g.fillStyle = '#2fe39a'; g.beginPath(); g.moveTo(w / 2 - 70, 14); g.lineTo(w / 2 - 92, 48); g.lineTo(w / 2 - 78, 48); g.lineTo(w / 2 - 86, 78); g.lineTo(w / 2 - 56, 38); g.lineTo(w / 2 - 70, 38); g.closePath(); g.fill();
-      g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `bold 40px ${FONT}`; g.fillText('충전 중 47%', w / 2 - 46, 48);
-      // 큰 시계
-      g.fillStyle = '#f4f6f8'; g.textAlign = 'center'; g.font = `bold 170px ${FONT}`; g.fillText(hhmm(), w / 2, 205);
+      g.fillStyle = '#2fe39a'; g.beginPath(); g.moveTo(cx - 92, 22); g.lineTo(cx - 112, 52); g.lineTo(cx - 100, 52); g.lineTo(cx - 107, 80); g.lineTo(cx - 80, 44); g.lineTo(cx - 93, 44); g.closePath(); g.fill();
+      g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `bold 34px ${FONT}`; g.fillText('충전 중 47%', cx - 70, 52);
+      // 큰 시계: 시 / 분을 위아래로 쌓음
+      const [hh, mm] = hhmm().split(':');
+      g.fillStyle = '#f4f6f8'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.font = `bold 250px ${FONT}`;
+      g.fillText(hh, cx, 380); g.fillText(mm, cx, 620);
+      g.restore();
     }, 2);
     let phoneMin = hhmm(); phoneClockUpdate = () => { const m = hhmm(); if (m !== phoneMin) { phoneMin = m; paint(scrTex); } };
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(Ln - 0.0042, W - 0.0042), new THREE.MeshBasicMaterial({ map:scrTex, toneMapped:false }));
