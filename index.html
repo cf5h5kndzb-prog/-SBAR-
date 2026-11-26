@@ -4348,6 +4348,7 @@ loadModel('monitor_stand.glb', sc => {
   monStandProc.removeFromParent();
   monHead.position.y = MON_STAND_H;                // 본체 바닥을 거치판 위에
   if (!monHeadModel) monHead.position.y += 0.15;   // 본체 모델이 아직이면 기본 도형 중심 높이
+  buildMonBasket();
 });
 loadModel('monitor.glb', sc => {
   const g = fitModel(sc, MON_H);
@@ -4408,8 +4409,79 @@ loadModel('monitor.glb', sc => {
   monHeadModel = g;
   monHead.position.y = monStandProc.parent ? 1.18 : MON_STAND_H;   // 기본 스탠드면 기둥 위(1.18 m)에
   tubesDirty = true;
+  buildMonBasket();
 });
 
+// 모니터 스탠드 바구니 정리: 모니터 옆면 포트에서 나온 회색 심전도(ECG) 케이블이 바구니에 둥글게 감겨 있고 리드선 3개(흰·검·빨) 끝 집게가 보임,
+// 심전도 전극 패치 봉투 + 낱개 전극 1장, 일회용 SpO₂ 센서 봉투 1개 (모두 상품명 없는 일반 포장). 지금은 혈압만 재지만 실제 병실처럼 정리된 모습
+function buildMonBasket() {
+  if (monitorGroup.userData.basket || !monHeadModel || monStandProc.parent) return;   // 스탠드·본체 모델이 둘 다 자리 잡은 뒤에 (포트 높이가 확정된 뒤)
+  const bk = group(monitorGroup); monitorGroup.userData.basket = bk;
+  monitorGroup.updateMatrixWorld(true);
+  // 바구니(스탠드 기준 좌표): x −0.10~0.165, z −0.17~0.06, 바닥 y≈0.797, 기둥은 (0.02, 0) 반지름 약 2.7 cm → 기둥 앞쪽 빈 공간을 씀
+  const BX = 0.035, BY = 0.797, BZ = -0.1;                    // 케이블 감은 고리 가운데
+  const pw = monitorGroup.worldToLocal(monPort.getWorldPosition(new THREE.Vector3()));
+  const port = pw.clone().add(V(0, 0.022, 0.02));             // SpO₂ 포트 바로 위 심전도 포트
+  // 케이블 끝 커넥터 (포트에 꽂힌 회색 플러그)
+  const plug = add(bk, CYL(0.009, 0.03, 12), mat(0x7d858b, { roughness:0.45 }), port.x - 0.012, port.y, port.z);
+  plug.rotation.z = Math.PI / 2;
+  // 케이블 경로: 포트 → 옆으로 늘어져 내려옴 → 바구니 테두리 넘어 → 바닥에 2바퀴 반 둥글게 감김 → 분기점(요크)
+  const pts = [V(port.x - 0.025, port.y, port.z), V(port.x - 0.05, port.y - 0.05, port.z + 0.01), V(-0.12, 0.96, -0.13), V(-0.095, 0.905, -0.125), V(-0.06, 0.845, -0.11)];
+  const RX = 0.06, RZ = 0.05, TURN = 2.4;
+  for (let i = 1; i <= 44; i++) {
+    const t = i / 44, a = Math.PI + t * TURN * Math.PI * 2, k = 1 - t * 0.25;
+    pts.push(V(BX + Math.cos(a) * RX * k, BY + 0.03 - t * 0.016 + 0.003 * Math.sin(a * 3), BZ + Math.sin(a) * RZ * k));
+  }
+  const yoke = pts[pts.length - 1].clone();
+  const cable = makeTube(0x8f979d, 0.0034, '심전도(ECG) 케이블', null, () => '모니터에 연결됨 · 바구니에 감아 정리 (현재 미사용)');
+  cable.userData.radial = 10; cable.userData.smooth = true; cable.removeFromParent(); bk.add(cable);
+  setTube(cable, pts);
+  add(bk, CYL(0.007, 0.022, 10), mat(0x6f777c, { roughness:0.5 }), yoke.x, yoke.y, yoke.z).rotation.x = Math.PI / 2;   // 분기점
+  // 리드선 3개 + 색깔 집게(스냅)
+  [[0xf3f3f0, 0.0, -0.04], [0x2a2a2a, 0.03, -0.02], [0xd8282f, 0.045, 0.01]].forEach(([col, dx, dz], i) => {
+    const end = V(Math.min(0.14, yoke.x + 0.05 + dx), BY + 0.02, Math.max(-0.155, Math.min(-0.05, yoke.z + dz)));
+    const lead = makeTube(0x9aa1a6, 0.0018, '심전도 리드선', null, () => ['흰색(RA)', '검정(LA)', '빨강(LL)'][i] + ' 리드');
+    lead.userData.radial = 8; lead.userData.smooth = true; lead.removeFromParent(); bk.add(lead);
+    setTube(lead, [yoke.clone().add(V(0, 0, 0.012)), yoke.clone().lerp(end, 0.5).add(V(0, 0.012, 0)), end]);
+    const clip = group(bk, end.x + 0.012, end.y, end.z); clip.rotation.y = Math.atan2(dz, dx) * -1;
+    add(clip, B(0.026, 0.009, 0.013), mat(col, { roughness:0.4 }), 0.008, 0, 0);
+    add(clip, CYL(0.0035, 0.006, 8), mat(0xc0c5c8, { metalness:0.6, roughness:0.3 }), 0.018, -0.004, 0);
+  });
+  // 포장 봉투 (얇은 판 + 인쇄 텍스처)
+  const pouch = (w, h, draw, x, y, z, rx, ry, label, read) => {
+    const tex = canvasTex(256, Math.round(256 * h / w), draw, 2);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.004, h), [mat(0xf2f4f5), mat(0xf2f4f5), new THREE.MeshStandardMaterial({ map:tex, roughness:0.4 }), mat(0xe6eaec), mat(0xf2f4f5), mat(0xf2f4f5)]);
+    m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.castShadow = true; bk.add(m);
+    tag(m, label, read);
+    return m;
+  };
+  // 심전도 전극 패치 봉투 (흰 바탕 + 파란 띠, 전극 그림)
+  pouch(0.1, 0.115, (c, w, h) => {
+    c.fillStyle = '#f7f8f9'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#1d4f9e'; c.beginPath(); c.moveTo(0, h * 0.2); c.lineTo(w * 0.75, h * 0.2); c.lineTo(w * 0.62, h * 0.62); c.lineTo(0, h * 0.62); c.fill();
+    c.fillStyle = '#fff'; c.font = `bold 30px ${FONT}`; c.fillText('ECG', 14, h * 0.34); c.font = `bold 17px ${FONT}`; c.fillText('Electrodes', 14, h * 0.43);
+    c.font = `13px ${FONT}`; c.fillText('심전도 전극 · 성인용', 14, h * 0.53);
+    c.fillStyle = '#1d4f9e'; c.font = `bold 15px ${FONT}`; c.fillText('Foam · Adult · 50ea', 14, h * 0.72);
+    for (const [x, y] of [[w * 0.68, h * 0.86], [w * 0.86, h * 0.86]]) { c.fillStyle = '#fff'; c.strokeStyle = '#c9ced2'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 22, 18, 0, 0, 7); c.fill(); c.stroke(); c.fillStyle = '#555'; c.beginPath(); c.arc(x, y, 5, 0, 7); c.fill(); }
+    c.fillStyle = '#d33'; c.fillRect(14, h * 0.82, 90, 3);
+  }, -0.035, BY + 0.004, -0.105, 0.03, 0.25, '심전도 전극 패치 (봉투)', () => '일회용 · 성인용 · 남은 전극 있음');
+  // 낱개 전극 1장 (흰 폼 타원 + 가운데 은색 스냅)
+  { const e = group(bk, -0.07, BY + 0.01, -0.06); e.rotation.y = 0.5;
+    const pad = add(e, CYL(0.022, 0.0025, 24), mat(0xfafafa, { roughness:0.8 })); pad.scale.set(1, 1, 0.82);
+    add(e, CYL(0.0045, 0.005, 12), mat(0xbfc5c9, { metalness:0.6, roughness:0.3 }), 0, 0.003, 0);
+    tag(e, '심전도 전극 (낱개)', () => '일회용 폼 전극'); }
+  // 일회용 SpO₂ 센서 봉투 (파란 인쇄 + 손가락 그림), 바구니 벽에 비스듬히 기대어 있음
+  pouch(0.09, 0.125, (c, w, h) => {
+    c.fillStyle = '#f5f7f8'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#1e5aa8'; c.fillRect(0, h * 0.14, w * 0.78, h * 0.46);
+    c.fillStyle = '#fff'; c.font = `bold 26px ${FONT}`; c.fillText('SpO₂', 14, h * 0.27); c.font = `bold 16px ${FONT}`; c.fillText('Sensor · Adult', 14, h * 0.36);
+    c.font = `13px ${FONT}`; c.fillText('일회용 산소포화도 센서', 14, h * 0.45);
+    c.strokeStyle = '#fff'; c.lineWidth = 3; c.beginPath(); c.moveTo(20, h * 0.53); c.quadraticCurveTo(70, h * 0.49, 120, h * 0.53); c.stroke();   // 손가락 그림
+    c.fillStyle = '#f2c9a0'; c.beginPath(); c.ellipse(w * 0.62, h * 0.8, 40, 14, -0.2, 0, 7); c.fill();
+    c.fillStyle = '#2f62b0'; c.fillRect(w * 0.66, h * 0.76, 22, 18);
+    c.fillStyle = '#7a8288'; c.font = `11px ${FONT}`; c.fillText('LOT 2611 · EXP 2028-10', 14, h * 0.95);
+  }, 0.115, BY + 0.058, 0.01, Math.PI / 2 - 0.28, 0, '일회용 SpO₂ 센서 (봉투)', () => '성인용 · 미개봉 여분');
+}
 // 처치 카트: 배경 소품 (왼쪽 앞 모서리, 침대 쪽을 보게)
 // 처치 카트: 환자 오른쪽 다리 옆, 침대를 향하게. 위에 고막 체온계와 병동 전화기
 let phoneG = null, phoneMats = [];
