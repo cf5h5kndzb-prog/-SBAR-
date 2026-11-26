@@ -226,6 +226,7 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 
 /* ============================================================
    설정 · 데이터
@@ -1318,8 +1319,24 @@ function drawMonitor(g, w, h) {
     c.beginPath(); c.moveTo(w * 0.42, 0); c.lineTo(w * 0.5, 0); c.lineTo(w * 0.24, h); c.lineTo(w * 0.16, h); c.closePath(); c.fill();
   });
   add(g, B(MW + 0.03, MH + 0.03, 0.02), mat(0xb9c0c5, { metalness:0.4, roughness:0.4 }), 0, 0, 0.01);      // 알루미늄 틀
-  const mir = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), new THREE.MeshStandardMaterial({ map:tex, metalness:0.55, roughness:0.12, emissive:0x9fb3bb, emissiveIntensity:0.25 }));
+  // 진짜 거울: 보는 위치에 따라 병실이 비쳐 보이는 평면 반사 (거울이 화면에 보일 때만 반사 장면을 그려 성능 부담을 줄임)
+  let mir;
+  try {
+    mir = new Reflector(new THREE.PlaneGeometry(MW, MH), { textureWidth:768, textureHeight:922, color:0xd6dfe2, clipBias:0.003 });
+  } catch (e) {
+    mir = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), new THREE.MeshStandardMaterial({ map:tex, metalness:0.55, roughness:0.12, emissive:0x9fb3bb, emissiveIntensity:0.25 }));
+  }
   mir.position.z = 0.0215; g.add(mir);
+  // 유리 표면의 아주 옅은 광택·가장자리 그늘 (거울 위에 덧씌움)
+  const glossTex = canvasTex(256, 300, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = 'rgba(255,255,255,0.07)';
+    c.beginPath(); c.moveTo(w * 0.1, 0); c.lineTo(w * 0.3, 0); c.lineTo(w * 0.04, h); c.lineTo(-w * 0.16, h); c.closePath(); c.fill();
+    const e = c.createLinearGradient(0, 0, w, 0); e.addColorStop(0, 'rgba(60,70,75,0.18)'); e.addColorStop(0.06, 'rgba(60,70,75,0)'); e.addColorStop(0.94, 'rgba(60,70,75,0)'); e.addColorStop(1, 'rgba(60,70,75,0.18)');
+    c.fillStyle = e; c.fillRect(0, 0, w, h);
+  });
+  const gloss = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), new THREE.MeshBasicMaterial({ map:glossTex, transparent:true, depthWrite:false }));
+  gloss.position.z = 0.0218; g.add(gloss);
   // 올바른 손위생 방법 안내문: 직접 새로 그린 포스터 (똑바로, 거울 오른쪽 아래, 기존 0.34 m의 1/2 크기)
   const ptex = canvasTex(480, 528, (c, w, h) => {
     c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
