@@ -234,7 +234,7 @@ const $ = id => document.getElementById(id);
 const FONT = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
 const params = new URLSearchParams(location.search);
 const SPEED = Math.max(0.1, Math.min(60, Number(params.get('speed')) || 1));   // 테스트용 배속 (?speed=10)
-const JP_HEM = -0.03;   // JP 관이 나오는 상의 아랫단 위치 (골반 뼈 기준, 머리 쪽 +)
+const JP_HEM = -0.012;   // JP 관이 나오는 상의 아랫단 위치 (골반 뼈 기준, 머리 쪽 +)
 const LIMIT = 600;       // 10분
 // 병실 시계(벽시계·TV·폰): 시뮬 시작 14:50 → 끝 15:00 (시뮬 1초 = 시계 1초)
 const SIM_T0 = 14 * 3600 + 50 * 60;
@@ -3852,7 +3852,7 @@ function setupPatient(gltf) {
       const h = rcx.intersectObject(root, true)[0];
       const ex = h ? h.point.clone().addScaledVector(bodyUp, -0.006) : base.clone().addScaledVector(bodyUp, 0.1);
       rig.jpExit = anchor('Hips', ex, new THREE.Quaternion());
-      rig.jpExitOut = ex.clone().addScaledVector(bodyUp, 0.007).addScaledVector(spineDir, -0.035).add(V(-0.015, 0, 0));   // 아랫단 밑에서 몸에 붙은 채 발·옆구리 쪽으로 나옴 (위로 솟지 않게)
+      rig.jpExitOut = ex.clone().addScaledVector(bodyUp, 0.007).addScaledVector(spineDir, -0.025).add(V(-0.015, 0, 0));   // 아랫단 밑에서 몸에 붙은 채 발·옆구리 쪽으로 나옴 (위로 솟지 않게)
     }
     // E2 교정: 환의를 살짝 걷어 올림 → 피부, 거즈 dressing, 배액관이 보임 (dressG 안, 처음엔 숨김)
     {
