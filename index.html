@@ -3924,10 +3924,13 @@ function setupPatient(gltf) {
       const rs = xW.x < 0 ? 1 : -1;                   // 로컬 x에서 환자 Rt.(world −x) 쪽 부호
       const rcs = new THREE.Raycaster();
       let skinTarget = root;                           // 레이캐스트 대상 (상의 걷은 모델이 오면 그 모델의 피부)
+      let rayFar = null;                               // 배가 볼록한 곳(배꼽 주변)은 더 멀리까지 찾음
       const onSkin = (u, v, off) => {                  // u: Rt. 쪽(+), v: 발 쪽(+)
         // 몸 안쪽에서 바깥으로 쏴서 처음 만나는 면 = 피부·환의 표면 (배 위에 올린 손에 걸리지 않게)
         const q = dressG.localToWorld(V(u * rs, -0.04, v));
-        rcs.set(q, nW); rcs.far = skinTarget === root ? 0.08 : 0.14;
+        if (rayFar) {                                  // 배꼽 주변: 몸 바깥 위쪽에서 아래로 쏴서 처음 닿는 피부 (볼록한 배에서도 확실히)
+          rcs.set(q.clone().addScaledVector(nW, 0.04 + rayFar), nW.clone().negate()); rcs.far = rayFar * 2;
+        } else { rcs.set(q, nW); rcs.far = skinTarget === root ? 0.08 : 0.14; }
         const h = rcs.intersectObject(skinTarget, true)[0];
         const w = h ? h.point.addScaledVector(nW, off) : dressG.localToWorld(V(u * rs, off, v));
         return dressG.worldToLocal(w);
@@ -3946,6 +3949,9 @@ function setupPatient(gltf) {
       skin.renderOrder = 1; lift.add(skin);
       const gauze = new THREE.Mesh(patchGeo(0.0055, -0.035, 0.035, -0.035, 0.035), new THREE.MeshStandardMaterial({ color:0xf7f5f0, roughness:0.9, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-3 }));
       gauze.renderOrder = 1; lift.add(gauze);
+      // 복강경 투관침 부위 거즈: 배꼽 양옆 2곳 (깨끗함, 출혈 없음) — 상의 걷은 모델이 붙을 때 피부 위에 놓음
+      const portMat = new THREE.MeshStandardMaterial({ color:0xf7f5f0, roughness:0.9, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-3 });
+      const portGauze = [0, 1].map(() => { const m = new THREE.Mesh(new THREE.BufferGeometry(), portMat); m.renderOrder = 1; m.visible = false; lift.add(m); return m; });
       // 걷어 올린 환의 자락: 머리 쪽 가장자리를 축으로 접혀 올라감
       const hinge = new THREE.Group(); lift.add(hinge);
       const hp = onSkin(0, V0, 0.004); hinge.position.copy(hp);
@@ -3962,6 +3968,15 @@ function setupPatient(gltf) {
         skinTarget = target;
         const LV = 0.075;                               // 걷어 올린 상의 뭉치 아래, 드러난 Rt. 상복부 피부로 (발 쪽으로 7.5 cm)
         gauze.geometry.dispose(); gauze.geometry = patchGeo(0.003, -0.035, 0.035, LV - 0.035, LV + 0.035);
+        // 배꼽 양옆 거즈 2곳 (5 x 5 cm): 배꼽 = 몸 가운데(RUQ 거즈에서 Lt. 쪽 6 cm), RUQ 거즈보다 발 쪽 PORT_V
+        const MID = -0.065, PORT_V = LV + 0.07, half = 0.025;   // 몸 가운데(배꼽)는 RUQ 거즈에서 Lt. 쪽 약 6.5 cm
+        rayFar = 0.3;
+        [MID + 0.06, MID - 0.06].forEach((u, k) => {      // 배꼽 Rt. 쪽 · Lt. 쪽 (각 6 cm)
+          portGauze[k].geometry.dispose();
+          portGauze[k].geometry = patchGeo(0.003, u - half, u + half, PORT_V - half, PORT_V + half);
+          portGauze[k].visible = true;
+        });
+        rayFar = null;
         skin.removeFromParent(); hinge.removeFromParent();
         // 배액관: 거즈 가운데 → 피부 위로 Rt. 아래쪽 → 바지 허리선 밑(옆구리 출구)으로 들어감
         const ex = dressG.worldToLocal(rig.jpExit.getWorldPosition(new THREE.Vector3()));
