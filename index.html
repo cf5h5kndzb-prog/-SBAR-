@@ -1296,14 +1296,13 @@ function drawMonitor(g, w, h) {
   const spout = add(g, CYL(0.012, 0.12, 12), chrome, 0, TOP + 0.085, 0.12); spout.rotation.x = Math.PI / 2;
   add(g, CYL(0.012, 0.03, 12), chrome, 0, TOP + 0.07, 0.18);
   const lever = add(g, B(0.015, 0.012, 0.09), chrome, 0, TOP + 0.09, 0.03); lever.rotation.x = 0.35;
-  // 비누 받침 (왼쪽 위)
-  add(g, B(0.12, 0.015, 0.07), chrome, -0.2, TOP + 0.02, 0.06);
+  // (고체 비누·비누 받침은 두지 않음: 감염관리상 벽걸이 항균 손세정제 사용)
   // 배수관(트랩): 대야 아래에서 벽으로
   const pipe = mat(0x3d4549, { roughness: 0.5 });
   add(g, CYL(0.02, 0.18, 12), pipe, 0, TOP - 0.3, D * 0.56);
   const back = add(g, CYL(0.02, D * 0.56, 12), pipe, 0, TOP - 0.39, D * 0.28); back.rotation.x = Math.PI / 2;
   g.userData.action = () => handHygiene('세면대 손 씻기');
-  tag(g, '세면대', () => '손 씻기 · 물비누·페이퍼타올 사용');
+  tag(g, '세면대', () => '손 씻기 · 항균 손세정제·페이퍼타올 사용');
 }
 
 // 세면대 거울 (세면대 바로 위) + 거울에 붙인 올바른 손위생 방법 안내문
@@ -1377,9 +1376,9 @@ function drawMonitor(g, w, h) {
   tag(g, '세면대 거울', () => '올바른 손위생 방법 안내문이 붙어 있음');
 }
 
-// 페이퍼타올 디스펜서 (손소독제 옆, 세면대 위 벽)
+// 페이퍼타올 디스펜서 (손세정제 옆, 출입문 쪽 벽): 세면대 → 손세정제 → 페이퍼타올 순서 (씻고 바로 닦는 동선)
 {
-  const g = group(world, 2.62, 1.3, 2.44);
+  const g = group(world, 2.79, 1.3, 2.44);
   g.rotation.y = Math.PI;
   const face = canvasTex(200, 240, (c, w, h) => {
     const grd = c.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#fbfcfd'); grd.addColorStop(1, '#e9edf0');
@@ -1417,19 +1416,23 @@ function drawMonitor(g, w, h) {
   tag(g, '일반 쓰레기통', () => '일반 쓰레기 (흰 비닐봉투) · 의료폐기물 아님');
 }
 
-// 벽걸이 손소독제 (출입문 옆): 흰 본체 + "Hand Clean GEL" 라벨 + 회색 창 + 아래 누름판
+// 벽걸이 항균 손세정제 디스펜서 (세면대 거울 바로 옆): 클로르헥시딘(CHG 4%) 물비누. 흰 본체 + 라벨 + 분홍 세정액이 보이는 잔량 창 + 아래 누름판
+// (알코올 손소독제는 침대 발치 거치형 · 처치 카트 위에 있음)
 {
-  const g = group(world, 2.9, 1.3, 2.44);
+  const g = group(world, 2.5, 1.3, 2.44);
   g.rotation.y = Math.PI;                          // 앞면이 방 안쪽(-z)을 보게
   const face = canvasTex(160, 256, (c, w, h) => {
     c.fillStyle = '#f6f7f6'; c.fillRect(0, 0, w, h);
-    c.fillStyle = '#8c9298'; c.globalAlpha = 0.55; c.fillRect(18, 10, w - 36, 22); c.globalAlpha = 1;   // 위쪽 확인창
-    c.fillStyle = '#1e8e3e'; c.font = `bold 24px ${FONT}`; c.fillText('Hand', 18, 78);
-    c.font = `bold 30px ${FONT}`; c.fillText('Clean', 14, 116);
-    const cw = c.measureText('Clean').width;
-    c.fillStyle = '#2fb24c'; c.fillRect(18 + cw, 94, 44, 28); c.fillStyle = '#fff'; c.font = `bold 18px ${FONT}`; c.fillText('GEL', 22 + cw, 115);
-    c.fillStyle = '#5f6b72'; c.font = `11px ${FONT}`; c.fillText('Instant hand sanitizer', 16, 142);
-    c.fillStyle = '#7d868c'; c.globalAlpha = 0.6; c.beginPath(); c.ellipse(w / 2, 205, 26, 34, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;   // 잔량 창
+    c.fillStyle = '#8c9298'; c.globalAlpha = 0.55; c.fillRect(18, 10, w - 36, 18); c.globalAlpha = 1;   // 위쪽 확인창
+    c.fillStyle = '#0f6e8c'; c.fillRect(0, 36, w, 34);
+    c.fillStyle = '#fff'; c.textAlign = 'center'; c.font = `bold 20px ${FONT}`; c.fillText('항균 손세정제', w / 2, 61);
+    c.fillStyle = '#0f6e8c'; c.font = `bold 15px ${FONT}`; c.fillText('Antiseptic', w / 2, 92); c.fillText('Hand Wash', w / 2, 110);
+    c.fillStyle = '#c2185b'; c.font = `bold 17px ${FONT}`; c.fillText('Chlorhexidine', w / 2, 136); c.fillText('4%', w / 2, 155);
+    c.fillStyle = '#5f6b72'; c.font = `11px ${FONT}`; c.fillText('물에 적신 손에 사용', w / 2, 174);
+    const gr = c.createLinearGradient(0, 180, 0, 240); gr.addColorStop(0, 'rgba(230,90,140,0.25)'); gr.addColorStop(0.3, 'rgba(225,70,125,0.85)'); gr.addColorStop(1, 'rgba(200,50,105,0.9)');
+    c.save(); c.beginPath(); c.ellipse(w / 2, 212, 26, 30, 0, 0, Math.PI * 2); c.clip();
+    c.fillStyle = '#c9cfd3'; c.fillRect(0, 180, w, 70); c.fillStyle = gr; c.fillRect(0, 196, w, 60); c.restore();   // 잔량 창: 분홍 세정액
+    c.strokeStyle = '#9aa3a8'; c.lineWidth = 2; c.beginPath(); c.ellipse(w / 2, 212, 26, 30, 0, 0, Math.PI * 2); c.stroke();
   });
   const front = new THREE.MeshStandardMaterial({ map: face, roughness: 0.5 });
   const white = mat(0xf2f3f2, { roughness: 0.5 });
@@ -1437,8 +1440,8 @@ function drawMonitor(g, w, h) {
   body.position.z = 0.05; body.castShadow = true; g.add(body);
   const lever = add(g, B(0.09, 0.07, 0.03), mat(0xb9c0c5, { roughness: 0.4 }), 0, -0.13, 0.085);   // 아래 누름판
   lever.rotation.x = -0.25;
-  g.userData.action = () => handHygiene('벽걸이 손소독제');
-  tag(g, '손소독제', () => '충분히 채워져 있음');
+  g.userData.action = () => handHygiene('세면대 항균 손세정제로 손 씻기');
+  tag(g, '항균 손세정제 (CHG 4%)', () => '벽걸이 디스펜서 · 충분히 채워져 있음');
 }
 // 의료폐기물 전용 용기 (병실 입구): 흰 골판지 상자 + 주황 비닐 + 투명 아크릴 뚜껑
 {
