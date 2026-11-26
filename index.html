@@ -2958,7 +2958,8 @@ function makeTube(color, r, label, err, read) {
 }
 function setTube(m, pts) {
   m.geometry.dispose();
-  m.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(10, pts.length * 8), m.userData.r, 6, false);
+  const curve = new THREE.CatmullRomCurve3(pts, false, m.userData.smooth ? 'centripetal' : 'catmullrom');
+  m.geometry = new THREE.TubeGeometry(curve, Math.max(10, pts.length * (m.userData.smooth ? 16 : 8)), m.userData.r, m.userData.radial || 6, false);
 }
 const IV_TUBE_COLOR = 0xe3eaec;   // 수액 세트 모델의 튜브 색(투명한 흰색)에 맞춤
 const ivTube = makeTube(IV_TUBE_COLOR, 0.0045, 'IV 라인', null, () => '수액 펌프 → 3-way');
@@ -2978,6 +2979,7 @@ const pcaTube = makeTube(0xe6d4f5, 0.005, 'PCA 라인', 'E5', () => pcaOpen ? 'P
 const jpTubeTop = makeTube(0xa3121f, 0.004, 'JP 배액관 (삽입 부위)', null, () => 'RUQ JP 삽입 부위 → 환의 안 → Rt. 옆구리');
 jpTubeTop.visible = false;
 const jpTube = makeTube(0xa3121f, 0.006, 'JP 배액관', 'E3', () => jpSlack ? 'JP 라인: bulb가 침대 옆에 매달려 당겨짐' : 'JP 라인: 환의에 클립으로 고정됨');
+for (const t of [jpTube, jpTubeTop]) { t.userData.radial = 14; t.userData.smooth = true; t.material.roughness = 0.35; }   // 둥글고 매끈한 실리콘 관 (각진 단면·꺾임 없이)
 const cuffTube = makeTube(0x24485a, 0.007, '혈압 커프 호스', 'E6', () => cuff.userData.side === 'R' ? '커프: Rt. arm' : '커프: Lt. arm (save 팔)');
 const cordTube = makeTube(0xd8d2c0, 0.004, 'Call bell 줄', 'E8', () => bell.userData.fixed ? '환자 손이 닿는 곳' : '바닥에 떨어져 있음');
 const spo2Tube = makeTube(0xf4f4f2, 0.003, 'SpO₂ 케이블', null, () => 'Lt. 검지 SpO₂ 센서 → 모니터');
@@ -3090,7 +3092,9 @@ function rebuildTubes() {
   // 아랫단에서 나온 관이 옆구리 곡면을 따라 매트리스로 내려옴
   const side1 = Aout.clone().add(V(-0.09, -0.08, 0.03)), side2 = Aout.clone().add(V(-0.16, 0, 0.05)); side2.y = 0.8;
   const gl = patientRig && patientRig.gownLift;
-  let head = [A, Aout];                      // 배액관 시작 구간
+  const A0 = patientRig && patientRig.jpHidden ? patientRig.jpHidden.getWorldPosition(new THREE.Vector3()) : A;
+  const sidePts = patientRig && patientRig.jpSide ? patientRig.jpSide.map(a => a.getWorldPosition(new THREE.Vector3())) : null;
+  let head = [A0, Aout];                     // 배액관 시작 구간 (시작 끝은 상의 속에 숨김)
   if (gl && gl.group.visible && patientRig.lift) {
     // 상의를 걷은 모델: 거즈 → 피부 → 바지 허리선 밖으로 한 줄로 이어 그림 (허리선에서 꺾이지 않게)
     dressG.updateMatrixWorld(true);
@@ -3108,7 +3112,12 @@ function rebuildTubes() {
   const topLead = inl ? inl[1].getWorldPosition(new THREE.Vector3()) : bulb.localToWorld(V(0, 0.1, 0));
   if (jpSlack) {
     // 오류: 짧게 매트리스 가장자리를 넘어 침대 옆 bulb로
-    setTube(jpTube, [...head, side1, side2, V(-0.5, 0.79, side2.z * 0.4 + top.z * 0.6), topLead, top]);
+    if (sidePts && sidePts.length) {
+      // 옆구리 표면을 따라 내려와 매트리스 위를 지나 침대 가장자리 → bulb (중간에 솟거나 꺾이지 않게)
+      const last = sidePts[sidePts.length - 1];
+      const onMat = V(Math.min(side2.x, last.x - 0.05), 0.8, last.z + 0.02);
+      setTube(jpTube, [...head, ...sidePts, onMat, V(-0.5, 0.79, onMat.z * 0.4 + top.z * 0.6), topLead, top]);
+    } else setTube(jpTube, [...head, side1, side2, V(-0.5, 0.79, side2.z * 0.4 + top.z * 0.6), topLead, top]);
     jpClip.visible = false;
   } else {
     // 교정: 옆구리 환의에 클립으로 고정 → 환자 옆 bulb
@@ -3853,6 +3862,18 @@ function setupPatient(gltf) {
       const ex = h ? h.point.clone().addScaledVector(bodyUp, -0.006) : base.clone().addScaledVector(bodyUp, 0.1);
       rig.jpExit = anchor('Hips', ex, new THREE.Quaternion());
       rig.jpExitOut = ex.clone().addScaledVector(bodyUp, 0.007).addScaledVector(spineDir, -0.025).add(V(-0.015, 0, 0));   // 아랫단 밑에서 몸에 붙은 채 발·옆구리 쪽으로 나옴 (위로 솟지 않게)
+      // 관의 시작 끝은 상의 속(살짝 머리 쪽·몸 안쪽)에 숨김 → 아랫단에서 관 끝(단면)이 보이지 않음
+      rig.jpHidden = anchor('Hips', ex.clone().addScaledVector(bodyUp, -0.012).addScaledVector(spineDir, 0.02), new THREE.Quaternion());
+      // 아랫단에서 나온 뒤 옆구리 곡면을 따라 매트리스로: 위에서 아래로 쏴서 몸(옷) 표면을 찾고 관 반지름만큼 띄움
+      rig.jpSide = [];
+      const rcd = new THREE.Raycaster();
+      for (const [dx, dz] of [[-0.03, 0.012], [-0.06, 0.026], [-0.085, 0.038], [-0.105, 0.048]]) {
+        const q = rig.jpExitOut.clone().add(V(dx, 0, dz));
+        rcd.set(V(q.x, q.y + 0.3, q.z), V(0, -1, 0)); rcd.far = 0.7;
+        const hh = rcd.intersectObject(root, true)[0];
+        if (!hh || hh.point.y < 0.8) break;                                   // 몸을 벗어나면(매트리스 높이) 그만
+        rig.jpSide.push(anchor('Hips', hh.point.clone().add(V(0, 0.0075, 0)), new THREE.Quaternion()));
+      }
     }
     // E2 교정: 환의를 살짝 걷어 올림 → 피부, 거즈 dressing, 배액관이 보임 (dressG 안, 처음엔 숨김)
     {
