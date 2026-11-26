@@ -757,7 +757,23 @@ const curtainParts = [];
   add(g, B(0.034, 0.026, rz1 - rz0), track, 0, CURT.yTop + 0.013, (rz0 + rz1) / 2);   // 커튼 윗단에 맞닿는 레일
   for (const z of [rz0 + 0.1, (rz0 + rz1) / 2, rz1 - 0.1]) add(g, B(0.02, 0.2 - 0.026, 0.02), track, 0, CURT.yTop + 0.026 + 0.087, z);   // 천장 걸이
   for (let i = 0; i < 9; i++) add(g, CYL(0.007, 0.03, 8), track, 0, CURT.yTop - 0.0, CURT.zFoot - 0.04 - i * (CURT.len - 0.08) / 8);   // 커튼 고리(러너)
-  const cloth = new THREE.MeshStandardMaterial({ color:0x8fbac8, roughness:0.95, side:THREE.DoubleSide });
+  // 커튼 천: 병원에서 흔한 크림색 바탕 + 하늘색·연주황 가는 체크 줄무늬 (한 칸 무늬 = 30 cm)
+  const clothTex = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#f8f6f1'; c.fillRect(0, 0, w, h);
+    const line = (pos, col, a, wid, vert) => {
+      c.globalAlpha = a; c.fillStyle = col;
+      if (vert) c.fillRect(pos * w - wid / 2, 0, wid, h); else c.fillRect(0, pos * h - wid / 2, w, wid);
+    };
+    for (const vert of [true, false]) {
+      for (const p of [0.02, 0.07, 0.52, 0.57]) line(p, '#6fa3c7', 0.75, 2.2, vert);   // 하늘색 두 줄
+      for (const p of [0.30, 0.80]) line(p, '#e39a7f', 0.7, 2.2, vert);               // 연주황 한 줄
+      for (const p of [0.17, 0.42, 0.67, 0.92]) line(p, '#9cc3d9', 0.35, 1.2, vert);  // 옅은 하늘색 가는 줄
+    }
+    c.globalAlpha = 1;
+  });
+  clothTex.wrapS = clothTex.wrapT = THREE.RepeatWrapping;
+  clothTex.repeat.set(CURT.len / 0.3, (CURT.yTop - CURT.yBot - 0.34) / 0.3);
+  const cloth = new THREE.MeshStandardMaterial({ map:clothTex, roughness:0.95, side:THREE.DoubleSide });
   const netM = new THREE.MeshStandardMaterial({ color:0xeef3f4, roughness:0.9, side:THREE.DoubleSide, transparent:true, opacity:0.55 });
   const H = CURT.yTop - CURT.yBot - 0.34, NH = 0.34;
   const L = CURT.len;
