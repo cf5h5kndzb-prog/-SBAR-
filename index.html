@@ -830,6 +830,80 @@ function updateCurtain(dt) {
   screenMesh(g, tex, SW - 0.012, SH - 0.012, 0, 0, 0.026);
   tag(g, '비상구 유도등', '');
 }
+// 비상대피안내도 (출입문 옆 벽, 조명 스위치 위): 실제 병동 안내판 형식(제목 · 평면도 · 현위치 · key-plan · 범례 · 행동요령)을 따르되
+// 평면도·호실·전화번호는 모두 가상 (302호 기준). 투명 아크릴 판 + 갈색 테두리, 정상 물품
+{
+  const PW = 0.4, PH = 0.58;
+  const g = group(world, 3 - 0.006, 1.63, 2.22);
+  g.rotation.y = -Math.PI / 2;                          // 앞면이 방 안쪽(-x)
+  const tex = canvasTex(800, 1160, (c, w, h) => {
+    const rr = (x, y, ww, hh, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + ww, y, x + ww, y + hh, r); c.arcTo(x + ww, y + hh, x, y + hh, r); c.arcTo(x, y + hh, x, y, r); c.arcTo(x, y, x + ww, y, r); c.closePath(); };
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#6b5a52'; rr(0, 0, w, h, 60); c.fill();                      // 갈색 테두리
+    c.fillStyle = '#efefee'; rr(26, 26, w - 52, h - 52, 42); c.fill();         // 안쪽 판
+    c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    c.fillStyle = '#2b2b2b'; c.font = `bold 64px ${FONT}`; c.fillText('3F 비상대피안내도', w / 2, 120);
+    c.font = `30px ${FONT}`; c.fillText('Emergency Evacuation Route', w / 2, 162);
+    // ── 평면도 (가상): 가운데 복도(밝은 색) 양옆으로 병실, 위·아래 끝에 비상계단 ──
+    const MX = 70, MY = 200, MW = 400, MH = 560;
+    c.fillStyle = '#5c4a43'; c.fillRect(MX, MY, MW, MH);
+    c.fillStyle = '#f4f2f0'; c.fillRect(MX + 110, MY + 10, 80, MH - 20);       // 복도
+    c.fillRect(MX + 110, MY + 10, 220, 50); c.fillRect(MX + 110, MY + MH - 60, 220, 50);   // 위·아래 가로 복도
+    const room = (x, y, ww, hh, t) => { c.strokeStyle = '#8a7870'; c.lineWidth = 2; c.strokeRect(x, y, ww, hh); if (t) { c.fillStyle = '#e8e2de'; c.font = `bold 22px ${FONT}`; c.fillText(t, x + ww / 2, y + hh / 2 + 8); } };
+    room(MX + 10, MY + 10, 95, MH - 20, '');
+    c.fillStyle = '#e8e2de'; c.font = `bold 24px ${FONT}`; c.fillText('301~', MX + 57, MY + MH / 2 - 6); c.fillText('307', MX + 57, MY + MH / 2 + 24);
+    room(MX + 335, MY + 70, 55, 200, ''); room(MX + 335, MY + 290, 55, 200, '');
+    c.save(); c.translate(MX + 362, MY + 170); c.rotate(-Math.PI / 2); c.fillStyle = '#e8e2de'; c.font = `bold 22px ${FONT}`; c.fillText('308~311', 0, 8); c.restore();
+    c.save(); c.translate(MX + 362, MY + 390); c.rotate(-Math.PI / 2); c.fillStyle = '#e8e2de'; c.font = `bold 22px ${FONT}`; c.fillText('302~304', 0, 8); c.restore();
+    // 간호사실
+    c.fillStyle = '#f4f2f0'; c.fillRect(MX + 200, MY + 250, 125, 70); c.fillStyle = '#3a3a3a'; c.font = `bold 24px ${FONT}`; c.fillText('간호사실', MX + 262, MY + 294);
+    // 비상계단 1·2 (초록) + 승강기
+    const stair = (x, y, n) => { c.fillStyle = '#3f9a4e'; c.fillRect(x, y, 125, 80); c.fillStyle = '#fff'; c.font = `bold 22px ${FONT}`; c.fillText('비상계단 ' + n, x + 62, y + 50); };
+    stair(MX + 200, MY + 70, 2); stair(MX + 200, MY + MH - 150, 1);
+    c.fillStyle = '#d8d2ce'; c.fillRect(MX + 200, MY + 165, 125, 60); c.fillStyle = '#5c4a43'; c.font = `bold 20px ${FONT}`; c.fillText('승강기', MX + 262, MY + 203);
+    // 대피 방향 화살표 (빨강)
+    const arrow = (x1, y1, x2, y2) => {
+      c.strokeStyle = '#d11f2a'; c.fillStyle = '#d11f2a'; c.lineWidth = 6; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+      const a = Math.atan2(y2 - y1, x2 - x1); c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 - 18 * Math.cos(a - 0.45), y2 - 18 * Math.sin(a - 0.45)); c.lineTo(x2 - 18 * Math.cos(a + 0.45), y2 - 18 * Math.sin(a + 0.45)); c.closePath(); c.fill();
+    };
+    arrow(MX + 150, MY + 380, MX + 150, MY + MH - 75);   // 현위치 → 아래 복도
+    arrow(MX + 150, MY + MH - 35, MX + 250, MY + MH - 35);
+    arrow(MX + 150, MY + 220, MX + 150, MY + 40); arrow(MX + 150, MY + 35, MX + 250, MY + 35);
+    // 현위치 별 (302호 앞 복도)
+    const star = (x, y, R, col) => { c.fillStyle = col; c.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? R * 0.42 : R, a = i * Math.PI / 5 - Math.PI / 2; c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } c.closePath(); c.fill(); };
+    star(MX + 300, MY + 470, 26, '#d11f2a');
+    // ── key-plan · 호실 · 신고 ──
+    const KX = 500, KY = 210;
+    c.strokeStyle = '#7a7a7a'; c.lineWidth = 3; rr(KX, KY, 240, 250, 22); c.stroke();
+    c.fillStyle = '#2b2b2b'; c.font = `bold 26px ${FONT}`; c.fillText('key-plan', KX + 120, KY + 40);
+    c.fillStyle = '#5c4a43'; c.fillRect(KX + 30, KY + 60, 70, 100); c.fillStyle = '#fff'; c.font = `bold 20px ${FONT}`; c.fillText('본관', KX + 65, KY + 105); c.fillText('3F', KX + 65, KY + 130);
+    c.strokeStyle = '#5c4a43'; c.strokeRect(KX + 100, KY + 75, 110, 70); c.fillStyle = '#3a3a3a'; c.font = `20px ${FONT}`; c.fillText('별관', KX + 155, KY + 117);
+    c.fillStyle = '#1f1f1f'; c.font = `bold 40px ${FONT}`; c.fillText('302호', KX + 120, KY + 205);
+    c.font = `20px ${FONT}`; c.fillText('화재신고: 방재센터 (내선 119)', KX + 120, KY + 237);
+    // 범례
+    const LY = 490;
+    c.strokeStyle = '#7a7a7a'; rr(KX, LY, 240, 270, 22); c.stroke();
+    c.fillStyle = '#2b2b2b'; c.font = `bold 26px ${FONT}`; c.fillText('범 례', KX + 120, LY + 38);
+    c.textAlign = 'left'; c.font = `22px ${FONT}`;
+    star(KX + 34, LY + 78, 16, '#d11f2a'); c.fillStyle = '#2b2b2b'; c.fillText('현위치 You are here', KX + 58, LY + 86);
+    c.fillStyle = '#d11f2a'; c.fillRect(KX + 18, LY + 124, 34, 6); c.fillStyle = '#2b2b2b'; c.fillText('대피방향', KX + 58, LY + 134);
+    c.fillStyle = '#3f9a4e'; c.fillRect(KX + 18, LY + 160, 34, 24); c.fillStyle = '#2b2b2b'; c.fillText('비상계단', KX + 58, LY + 180);
+    c.fillStyle = '#d8d2ce'; c.fillRect(KX + 18, LY + 206, 34, 24); c.fillStyle = '#2b2b2b'; c.fillText('승강기', KX + 58, LY + 226);
+    c.textAlign = 'center';
+    // ── 행동요령 ──
+    c.fillStyle = '#c8202b'; c.fillRect(60, 800, w - 120, 58);
+    c.fillStyle = '#fff'; c.font = `bold 32px ${FONT}`; c.fillText('비상(화재·재난) 발생 시 행동요령', w / 2, 840);
+    c.textAlign = 'left'; c.fillStyle = '#222'; c.font = `24px ${FONT}`;
+    ['1. 대피경로: 병실 → 복도 → 계단전실 → 비상계단',
+     '2. 대피장소: 1층(피난층), 별관 연결통로',
+     '3. 거동 가능 환자: 비상계단 1, 2로 대피',
+     '4. 거동 불가 환자: 직원·보호자의 도움을 받아 대피',
+     '5. 승강기는 사용하지 않고, 안내방송·직원 안내에 따름'].forEach((t, i) => c.fillText(t, 70, 900 + i * 40));
+  }, 2);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshStandardMaterial({ map:tex, transparent:true, roughness:0.35 }));
+  sign.position.z = 0.003; g.add(sign);
+  tag(g, '비상대피안내도', () => '3층 대피 경로 · 현위치 302호');
+}
 // 벽시계 (남은 시간)
 const clockTex = canvasTex(512, 224, (g, w, h) => {
   g.fillStyle = '#10181d'; g.fillRect(0, 0, w, h);
@@ -1988,11 +2062,30 @@ const SAN_H = 0.30, SAN_ROT = 0;   // 소독제 모델 높이(m)·방향
   oldBottle.push(add(g, B(0.05, 0.016, 0.02), mat(0xf4f6f6, { roughness:0.4 }), 0.015, 0.21, 0));                 // 펌프 머리
   oldBottle.push(add(g, B(0.03, 0.006, 0.012), mat(0xf4f6f6, { roughness:0.4 }), 0.045, 0.21, 0));                // 분사구
   // 사용자가 올린 3D 소독제 모델(sanitizer.glb)로 병·펌프를 교체 (거치대 철제 고정판·받침은 그대로)
+  // 개봉(희석)일 · 유효일 스티커 (실제 병동처럼 라벨 위에 붙임, 날짜는 유효)
+  const dateTex = canvasTex(300, 220, (c, w, h) => {
+    c.fillStyle = '#fbfbf8'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#333'; c.lineWidth = 3; c.strokeRect(2, 2, w - 4, h - 4);
+    for (const y of [74, 147]) { c.beginPath(); c.moveTo(2, y); c.lineTo(w - 2, y); c.stroke(); }
+    c.beginPath(); c.moveTo(118, 2); c.lineTo(118, h - 2); c.stroke();
+    c.fillStyle = '#222'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `22px ${FONT}`; c.fillText('제품명', 60, 38); c.fillText('개봉(희석)일', 60, 111); c.fillText('유효일', 60, 184);
+    c.font = `20px ${FONT}`; c.fillText('알코올', 209, 26); c.fillText('손소독제', 209, 52);
+    c.font = `bold 24px ${FONT}`; c.fillText('2026-10-20', 209, 111); c.fillText('2027-10-19', 209, 184);
+  }, 2);
+  const dateMat = new THREE.MeshStandardMaterial({ map:dateTex, roughness:0.5, polygonOffset:true, polygonOffsetFactor:-2 });
+  const sticker = new THREE.Mesh(new THREE.PlaneGeometry(0.046, 0.034), dateMat);
+  sticker.position.set(0, -0.008, 0.0345); g.add(sticker);   // 병 라벨의 '손소독제' 글씨 바로 아래
   lateLoad('sanitizer.glb', sc => {
     const m = fitModel(sc, SAN_H);
     m.position.set(0, -0.078, 0); m.rotation.y = SAN_ROT;
     g.add(m);
     for (const o of oldBottle) o.visible = false;
+    // 스티커를 모델 앞면(+z) 표면에 붙임: 앞에서 레이캐스트로 표면 위치를 찾음
+    g.updateMatrixWorld(true);
+    const from = g.localToWorld(V(0, -0.008, 0.2)), dir = g.localToWorld(V(0, -0.008, 0)).sub(from).normalize();
+    const h = new THREE.Raycaster(from, dir, 0, 0.4).intersectObject(m, true)[0];
+    if (h) { const p = g.worldToLocal(h.point.clone()); sticker.position.z = p.z + 0.0015; }
   });
   g.userData.action = () => handHygiene('침대 발치 손소독제');
   tag(g, '손소독제 (침대 발치 거치)', () => '펌프식 · 풋보드에 고정');
