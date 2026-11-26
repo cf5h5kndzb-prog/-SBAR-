@@ -3950,7 +3950,18 @@ function setupPatient(gltf) {
       const gauze = new THREE.Mesh(patchGeo(0.0055, -0.035, 0.035, -0.035, 0.035), new THREE.MeshStandardMaterial({ color:0xf7f5f0, roughness:0.9, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-3 }));
       gauze.renderOrder = 1; lift.add(gauze);
       // 복강경 투관침 부위 거즈: 배꼽 양옆 2곳 (깨끗함, 출혈 없음) — 상의 걷은 모델이 붙을 때 피부 위에 놓음
-      const portMat = new THREE.MeshStandardMaterial({ color:0xf7f5f0, roughness:0.9, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-3 });
+      // 모양: 병원용 부직포 아일랜드 드레싱 (둥근 모서리 흰 접착 부직포 + 가운데 흡수 패드) — 4 x 3 cm
+      const portTex = canvasTex(256, 192, (c, w, h) => {
+        c.clearRect(0, 0, w, h);
+        const rr = (x, y, ww, hh, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + ww, y, x + ww, y + hh, r); c.arcTo(x + ww, y + hh, x, y + hh, r); c.arcTo(x, y + hh, x, y, r); c.arcTo(x, y, x + ww, y, r); c.closePath(); };
+        rr(4, 4, w - 8, h - 8, 26); c.fillStyle = '#eef1f2'; c.fill();                 // 접착 부직포
+        c.globalAlpha = 0.18; c.fillStyle = '#c9d0d3';                                  // 부직포 결(잔 점)
+        for (let y = 10; y < h - 10; y += 5) for (let x = 10 + (y % 10); x < w - 10; x += 10) c.fillRect(x, y, 2, 2);
+        c.globalAlpha = 1;
+        rr(w * 0.24, h * 0.22, w * 0.52, h * 0.56, 10); c.fillStyle = '#fbfcfc'; c.fill();   // 가운데 흡수 패드
+        c.strokeStyle = 'rgba(160,170,175,0.45)'; c.lineWidth = 2; c.stroke();
+      });
+      const portMat = new THREE.MeshStandardMaterial({ map:portTex, roughness:0.9, side:THREE.DoubleSide, transparent:true, alphaTest:0.4, polygonOffset:true, polygonOffsetFactor:-3 });
       const portGauze = [0, 1].map(() => { const m = new THREE.Mesh(new THREE.BufferGeometry(), portMat); m.renderOrder = 1; m.visible = false; lift.add(m); return m; });
       // 걷어 올린 환의 자락: 머리 쪽 가장자리를 축으로 접혀 올라감
       const hinge = new THREE.Group(); lift.add(hinge);
@@ -3968,12 +3979,13 @@ function setupPatient(gltf) {
         skinTarget = target;
         const LV = 0.075;                               // 걷어 올린 상의 뭉치 아래, 드러난 Rt. 상복부 피부로 (발 쪽으로 7.5 cm)
         gauze.geometry.dispose(); gauze.geometry = patchGeo(0.003, -0.035, 0.035, LV - 0.035, LV + 0.035);
-        // 배꼽 양옆 거즈 2곳 (5 x 5 cm): 배꼽 = 몸 가운데(RUQ 거즈에서 Lt. 쪽 6 cm), RUQ 거즈보다 발 쪽 PORT_V
-        const MID = -0.065, PORT_V = LV + 0.07, half = 0.025;   // 몸 가운데(배꼽)는 RUQ 거즈에서 Lt. 쪽 약 6.5 cm
+        // 배꼽 양옆 드레싱 2곳 (4 x 3 cm, 배꼽에서 각 3.5 cm): 배꼽 = 몸 가운데(RUQ 거즈에서 Lt. 쪽 약 6.5 cm), RUQ 거즈보다 발 쪽 PORT_V
+        // 우상복부(JP·출혈) 거즈는 그대로 둠
+        const MID = -0.065, PORT_V = LV + 0.075, hu = 0.02, hv = 0.015;
         rayFar = 0.3;
-        [MID + 0.06, MID - 0.06].forEach((u, k) => {      // 배꼽 Rt. 쪽 · Lt. 쪽 (각 6 cm)
+        [MID + 0.035, MID - 0.035].forEach((u, k) => {    // 배꼽 Rt. 쪽 · Lt. 쪽
           portGauze[k].geometry.dispose();
-          portGauze[k].geometry = patchGeo(0.003, u - half, u + half, PORT_V - half, PORT_V + half);
+          portGauze[k].geometry = patchGeo(0.003, u - hu, u + hu, PORT_V - hv, PORT_V + hv);
           portGauze[k].visible = true;
         });
         rayFar = null;
