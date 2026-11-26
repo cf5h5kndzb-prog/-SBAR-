@@ -3093,7 +3093,12 @@ function rebuildTubes() {
     [[105, 0.165], [80, 0.155], [55, 0.145], [30, 0.135], [10, 0.125]].forEach(([d, sv]) => loc.push(onArm(d, sv)));
     [0.10, 0.075, 0.05, 0.03].forEach(sv => loc.push(onArm(0, sv)));
     loc.push(V(L.x, L.y, L.z));
-    ivPath = [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, ...loc.map(q => headGroup.localToWorld(q)), site];
+    // 3-way에서 팔 옆 매트리스까지는 꺾임 없이 한 번에 부드럽게 흘러내리는 곡선(3차 베지어): 3-way 출구 방향(X)으로 나갔다가 매트리스를 따라 팔 쪽으로 이어짐
+    const wl = loc.map(q => headGroup.localToWorld(q));
+    const P3 = wl[0], endDir = wl[1].clone().sub(wl[0]).normalize(), dd = tOut.distanceTo(P3);
+    const P1 = tOut.clone().addScaledVector(X, dd * 0.3), P2 = P3.clone().addScaledVector(endDir, -dd * 0.35);
+    const bz = t => { const u = 1 - t; return tOut.clone().multiplyScalar(u * u * u).addScaledVector(P1, 3 * u * u * t).addScaledVector(P2, 3 * u * t * t).addScaledVector(P3, t * t * t); };
+    ivPath = [tOut, ...[0.15, 0.3, 0.45, 0.6, 0.75, 0.88].map(bz), ...wl, site];
   } else {
     ivPath = [tOut, tOut.clone().add(X.clone().multiplyScalar(0.04)).add(V(0, -0.03, 0)), ivMid, onMat(siteLead.clone().add(V(-0.05, 0, 0.01))), siteLead, site];
   }
@@ -3101,7 +3106,7 @@ function rebuildTubes() {
   // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
   const pcaPts = [pA, V(POLE.x - 0.24, 1.22 + POLE_DY * 0.7, POLE.z + 0.18), V(POLE.x - 0.02, 0.98 + POLE_DY * 0.4, POLE.z + 0.26),
-    twSideW.clone().add(Zw.clone().multiplyScalar(0.07)).add(V(0, -0.03, 0)), twSideW.clone().add(Zw.clone().multiplyScalar(0.025)), twSideW];
+    ...[[0.36, 0.9], [0.24, 0.65], [0.14, 0.35], [0.06, 0.08]].map(([d, sb]) => { const dp = V(POLE.x - 0.02 - twSideW.x, 0, POLE.z + 0.26 - twSideW.z).normalize(); return twSideW.clone().addScaledVector(Zw.clone().lerp(dp, sb).normalize(), d); }), twSideW];   // 옆 포트 방향(Zw)에서 시작해 폴대 쪽으로 서서히 휘어짐 → 포트 앞에서 꺾이지 않음
   if (pcaClampPt) setTube(pcaTube, [pcaClampPt.clone(), ...pcaPts]);
   else setTube(pcaTube, pcaPts);
   clamp.position.copy(pcaClampPt || new THREE.CatmullRomCurve3(pcaPts).getPoint(0.3));
