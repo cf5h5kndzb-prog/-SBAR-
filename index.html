@@ -3060,8 +3060,26 @@ function rebuildTubes() {
   const X = V(site.x - twAt.x, 0, site.z - twAt.z).normalize();
   const Y = V(0, 1, 0);
   const Z = new THREE.Vector3().crossVectors(X, Y);           // 손잡이를 위로 두면 옆 포트는 폴대 쪽(-x, 발치 쪽)을 향함
-  threeWay.position.copy(twAt);
   threeWay.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
+  // 난간을 올린 상태: 3-way를 Rt. 난간 윗면에 실제로 얹는다 (난간 윗면 높이를 모델 경계로 재서 3-way 바닥을 맞춤 → 침대 각도와 무관하게 공중에 뜨지 않음).
+  // 난간이 내려가면(윗면이 매트리스 아래) 기존 위치(환자 손 쪽)로 서서히 옮겨 감
+  const railMdl = railR.userData.model;
+  const rb = railMdl ? new THREE.Box3().setFromObject(railMdl) : null;
+  if (railMdl && !rb.isEmpty()) {
+    railR.updateMatrixWorld(true);
+    rb.setFromObject(railMdl);
+    const lowered = THREE.MathUtils.clamp(-railR.position.y / 0.12, 0, 1);
+    const rest = V((rb.min.x + rb.max.x) / 2, 0, THREE.MathUtils.clamp(site.z, rb.min.z + 0.16, rb.max.z - 0.16));
+    threeWay.position.set(rest.x, rb.max.y, rest.z);
+    threeWay.updateMatrixWorld(true);
+    const tb = new THREE.Box3().setFromObject(threeWay);
+    if (!tb.isEmpty() && !rb.isEmpty()) threeWay.position.y += rb.max.y - tb.min.y - 0.002;          // 3-way 아랫면 = 난간 윗면
+    threeWay.position.lerp(twAt, lowered);
+  } else threeWay.position.copy(twAt);
+  { // 최종 위치에서 환자 손(IV 부위) 쪽으로 몸통을 향하게 다시 맞춤
+    const Xn = V(site.x - threeWay.position.x, 0, site.z - threeWay.position.z).normalize();
+    threeWay.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(Xn, Y, new THREE.Vector3().crossVectors(Xn, Y)));
+  }
   threeWay.updateMatrixWorld(true);
   const tIn = twIn.getWorldPosition(new THREE.Vector3()), tOut = twOut.getWorldPosition(new THREE.Vector3());
   const twSideW = twSide.getWorldPosition(new THREE.Vector3());
@@ -4388,7 +4406,7 @@ loadModel('rail.glb', sc => {
     for (const dz of [-0.28, 0.28]) add(rail, B(0.03, 0.035, 0.06), hm, -side * 0.005, RAIL_BASE + 0.015, dz * len);
     for (const o of rail.userData.railBox) o.removeFromParent();   // 기본 도형 난간 제거
     rail.position.x = side * 0.48;   // 매트리스 옆에 붙임
-    rail.add(g);
+    rail.add(g); rail.userData.model = g;
   }
   if (!railR.userData.up) railR.position.y = -0.36;   // 내린 난간: 윗면이 매트리스 아래
   // 난간 고정 바: 침대 양옆 프레임 위에 일자로 (머리 쪽 난간 앞끝 ~ 다리 쪽 난간 뒤끝)
