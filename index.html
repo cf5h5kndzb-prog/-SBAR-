@@ -3129,9 +3129,14 @@ function rebuildTubes() {
   setTube(ivTube2, ivPath);
   // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
-  const pP2 = V(POLE.x - 0.24, 1.22 + POLE_DY * 0.7, POLE.z + 0.18), pEnd = twSideW.clone().add(Zw.clone().setY(0).normalize().multiplyScalar(0.03));
+  const pP2 = V(POLE.x - 0.24, 1.22 + POLE_DY * 0.7, POLE.z + 0.18);
+  // 옆 포트 쪽 끝: 포트가 향한 방향(Zh)으로 곧게 나왔다가 폴대 쪽(oP)으로 서서히 휘는 구간(길이 0.2m)을 둬서, 침상 머리를 올려 포트 방향이 달라져도 포트 앞에서 꺾이지 않게 함
+  const Zh = V(Zw.x, 0, Zw.z).normalize(), dpP = V(pP2.x - twSideW.x, 0, pP2.z - twSideW.z).normalize(), oP = Zh.clone();
+  for (let k = 0; k < 10 && oP.dot(dpP) < 0.4; k++) oP.lerp(dpP, 0.2).normalize();
+  const stub = [[0.03, 0], [0.06, 0.2], [0.1, 0.45], [0.15, 0.7], [0.2, 0.9]].map(([d, sb]) => twSideW.clone().addScaledVector(Zh.clone().lerp(oP, sb).normalize(), d).add(V(0, d * 0.15, 0)));
+  const pEnd = stub[stub.length - 1], pEndDir = Zh.clone().lerp(oP, 0.9).normalize();
   const pT0 = pP2.clone().sub(pA).normalize().multiplyScalar(0.5).add(pEnd.clone().sub(pP2).normalize().multiplyScalar(0.5)).normalize();
-  const pcaPts = [pA, pP2, ...hang(pP2, pT0, pEnd, Zw), pEnd, twSideW];   // 옆 포트 방향(Zw)에서 시작해 폴대 쪽으로 서서히 휘어짐 → 포트 앞에서 꺾이지 않음
+  const pcaPts = [pA, pP2, ...hang(pP2, pT0, pEnd, pEndDir, 11), ...stub.slice().reverse(), twSideW];   // 옆 포트 방향(Zw)에서 시작해 폴대 쪽으로 서서히 휘어짐 → 포트 앞에서 꺾이지 않음
   if (pcaClampPt) setTube(pcaTube, [pcaClampPt.clone(), ...pcaPts]);
   else setTube(pcaTube, pcaPts);
   clamp.position.copy(pcaClampPt || new THREE.CatmullRomCurve3(pcaPts).getPoint(0.3));
