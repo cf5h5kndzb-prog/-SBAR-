@@ -3121,8 +3121,8 @@ function rebuildTubes() {
   setTube(ivTube2, ivPath);
   // PCA 라인: 폴대 바깥쪽 고리 → 펌프 앞 아래로 지나 → 3-way 옆 포트
   const pA = pcaOut.getWorldPosition(new THREE.Vector3());
-  const pcaPts = [pA, V(POLE.x - 0.24, 1.22 + POLE_DY * 0.7, POLE.z + 0.18), V(POLE.x - 0.02, 0.98 + POLE_DY * 0.4, POLE.z + 0.26),
-    ...[[0.36, 0.9], [0.24, 0.65], [0.14, 0.35], [0.06, 0.08]].map(([d, sb]) => { const dp = V(POLE.x - 0.02 - twSideW.x, 0, POLE.z + 0.26 - twSideW.z).normalize(); return twSideW.clone().addScaledVector(Zw.clone().lerp(dp, sb).normalize(), d); }), twSideW];   // 옆 포트 방향(Zw)에서 시작해 폴대 쪽으로 서서히 휘어짐 → 포트 앞에서 꺾이지 않음
+  const pcaPts = [pA, V(POLE.x - 0.24, 1.22 + POLE_DY * 0.7, POLE.z + 0.18),
+    ...[[0.52, 0.97], [0.4, 0.8], [0.29, 0.58], [0.19, 0.36], [0.1, 0.14], [0.045, 0]].map(([d, sb]) => { const dp = V(POLE.x - 0.02 - twSideW.x, 0, POLE.z + 0.26 - twSideW.z).normalize(); return twSideW.clone().addScaledVector(Zw.clone().lerp(dp, sb).normalize(), d).add(V(0, d * 0.3, 0)); }), twSideW];   // 옆 포트 방향(Zw)에서 시작해 폴대 쪽으로 서서히 휘어짐 → 포트 앞에서 꺾이지 않음
   if (pcaClampPt) setTube(pcaTube, [pcaClampPt.clone(), ...pcaPts]);
   else setTube(pcaTube, pcaPts);
   clamp.position.copy(pcaClampPt || new THREE.CatmullRomCurve3(pcaPts).getPoint(0.3));
