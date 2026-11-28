@@ -2601,6 +2601,26 @@ lateLoad('pole.glb', sc => {
   g.position.set(-ax.x, 0, -ax.z); g.scale.y = POLE_H;
   poleProc.removeFromParent();
   pole.add(g);
+  // 길이조절 칼라: 모델에 붙어 있던 위쪽(펌프 위) 칼라·손잡이를 없애고, B 병실처럼 펌프 바로 아래에 검은 칼라 + 파란 고정 나사를 단다
+  pole.updateMatrixWorld(true);
+  const vv = new THREE.Vector3();
+  g.traverse(o => {
+    if (!o.isMesh || !o.geometry.index) return;
+    const pos = o.geometry.attributes.position, idx = o.geometry.index.array, wy = new Float32Array(pos.count), wr = new Float32Array(pos.count);
+    for (let k = 0; k < pos.count; k++) { vv.fromBufferAttribute(pos, k).applyMatrix4(o.matrixWorld); wy[k] = vv.y; wr[k] = Math.hypot(vv.x - POLE.x, vv.z - POLE.z); }
+    const keep = [];
+    for (let k = 0; k < idx.length; k += 3) {
+      const a = idx[k], b = idx[k + 1], c = idx[k + 2];
+      const inBand = [a, b, c].every(i => wy[i] > 1.55 && wy[i] < 1.80);
+      if (inBand && Math.max(wr[a], wr[b], wr[c]) > 0.034) continue;
+      keep.push(a, b, c);
+    }
+    o.geometry = o.geometry.clone(); o.geometry.setIndex(keep);
+  });
+  const CLAMP_Y = 1.3 + POLE_DY - 0.264 + PUMP_UP - 0.15;   // 펌프 본체 바로 아래
+  const cm = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.05, 48), mat(0x2a2f33, { roughness:0.55 })); cm.position.set(0, CLAMP_Y, 0); pole.add(cm);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.022, 24, 16), mat(0x23408a, { roughness:0.45 })); knob.position.set(-0.01, CLAMP_Y, -0.062); pole.add(knob);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 12), mat(0xbcc6cc, { metalness:0.3, roughness:0.35 })); stem.rotation.x = Math.PI / 2; stem.position.set(-0.005, CLAMP_Y, -0.045); pole.add(stem);
 });
 
 // 낙상주의 표지판: 폴대 기둥에 끈으로 단 노란 카드 (12 x 17 cm)
@@ -2817,7 +2837,8 @@ const ivTex = canvasTex(320, 240, (g, w, h) => {
   g.fillStyle = '#c8d3d9'; g.font = `24px ${FONT}`; g.fillText('Plasma Sol. A 1 L', 16, 186);
   g.fillStyle = '#3dff7a'; g.font = `bold 24px ${FONT}`; g.fillText('● RUNNING', 16, 222);
 });
-const ivPump = group(world, POLE.x + 0.15, 1.3 + POLE_DY - 0.264, POLE.z);   // 펌프 본체 가운데
+const PUMP_UP = 0.14;   // 폴대 칼라를 펌프 아래로 옮기면서 펌프를 그만큼 위로 올림
+const ivPump = group(world, POLE.x + 0.15, 1.3 + POLE_DY - 0.264 + PUMP_UP, POLE.z);   // 펌프 본체 가운데
 const ivOut = new THREE.Object3D(); ivOut.position.set(0, -0.15, 0.04); ivPump.add(ivOut);   // 아래로 나가는 IV 라인 시작점
 const ivIn = new THREE.Object3D(); ivIn.position.set(0.06, 0.15, 0); ivPump.add(ivIn);   // 위쪽 수액 세트 입구
 const ivPumpProc = group(ivPump);
@@ -2831,7 +2852,7 @@ lateLoad('pump.glb', sc => {
   const g = fitModel(sc, 0.456);                     // 본체 높이 약 22 cm (위·아래 라인 포함 46 cm)
   const clampAx = modelPt(sc, -0.40, 0, 0.03);       // 폴대 고정대 구멍 = 폴대 축
   const body = modelPt(sc, 0.23, 0.25, 0);           // 본체 가운데
-  ivPump.position.set(POLE.x + (body.x - clampAx.x), 1.3 + POLE_DY - 0.264, POLE.z + (body.z - clampAx.z));
+  ivPump.position.set(POLE.x + (body.x - clampAx.x), 1.3 + POLE_DY - 0.264 + PUMP_UP, POLE.z + (body.z - clampAx.z));
   g.position.set(-body.x, -body.y, -body.z);
   modelFace(g, sc, { x:0.232, y:0.433, w:0.366, h:0.273 }, ivTex, 320 / 240, 1.0);
   const out = modelPt(sc, 0.239, -0.93, 0);          // 아래 라인 끝
