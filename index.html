@@ -2871,9 +2871,20 @@ lateLoad('pump.glb', sc => {
   ivPump.position.set(POLE.x + (body.x - clampAx.x), 1.3 + POLE_DY - 0.264 + PUMP_UP, POLE.z + (body.z - clampAx.z));
   g.position.set(-body.x, -body.y, -body.z);
   modelFace(g, sc, { x:0.232, y:0.433, w:0.366, h:0.273 }, ivTex, 320 / 240, 1.0);
-  const out = modelPt(sc, 0.239, -0.93, 0);          // 아래 라인 끝
-  ivOut.position.set(out.x - body.x, out.y - body.y - 0.004, out.z - body.z + 0.019);   // 실측: 아래 줄 끝(검은 스텁) 중심이 z +1.9 cm, y -0.4 cm 쪽 → 흰 라인이 스텁 끝에서 정확히 이어지게
-  const inl = modelPt(sc, 0.236, 0.94, -0.085);      // 위 라인 입구
+  // 펌프 본체에 구워진 위·아래 검은 줄 토막을 잘라 내고, 흰 수액줄이 본체에서 바로 나오고 들어가게 한다 (백 → 펌프 → 환자 팔까지 한 가닥의 흰 줄)
+  sc.updateMatrixWorld(true);
+  sc.traverse(o => {
+    if (!o.isMesh || !o.geometry.index) return;
+    const M = new THREE.Matrix4(); for (let n = o; n && n !== sc; n = n.parent) { n.updateMatrix(); M.premultiply(n.matrix); }
+    const pos = o.geometry.attributes.position, idx = o.geometry.index.array, my = new Float32Array(pos.count), vv = new THREE.Vector3();
+    for (let k = 0; k < pos.count; k++) { vv.fromBufferAttribute(pos, k).applyMatrix4(M); my[k] = vv.y; }
+    const keep = [];
+    for (let k = 0; k < idx.length; k += 3) { const cy = (my[idx[k]] + my[idx[k + 1]] + my[idx[k + 2]]) / 3; if (cy >= -0.38 && cy <= 0.73) keep.push(idx[k], idx[k + 1], idx[k + 2]); }
+    o.geometry = o.geometry.clone(); o.geometry.setIndex(keep);
+  });
+  const out = modelPt(sc, 0.245, -0.375, 0.075);     // 아래 줄이 나오는 본체 바닥 구멍
+  ivOut.position.set(out.x - body.x, out.y - body.y, out.z - body.z);
+  const inl = modelPt(sc, 0.232, 0.73, -0.09);       // 위 줄이 들어가는 본체 윗면 구멍
   ivIn.position.set(inl.x - body.x, inl.y - body.y, inl.z - body.z);
   ivPumpProc.removeFromParent();
   ivPump.add(g);
